@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import {
   User as UserIcon,
   Bike,
@@ -7,19 +8,56 @@ import {
   ChevronRight,
   LogOut,
 } from "lucide-react";
-import { mockUser, mockSummary, mockAchievements, allBadgeIds } from "@/lib/mock-data";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
-import type { FuelType } from "@ecoride/shared/types";
+import type { FuelType, BadgeId } from "@ecoride/shared/types";
+import { useProfile, useAchievements, useUpdateProfile } from "@/hooks/queries";
+import { signOut } from "@/lib/auth";
+
+const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
 export function ProfilePage() {
-  const user = mockUser;
-  const s = mockSummary;
+  const navigate = useNavigate();
+  const { data: profileData, isPending: profileLoading } = useProfile();
+  const { data: achievements, isPending: achievementsLoading } = useAchievements();
+  const updateProfile = useUpdateProfile();
+
   const [showVehicle, setShowVehicle] = useState(false);
-  const [vehicleModel, setVehicleModel] = useState(user.vehicleModel ?? "");
-  const [fuelType, setFuelType] = useState<FuelType>(user.fuelType ?? "sp95");
-  const [consumption, setConsumption] = useState(
-    String(user.consumptionL100 ?? ""),
-  );
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [fuelType, setFuelType] = useState<FuelType>("sp95");
+  const [consumption, setConsumption] = useState("");
+
+  const user = profileData?.user;
+  const stats = profileData?.stats;
+
+  // Sync form state when profile loads
+  useEffect(() => {
+    if (user) {
+      setVehicleModel(user.vehicleModel ?? "");
+      setFuelType(user.fuelType ?? "sp95");
+      setConsumption(String(user.consumptionL100 ?? ""));
+    }
+  }, [user]);
+
+  if (profileLoading || achievementsLoading || !user || !stats) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const handleSaveVehicle = () => {
+    updateProfile.mutate({
+      vehicleModel: vehicleModel || undefined,
+      fuelType,
+      consumptionL100: consumption ? Number(consumption) : undefined,
+    });
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <>
@@ -36,9 +74,13 @@ export function ProfilePage() {
           <div className="relative">
             <div className="rounded-full bg-gradient-to-tr from-primary to-primary-dark p-1">
               <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-surface bg-surface">
-                <span className="text-4xl font-bold text-primary-light">
-                  {user.name.charAt(0)}
-                </span>
+                {user.image ? (
+                  <img src={user.image} alt={user.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-4xl font-bold text-primary-light">
+                    {user.name.charAt(0)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -60,7 +102,7 @@ export function ProfilePage() {
             </p>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-5xl font-extrabold tracking-tighter text-text">
-                {s.totalCo2SavedKg.toFixed(1)}
+                {stats.totalCo2SavedKg.toFixed(1)}
               </span>
               <span className="text-xl font-bold uppercase text-text-dim">
                 kg
@@ -73,7 +115,7 @@ export function ProfilePage() {
             </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
-                {Math.round(s.totalDistanceKm)}
+                {Math.round(stats.totalDistanceKm)}
               </span>
               <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
                 km
@@ -86,7 +128,7 @@ export function ProfilePage() {
             </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
-                {s.tripCount}
+                {stats.tripCount}
               </span>
             </div>
           </div>
@@ -100,7 +142,7 @@ export function ProfilePage() {
           <div className="grid grid-cols-4 gap-4">
             {allBadgeIds.slice(0, 4).map((id) => {
               const badge = BADGES[id];
-              const unlocked = mockAchievements.some((a) => a.badgeId === id);
+              const unlocked = (achievements ?? []).some((a) => a.badgeId === id);
               return (
                 <div
                   key={id}
@@ -172,8 +214,12 @@ export function ProfilePage() {
                 />
               </div>
             </div>
-            <button className="w-full rounded-xl bg-primary py-3 text-sm font-black uppercase tracking-widest text-bg active:scale-95">
-              Enregistrer
+            <button
+              onClick={handleSaveVehicle}
+              disabled={updateProfile.isPending}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
+            >
+              {updateProfile.isPending ? "Enregistrement..." : "Enregistrer"}
             </button>
           </section>
         )}
@@ -208,7 +254,10 @@ export function ProfilePage() {
             ))}
           </div>
 
-          <button className="mt-6 w-full rounded-lg bg-surface-high py-4 text-xs font-bold uppercase tracking-widest text-danger active:scale-95">
+          <button
+            onClick={handleLogout}
+            className="mt-6 w-full rounded-lg bg-surface-high py-4 text-xs font-bold uppercase tracking-widest text-danger active:scale-95"
+          >
             <div className="flex items-center justify-center gap-2">
               <LogOut size={16} />
               Déconnexion

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Play, Square, Keyboard } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
+import { useCreateTrip } from "@/hooks/queries";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -23,6 +24,8 @@ export function TripPage() {
   const [positions, setPositions] = useState<[number, number][]>([]);
   const [currentPos, setCurrentPos] = useState<[number, number]>(DEFAULT_CENTER);
   const timerRef = useRef<ReturnType<typeof setInterval>>(null);
+  const startTimeRef = useRef<Date>(new Date());
+  const createTrip = useCreateTrip();
 
   const startTracking = useCallback(() => {
     setState("tracking");
@@ -30,6 +33,7 @@ export function TripPage() {
     setElapsed(0);
     setPositions([DEFAULT_CENTER]);
     setCurrentPos(DEFAULT_CENTER);
+    startTimeRef.current = new Date();
 
     timerRef.current = setInterval(() => {
       setElapsed((e) => e + 1);
@@ -63,6 +67,28 @@ export function TripPage() {
   };
 
   const co2Saved = distance * 0.065 * 2.31;
+
+  const handleSaveTrip = (km: number, durationSec: number) => {
+    const endedAt = new Date();
+    const startedAt = new Date(endedAt.getTime() - durationSec * 1000);
+    createTrip.mutate(
+      {
+        distanceKm: Math.round(km * 100) / 100,
+        durationSec,
+        startedAt: startedAt.toISOString(),
+        endedAt: endedAt.toISOString(),
+      },
+      {
+        onSuccess: () => {
+          setState("idle");
+          setDistance(0);
+          setElapsed(0);
+          setManualKm("");
+          setPositions([]);
+        },
+      },
+    );
+  };
 
   return (
     <div className="relative flex h-full flex-col">
@@ -180,10 +206,11 @@ export function TripPage() {
               </div>
             </div>
             <button
-              onClick={() => setState("idle")}
-              className="mt-6 w-full rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95"
+              onClick={() => handleSaveTrip(distance, elapsed)}
+              disabled={createTrip.isPending}
+              className="mt-6 w-full rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
             >
-              Enregistrer
+              {createTrip.isPending ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
         </div>
@@ -212,10 +239,18 @@ export function TripPage() {
                 Annuler
               </button>
               <button
-                onClick={() => setState("idle")}
-                className="flex-1 rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95"
+                onClick={() => {
+                  const km = parseFloat(manualKm);
+                  if (km > 0) {
+                    // Estimate ~15 km/h average cycling speed
+                    const estimatedDuration = Math.round((km / 15) * 3600);
+                    handleSaveTrip(km, estimatedDuration);
+                  }
+                }}
+                disabled={createTrip.isPending || !manualKm || parseFloat(manualKm) <= 0}
+                className="flex-1 rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
               >
-                Enregistrer
+                {createTrip.isPending ? "..." : "Enregistrer"}
               </button>
             </div>
           </div>

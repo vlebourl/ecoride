@@ -8,8 +8,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { mockSummary, mockWeeklyData, mockTrips, mockAchievements, allBadgeIds } from "@/lib/mock-data";
 import { BADGES } from "@ecoride/shared/types";
+import type { BadgeId } from "@ecoride/shared/types";
+import { useDashboardSummary, useTrips, useAchievements } from "@/hooks/queries";
 
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
@@ -26,10 +27,54 @@ const metricLabels: Record<Metric, string> = {
   eur: "Économies (€)",
 };
 
+const DAY_LABELS = ["L", "M", "M", "J", "V", "S", "D"];
+
+const allBadgeIds = Object.keys(BADGES) as BadgeId[];
+
 export function StatsPage() {
-  const s = mockSummary;
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("km");
+  const { data: s, isPending: summaryLoading } = useDashboardSummary("month");
+  const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
+  const { data: achievements, isPending: achievementsLoading } = useAchievements();
+
+  const isPending = summaryLoading || tripsLoading || achievementsLoading;
+
+  if (isPending || !s) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const trips = tripsData?.trips ?? [];
+
+  // Build weekly chart data from recent trips
+  const weeklyData = DAY_LABELS.map((day) => ({ day, km: 0, co2: 0, eur: 0 }));
+  const now = new Date();
+  const mondayStart = new Date(now);
+  mondayStart.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  mondayStart.setHours(0, 0, 0, 0);
+
+  for (const trip of trips) {
+    const tripDate = new Date(trip.startedAt);
+    if (tripDate >= mondayStart) {
+      const dayIdx = (tripDate.getDay() + 6) % 7; // Mon=0, Sun=6
+      if (weeklyData[dayIdx]) {
+        weeklyData[dayIdx].km += trip.distanceKm;
+        weeklyData[dayIdx].co2 += trip.co2SavedKg;
+        weeklyData[dayIdx].eur += trip.moneySavedEur;
+      }
+    }
+  }
+
+  // Round values for display
+  for (const d of weeklyData) {
+    d.km = Math.round(d.km * 10) / 10;
+    d.co2 = Math.round(d.co2 * 10) / 10;
+    d.eur = Math.round(d.eur * 100) / 100;
+  }
 
   return (
     <>
@@ -52,13 +97,8 @@ export function StatsPage() {
                 Ce mois
               </span>
               <h2 className="text-3xl font-extrabold tracking-tight">
-                Mars 2026
+                {new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
               </h2>
-            </div>
-            <div className="rounded-xl bg-primary/15 px-3 py-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-primary-light">
-                +12% vs Fév
-              </span>
             </div>
           </div>
 
@@ -158,7 +198,7 @@ export function StatsPage() {
           {/* Line Chart */}
           <div className="rounded-xl border border-outline-variant/10 bg-surface-low p-4">
             <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={mockWeeklyData}>
+              <LineChart data={weeklyData}>
                 <CartesianGrid stroke="#1E1E1E" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="day"
@@ -199,7 +239,10 @@ export function StatsPage() {
             Activité récente
           </h3>
           <div className="space-y-3">
-            {mockTrips.map((trip) => (
+            {trips.length === 0 && (
+              <p className="text-center text-sm text-text-muted">Aucun trajet enregistré</p>
+            )}
+            {trips.map((trip) => (
               <div
                 key={trip.id}
                 className="flex items-center justify-between rounded-xl border border-outline-variant/5 bg-surface-low p-4"
@@ -239,7 +282,7 @@ export function StatsPage() {
           <div className="grid grid-cols-4 gap-4">
             {allBadgeIds.map((id) => {
               const badge = BADGES[id];
-              const unlocked = mockAchievements.some(
+              const unlocked = (achievements ?? []).some(
                 (a) => a.badgeId === id,
               );
               return (

@@ -38,7 +38,7 @@ RUN apk add --no-cache python3 && \
 COPY shared/package.json shared/
 COPY server/package.json server/
 
-RUN bun install --frozen-lockfile --production
+RUN bun install --production
 
 # Copier le code serveur + shared
 COPY shared/ shared/

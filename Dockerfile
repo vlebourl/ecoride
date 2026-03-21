@@ -52,6 +52,8 @@ COPY --from=build /app/client/dist client/dist
 COPY drizzle.config.ts ./
 COPY server/drizzle/ server/drizzle/
 
+ENV NODE_ENV=production
+
 EXPOSE 3000
 
-CMD ["bun", "run", "server/src/index.ts"]
+CMD ["sh", "-c", "bunx drizzle-kit push --force && bun run server/src/index.ts"]

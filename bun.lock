@@ -47,6 +47,7 @@
         "@hono/zod-validator": "^0.4.0",
         "better-auth": "^1.2.0",
         "croner": "^9.0.0",
+        "drizzle-kit": "^0.30.0",
         "drizzle-orm": "^0.39.0",
         "hono": "^4.7.0",
         "postgres": "^3.4.0",

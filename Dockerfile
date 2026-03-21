@@ -25,32 +25,14 @@ FROM oven/bun:1-alpine AS runtime
 
 WORKDIR /app
 
-# curl pour le healthcheck Docker
-RUN apk add --no-cache curl
-
-# Copier les manifests + install deps production
-# Le package.json racine reference le workspace "client" qui n'existe pas en runtime
-# On le retire via python pour eviter les problemes de sed avec les guillemets JSON
-COPY package.json ./
-RUN apk add --no-cache python3 && \
-    python3 -c "import json; d=json.load(open('package.json')); d['workspaces']=['shared','server']; json.dump(d,open('package.json','w'),indent=2)" && \
-    apk del python3
-COPY shared/package.json shared/
-COPY server/package.json server/
-
-RUN bun install --production
-
-# Copier le code serveur + shared
-COPY shared/ shared/
-COPY server/ server/
-COPY tsconfig.json ./
-
-# Copier le build client depuis le stage build
+# Copier tout depuis le build stage (node_modules inclus, avec drizzle-kit)
+COPY --from=build /app/node_modules node_modules/
+COPY --from=build /app/shared shared/
+COPY --from=build /app/server server/
 COPY --from=build /app/client/dist client/dist
-
-# Copier les migrations Drizzle
-COPY drizzle.config.ts ./
-COPY server/drizzle/ server/drizzle/
+COPY --from=build /app/package.json ./
+COPY --from=build /app/tsconfig.json ./
+COPY --from=build /app/drizzle.config.ts ./
 
 ENV NODE_ENV=production
 

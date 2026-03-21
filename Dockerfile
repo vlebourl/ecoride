@@ -29,7 +29,9 @@ WORKDIR /app
 RUN apk add --no-cache curl
 
 # Copier les manifests + install deps production
+# On cree un package.json runtime sans le workspace client (pas besoin, on a le dist)
 COPY package.json bun.lock ./
+RUN sed -i 's/"workspaces":\["shared","server","client"\]/"workspaces":["shared","server"]/' package.json
 COPY shared/package.json shared/
 COPY server/package.json server/
 

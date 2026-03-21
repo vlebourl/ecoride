@@ -60,7 +60,11 @@ app.onError((err, c) => {
 // ---- Static files & SPA fallback (production) ----
 if (env.NODE_ENV === "production") {
   app.use("/*", serveStatic({ root: "./client/dist" }));
-  app.get("*", serveStatic({ root: "./client/dist", path: "index.html" }));
+  // SPA fallback: serve index.html for non-API routes that don't match a static file
+  app.get("*", (c, next) => {
+    if (c.req.path.startsWith("/api")) return next();
+    return c.html(Bun.file("./client/dist/index.html").text());
+  });
 }
 
 // ---- 404 handler ----

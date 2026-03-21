@@ -70,6 +70,19 @@ app.onError((err, c) => {
 
 // ---- Static files & SPA fallback (production) ----
 if (env.NODE_ENV === "production") {
+  // Prevent CDN/Cloudflare from caching the service worker
+  app.get("/sw.js", async (c) => {
+    c.header("Cache-Control", "no-cache, no-store, must-revalidate");
+    c.header("CDN-Cache-Control", "no-store");
+    const file = Bun.file("./client/dist/sw.js");
+    return c.body(await file.text(), 200, { "Content-Type": "application/javascript" });
+  });
+  app.get("/sw-api-guard.js", async (c) => {
+    c.header("Cache-Control", "no-cache, no-store, must-revalidate");
+    c.header("CDN-Cache-Control", "no-store");
+    const file = Bun.file("./client/dist/sw-api-guard.js");
+    return c.body(await file.text(), 200, { "Content-Type": "application/javascript" });
+  });
   app.use("/*", serveStatic({ root: "./client/dist" }));
   // SPA fallback: serve index.html for non-API routes that don't match a static file
   app.get("*", (c, next) => {

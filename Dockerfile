@@ -25,6 +25,10 @@ FROM oven/bun:1-alpine AS runtime
 
 WORKDIR /app
 
+# Bust BuildKit cache for COPY --from=build layers
+# Without this, BuildKit caches the runtime stage even when the build stage changed
+ARG CACHEBUST=1
+
 # Copier tout depuis le build stage (node_modules inclus, avec drizzle-kit)
 COPY --from=build /app/node_modules node_modules/
 COPY --from=build /app/shared shared/

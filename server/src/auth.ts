@@ -18,6 +18,13 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [env.FRONTEND_URL],
+  advanced: {
+    useSecureCookies: env.NODE_ENV === "production",
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: env.NODE_ENV === "production",
+    },
+  },
   user: {
     additionalFields: {
       vehicleModel: { type: "string", required: false },

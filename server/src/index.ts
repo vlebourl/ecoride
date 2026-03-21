@@ -23,7 +23,14 @@ app.use("/api/*", cors({
 
 // ---- Better Auth handler (public, before authMiddleware) ----
 app.on(["POST", "GET"], "/api/auth/**", (c) => {
-  return auth.handler(c.req.raw);
+  // Behind reverse proxy: rewrite the request URL to use the public baseURL
+  // so Better Auth generates correct redirect URLs and cookies
+  const reqUrl = new URL(c.req.url);
+  const publicUrl = new URL(env.BETTER_AUTH_URL);
+  reqUrl.protocol = publicUrl.protocol;
+  reqUrl.host = publicUrl.host;
+  const proxiedRequest = new Request(reqUrl.toString(), c.req.raw);
+  return auth.handler(proxiedRequest);
 });
 
 // ---- Health check (public) ----

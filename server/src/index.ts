@@ -32,8 +32,8 @@ app.use("/api/*", cors({
 }));
 
 // ---- Better Auth handler (public, before authMiddleware) ----
-// Use single wildcard * (not **) per Better Auth Hono docs
-app.on(["POST", "GET"], "/api/auth/*", (c) => {
+// Use ** to match nested paths like /api/auth/callback/google
+app.on(["POST", "GET"], "/api/auth/**", (c) => {
   return auth.handler(c.req.raw);
 });
 

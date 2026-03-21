@@ -1,0 +1,78 @@
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
+import { eq, sql, sum, desc, and, gte } from "drizzle-orm";
+import { db } from "../db";
+import { user } from "../db/schema/auth";
+import { trips } from "../db/schema";
+import { validationHook } from "../lib/validation";
+import type { AuthEnv } from "../types/context";
+import type { StatsPeriod } from "@ecoride/shared/api-contracts";
+
+const leaderboardQuery = z.object({
+  period: z.enum(["day", "week", "month", "year", "all"]).default("all"),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+});
+
+function getPeriodStart(period: StatsPeriod): Date | null {
+  if (period === "all") return null;
+  const now = new Date();
+  switch (period) {
+    case "day": return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    case "week": {
+      const d = new Date(now);
+      d.setDate(d.getDate() - d.getDay() + 1); // Monday
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    case "month": return new Date(now.getFullYear(), now.getMonth(), 1);
+    case "year": return new Date(now.getFullYear(), 0, 1);
+  }
+}
+
+const leaderboardRouter = new Hono<AuthEnv>();
+
+// GET /api/stats/leaderboard
+leaderboardRouter.get(
+  "/",
+  zValidator("query", leaderboardQuery, validationHook),
+  async (c) => {
+    const { period, limit } = c.req.valid("query");
+    const currentUser = c.get("user");
+
+    const periodStart = getPeriodStart(period);
+
+    const conditions = [eq(user.leaderboardOptOut, false)];
+    const tripConditions = periodStart
+      ? [gte(trips.startedAt, periodStart)]
+      : [];
+
+    const entries = await db
+      .select({
+        userId: user.id,
+        name: user.name,
+        image: user.image,
+        totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
+      })
+      .from(user)
+      .innerJoin(trips, eq(user.id, trips.userId))
+      .where(and(...conditions, ...tripConditions))
+      .groupBy(user.id, user.name, user.image)
+      .orderBy(desc(sum(trips.co2SavedKg)))
+      .limit(limit);
+
+    // Add rank
+    const ranked = entries.map((entry, idx) => ({
+      ...entry,
+      totalCo2SavedKg: entry.totalCo2SavedKg ?? 0,
+      rank: idx + 1,
+    }));
+
+    // Find current user's rank
+    const userRank = ranked.find((e) => e.userId === currentUser.id)?.rank ?? null;
+
+    return c.json({ ok: true, data: { entries: ranked, userRank } });
+  },
+);
+
+export { leaderboardRouter };

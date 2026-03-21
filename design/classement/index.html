@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #131313;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-header {
+            background: rgba(19, 19, 19, 0.8);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-variant": "#353534",
+              "error": "#ffb4ab",
+              "primary": "#42e5b0",
+              "on-surface": "#e5e2e1",
+              "surface-bright": "#3a3939",
+              "surface-container-lowest": "#0e0e0e",
+              "surface": "#131313",
+              "on-error": "#690005",
+              "on-secondary-container": "#8ac1a8",
+              "inverse-surface": "#e5e2e1",
+              "tertiary-container": "#ff9467",
+              "secondary": "#9bd2b9",
+              "inverse-on-surface": "#313030",
+              "error-container": "#93000a",
+              "on-surface-variant": "#bbcac1",
+              "surface-container-high": "#2a2a2a",
+              "on-tertiary-fixed": "#370e00",
+              "surface-container-low": "#1c1b1b",
+              "secondary-fixed-dim": "#9bd2b9",
+              "primary-fixed-dim": "#3adfab",
+              "surface-container": "#201f1f",
+              "primary-fixed": "#60fcc6",
+              "on-tertiary": "#591d00",
+              "on-primary-container": "#004d38",
+              "surface-dim": "#131313",
+              "on-secondary-fixed": "#002116",
+              "on-primary-fixed-variant": "#00513b",
+              "primary-container": "#00c896",
+              "on-tertiary-container": "#762b05",
+              "on-secondary": "#003828",
+              "tertiary": "#ffbca2",
+              "outline": "#85948c",
+              "inverse-primary": "#006c4f",
+              "background": "#131313",
+              "surface-tint": "#3adfab",
+              "secondary-fixed": "#b7efd5",
+              "secondary-container": "#19503d",
+              "on-primary": "#003828",
+              "tertiary-fixed-dim": "#ffb598",
+              "on-tertiary-fixed-variant": "#7b2f09",
+              "on-secondary-fixed-variant": "#19503d",
+              "surface-container-highest": "#353534",
+              "on-background": "#e5e2e1",
+              "on-error-container": "#ffdad6",
+              "tertiary-fixed": "#ffdbce",
+              "on-primary-fixed": "#002116",
+              "outline-variant": "#3c4a43"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#131313]/80 backdrop-blur-xl dark:bg-[#131313]/80 flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="User profile avatar close up" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7k3kvl0bDXz0lCGxgyYdYpfczOjBseYmWPYBUFKES4FNveIwqBI_HFUd_8AobD7JENvAHkPmnWNY62k3UQgfqJ1Bb-7hqVBQ6rIer2_n2qLVSzDFfXe8AlCXpnM2LeqsH7KdRNVQnTC5LrY5HEwJUvgDAJwEH_CKvLDp54ZD1q_Ur2HHwBxtLH44WVJs7Hp_-iX6ouYrZ86jQfKz6v3cZc01WSm-_HdvhmWNYRU1IJ3U7khYjrZFROurC7UP-3MZ2HbCLEsI60yQ"/>
+</div>
+<h1 class="font-['Inter'] font-bold text-lg tracking-tight text-[#42e5b0]">EcoRide</h1>
+</div>
+<div class="flex gap-4">
+<button class="text-on-surface hover:opacity-80 transition-opacity active:scale-95 duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface hover:opacity-80 transition-opacity active:scale-95 duration-200">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</header>
+<main class="pt-24 px-6 max-w-2xl mx-auto">
+<!-- Hero Section / Title -->
+<section class="mb-10">
+<h2 class="text-4xl font-extrabold tracking-tighter mb-2">Classement</h2>
+<p class="text-zinc-500 text-sm font-medium">L'impact écologique ce mois-ci</p>
+</section>
+<!-- Segmented Control (Tabs) -->
+<nav class="flex p-1 bg-surface-container-low rounded-xl mb-10">
+<button class="flex-1 py-3 text-sm font-bold rounded-lg transition-all bg-surface-container-high text-primary shadow-lg">Amis</button>
+<button class="flex-1 py-3 text-sm font-bold rounded-lg transition-all text-zinc-500 hover:text-on-surface">Global</button>
+</nav>
+<!-- Podium / Top 3 (Asymmetric Grid) -->
+<section class="grid grid-cols-3 gap-4 mb-12 items-end">
+<!-- Rank 2 -->
+<div class="flex flex-col items-center">
+<div class="relative mb-3">
+<div class="w-16 h-16 rounded-full border-2 border-zinc-700 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a female user runner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyDLYOwdLgWxTdoIxvUFO9OHISNijnDMS8L6tPhfAjJtopTlCnkyrZmSUn16w4AlppNBXlFoM2gByoj4o--PMSUdQ-ytC38bGcLR5Vm5KCXevvvKQJG7C2IPnIQM3Xc5FmqSeJoiUS02OJYBqSphBHvbug3OrNgApFkuiOCQmQgOvvdwHyqNY6cpLbGUQTp-JWRivSovTH6-kVpJ0YH1_sG4hzij3kytAXnMEPiOPgCbtqrpBRvWgm0NUZ_aBDjjYIv3rns3sb7wI"/>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-zinc-700 text-white text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-surface">2</div>
+</div>
+<span class="text-xs font-bold truncate w-full text-center">Sarah L.</span>
+<span class="text-primary text-[10px] font-black uppercase tracking-widest mt-1">38.2 KG</span>
+</div>
+<!-- Rank 1 (Featured Center) -->
+<div class="flex flex-col items-center">
+<div class="relative mb-4 scale-125">
+<div class="w-20 h-20 rounded-full border-4 border-primary overflow-hidden shadow-[0_0_30px_rgba(66,229,176,0.3)]">
+<img class="w-full h-full object-cover" data-alt="Portrait of a male user cyclist" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaRS2BZazUIWGHGsO0Ny_8YtL0EtdrWYr1avu7LNxTH7joMTaeGSGopeTvT7KxZQJYoaxhHEDWas98SMozIMN3hmz-7dAXZu9etiknhloKfrmP4PH-J8080gG8nYuWb17HMKbBZZl9vG4ozDlmnKLsKE2KC9ItcCHrMtNS6Rm3PkQYAd5m2yF06uTKsu0ekac3iqNG0MHG_13gktYUeWNELkGhcCuu798Rs6B48YIWzs34SFNeT3CyuJTqgVD9Mqeuc_Wmy8ww-h0"/>
+</div>
+<div class="absolute -top-3 left-1/2 -translate-x-1/2 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-primary text-on-primary text-xs font-black w-7 h-7 rounded-full flex items-center justify-center border-2 border-surface">1</div>
+</div>
+<span class="text-sm font-bold text-on-surface mt-4">Thomas D.</span>
+<span class="text-primary text-xs font-black uppercase tracking-widest mt-1">42.5 KG</span>
+</div>
+<!-- Rank 3 -->
+<div class="flex flex-col items-center">
+<div class="relative mb-3">
+<div class="w-16 h-16 rounded-full border-2 border-zinc-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a smiling young man" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKaHPj_XObbbOcOs-FwOJgNJqRtqOVIG2aPN-nB-y8O1GmMMhipTROqQXDDoSN_uXH4VKUZCTiNxYvqVzeCA1TGQqtncz8o9Pwu0xontJKb_4lIRoJ9GHjxxisfvO65eziyEDBNV1PfbzaUbYioPAfvNe5Vhtf9VtKbCv9r4QHsTnVp-7SibiAOtNz27ZADZgmmrRAv9MFvEYAM_quvgQhoOP32wqCUPhiioNywZwkxvisqvUSxJR4-t0XJzg85CU6jzLFHf_bcaw"/>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-zinc-800 text-zinc-400 text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-surface">3</div>
+</div>
+<span class="text-xs font-bold truncate w-full text-center">Julien R.</span>
+<span class="text-primary text-[10px] font-black uppercase tracking-widest mt-1">31.8 KG</span>
+</div>
+</section>
+<!-- Leaderboard List -->
+<div class="space-y-3">
+<!-- Current User Card -->
+<div class="flex items-center gap-4 p-4 bg-surface-container-low rounded-xl border-2 border-[#00c896] shadow-[0_10px_30px_rgba(0,200,150,0.1)]">
+<span class="w-6 text-sm font-black text-primary">04</span>
+<div class="w-12 h-12 rounded-lg bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Current user avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRoqyv7e8YwKM19vdQ5Pk_RNYIHRD6ZlkY448SxzkoM902ExxSgzJSd0qMVjuHgl4UH4dDrQXchMBLAbri0xnGfCvaNlhhVTwAxvjQz4_8zGp2BUXF4XHm3d0M6kON08cSKhowAtHr3XW7efDEg9-SZ2OI2Mg5-Gq_zXs34-WOJ4n5jukGfNavrgzHVoRFwf-T7fuVxGWxmVSUZf5d18XfgUnqfmG4wfQ8mi08_6-wEcZbRZtMWIDW6ri0M_PwgH_NNtU-vK_3uAY"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<h4 class="font-bold text-sm">Vous</h4>
+<span class="bg-primary/20 text-primary text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider">Moi</span>
+</div>
+<p class="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">Progression +5%</p>
+</div>
+<div class="text-right">
+<span class="block text-sm font-black text-on-surface">28.4 kg</span>
+<span class="text-[9px] text-zinc-500 font-bold tracking-tighter uppercase">CO2 Économisé</span>
+</div>
+</div>
+<!-- List Item 5 -->
+<div class="flex items-center gap-4 p-4 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors">
+<span class="w-6 text-sm font-black text-zinc-600">05</span>
+<div class="w-12 h-12 rounded-lg bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Female user portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2SZp30o7qkxOdB-_jXuqACNI8nQEFi_oyLYRZRT2Y9lKUDHcNaA__VQM3fG0SynP2tVMkST3NUyHN2QjWmJoroPy_0pEA402dFjWdhm4FwG3LzVg0aCip1jqsXHrct0mv-fxCZlazVYgaSaqUOIao36UEXlI4CA6UxYS4fGJufS8Z2JjZxH3fem6o-R-eibm_kTcdtnY-JGpxeCK0XG2fGzLqP-rVU5sAAqN1FMPK9lFQsiVNsUSjPKp9x_wpZJzdazPX2rxCMVc"/>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-sm">Léa Martin</h4>
+<p class="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">24 trajets</p>
+</div>
+<div class="text-right">
+<span class="block text-sm font-black text-on-surface">25.1 kg</span>
+</div>
+</div>
+<!-- List Item 6 -->
+<div class="flex items-center gap-4 p-4 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors">
+<span class="w-6 text-sm font-black text-zinc-600">06</span>
+<div class="w-12 h-12 rounded-lg bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Male user portrait outdoor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2yQDP9hXtv-LKDV7RFoJH5M9mQMblggl1SFxJSTnBDMP0YhvWBKyXSzMm52ILPu-YKVAFoU6jCfUjvtI4JJgCV6fN5s9YyFAFM7mt7AZqb6HEqFw3iJg2y1CfaxTkRAd25n7FcYA9pQLBADjMqGsC0Ka53I9p1oYwhhWv8GV7RPb-gqYKjY1npXZ2F7Fl3lV0prxyMJUDVVouRUEALR0MXtUOBnhEFdU49ebyGXIBUPBaWyvHdqNii0SRIqVKyyC0VNG287LTlQ8"/>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-sm">Marc Antoine</h4>
+<p class="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">18 trajets</p>
+</div>
+<div class="text-right">
+<span class="block text-sm font-black text-on-surface">22.9 kg</span>
+</div>
+</div>
+<!-- List Item 7 -->
+<div class="flex items-center gap-4 p-4 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors">
+<span class="w-6 text-sm font-black text-zinc-600">07</span>
+<div class="w-12 h-12 rounded-lg bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Female profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaK_fBl3ckky_Lc8Cv9MCS5VppUiibZpIshK2-z2MibX1EbbTXamQr_dw5g-N8U6XTXPf1_QgoY7ajnOlCfRx_zTi7BRvzpDFZRhQZpFeAAA3yhtxa9RzqWiTQXHt0HzViPQcr-NFBCbq-qQJHrjjN-lYpv295-tW8MSQ6yVh1KVtV0VhPSniWWvQ8-qU0azo71ZZig7i4pUSw2L12YjVVG-Ts0w0YqE3r9PumGBsjT9lkWeorVJukIIUVQt9NjWzSvOdM3cuR5ZE"/>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-sm">Chloé Petit</h4>
+<p class="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">15 trajets</p>
+</div>
+<div class="text-right">
+<span class="block text-sm font-black text-on-surface">19.4 kg</span>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-8 pt-4 bg-[#131313]/90 backdrop-blur-2xl dark:bg-[#131313]/90 border-t border-zinc-800/50 shadow-[0px_-10px_30px_rgba(0,0,0,0.5)] z-50 rounded-t-3xl">
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="directions_bike">directions_bike</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Trajet</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#42e5b0] bg-[#00c896]/10 rounded-2xl px-3 py-1.5 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Classement</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Profil</span>
+</a>
+</nav>
+</body></html>

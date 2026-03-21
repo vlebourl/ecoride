@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-variant": "#353534",
+              "error": "#ffb4ab",
+              "primary": "#42e5b0",
+              "on-surface": "#e5e2e1",
+              "surface-bright": "#3a3939",
+              "surface-container-lowest": "#0e0e0e",
+              "surface": "#131313",
+              "on-error": "#690005",
+              "on-secondary-container": "#8ac1a8",
+              "inverse-surface": "#e5e2e1",
+              "tertiary-container": "#ff9467",
+              "secondary": "#9bd2b9",
+              "inverse-on-surface": "#313030",
+              "error-container": "#93000a",
+              "on-surface-variant": "#bbcac1",
+              "surface-container-high": "#2a2a2a",
+              "on-tertiary-fixed": "#370e00",
+              "surface-container-low": "#1c1b1b",
+              "secondary-fixed-dim": "#9bd2b9",
+              "primary-fixed-dim": "#3adfab",
+              "surface-container": "#201f1f",
+              "primary-fixed": "#60fcc6",
+              "on-tertiary": "#591d00",
+              "on-primary-container": "#004d38",
+              "surface-dim": "#131313",
+              "on-secondary-fixed": "#002116",
+              "on-primary-fixed-variant": "#00513b",
+              "primary-container": "#00c896",
+              "on-tertiary-container": "#762b05",
+              "on-secondary": "#003828",
+              "tertiary": "#ffbca2",
+              "outline": "#85948c",
+              "inverse-primary": "#006c4f",
+              "background": "#131313",
+              "surface-tint": "#3adfab",
+              "secondary-fixed": "#b7efd5",
+              "secondary-container": "#19503d",
+              "on-primary": "#003828",
+              "tertiary-fixed-dim": "#ffb598",
+              "on-tertiary-fixed-variant": "#7b2f09",
+              "on-secondary-fixed-variant": "#19503d",
+              "surface-container-highest": "#353534",
+              "on-background": "#e5e2e1",
+              "on-error-container": "#ffdad6",
+              "tertiary-fixed": "#ffdbce",
+              "on-primary-fixed": "#002116",
+              "outline-variant": "#3c4a43"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        .map-gradient-overlay {
+            background: linear-gradient(to bottom, rgba(19,19,19,0.9) 0%, rgba(19,19,19,0.2) 20%, rgba(19,19,19,0.2) 80%, rgba(19,19,19,1) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="dark bg-background text-on-surface">
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 w-full z-50 bg-[#131313]/80 backdrop-blur-xl flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Portrait of a young male cyclist profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrAQu3r6EiT8ghHLXIhYEt-FIME6bXWI62nw01DPvrdWl-DxFEnxMZ-lZLSc729pjDe0jSi78zoH5-yq-cd7dmOFWMzuZC5Wda7sctvBLXoefTV89UZSsu0LTODGy0q3tUhnoyqcv9b7PPLl377SbqBx9ehOfv7gllv8QMH9NPmx6KjCO4ka3kp4jKLrMoQw7tm2lcBrlW5dLHntXK8yxZ49VPv1owa1eu4XBu_OYfSh5CNEzQ4LUQMjvG2B33QMKNDoxUPVV8qO0"/>
+</div>
+<h1 class="font-['Inter'] font-bold text-lg tracking-tight text-[#42e5b0]">EcoRide</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-zinc-500 hover:opacity-80 transition-opacity active:scale-95 duration-200">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas: Map Background -->
+<main class="relative h-screen w-full">
+<!-- Map Background Simulation -->
+<div class="absolute inset-0 z-0">
+<img alt="Dark City Map" class="w-full h-full object-cover grayscale brightness-[0.4] contrast-[1.2]" data-alt="Dark stylized city map with glowing bike paths" data-location="Paris" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDF6mxJtHEvAtt-Br1FjvYq1QhTq_EzSiyn9bAQOQaGpdxMhosTWXVX_xRrmQyTlcnaqXYlN49ehHXKQe52E6MbPNZGQwHd8OnlzAjLeUlg6NIW4Sfwr7Z_fnHofXzRTTRXm_Bmw0nKZ0tJz3e5rL-SUygTLR2HZlStYOYn-hlIt5-9u49yRcBgjn5OVAdQ-g5wFUlwDmiN-eFu2UeVfcJa8WyA-TGcHZYZjRghGm_GL7mUjC4Yj8E9YmWBkBMOUwnjVg6uA_PGGks"/>
+<div class="absolute inset-0 map-gradient-overlay"></div>
+<!-- Animated Path Simulation (Static SVG) -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+<path d="M100,500 Q250,450 400,300 T700,150" fill="none" opacity="0.6" stroke="#42e5b0" stroke-dasharray="8 4" stroke-width="4"></path>
+<circle cx="700" cy="150" fill="#42e5b0" r="8">
+<animate attributename="r" dur="2s" repeatcount="indefinite" values="8;12;8"></animate>
+</circle>
+</svg>
+</div>
+<!-- Overlay UI -->
+<div class="relative z-10 h-full flex flex-col justify-between px-6 pt-24 pb-32">
+<!-- CO2 Counter: Floating Impact Chip -->
+<div class="flex justify-center">
+<div class="bg-primary-container/20 backdrop-blur-md border border-primary-container/30 px-5 py-2.5 rounded-full flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">eco</span>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-secondary-container leading-none">CO2 SAVED</span>
+<span class="text-xl font-extrabold text-primary leading-none mt-0.5">1.2 kg</span>
+</div>
+</div>
+</div>
+<!-- Dashboard Stats: Bento Grid Style -->
+<div class="space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<!-- Speed Card -->
+<div class="bg-surface-container-low/80 backdrop-blur-2xl p-6 rounded-xl border border-outline-variant/10">
+<p class="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-2">SPEED</p>
+<div class="flex items-baseline gap-1">
+<span class="text-4xl font-extrabold text-on-surface tracking-tighter">22.4</span>
+<span class="text-sm font-medium text-zinc-500">km/h</span>
+</div>
+</div>
+<!-- Distance Card -->
+<div class="bg-surface-container-low/80 backdrop-blur-2xl p-6 rounded-xl border border-outline-variant/10">
+<p class="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-2">DISTANCE</p>
+<div class="flex items-baseline gap-1">
+<span class="text-4xl font-extrabold text-on-surface tracking-tighter">8.2</span>
+<span class="text-sm font-medium text-zinc-500">km</span>
+</div>
+</div>
+</div>
+<!-- Time & Battery: Full Width -->
+<div class="bg-surface-container-high/90 backdrop-blur-2xl p-6 rounded-xl border border-outline-variant/20 flex justify-between items-center">
+<div class="flex flex-col">
+<p class="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-1">ELAPSED TIME</p>
+<span class="text-5xl font-black text-primary tracking-tighter">24:15</span>
+</div>
+<div class="flex flex-col items-end">
+<div class="flex items-center gap-2 text-primary">
+<span class="text-xs font-bold">88%</span>
+<span class="material-symbols-outlined text-sm">battery_charging_full</span>
+</div>
+<p class="text-[10px] font-medium text-zinc-500 mt-2">STABLE GPS</p>
+</div>
+</div>
+</div>
+<!-- Footer Action Area -->
+<div class="fixed bottom-24 left-0 w-full px-6 flex justify-center pointer-events-none">
+<button class="pointer-events-auto w-full max-w-md h-20 bg-primary text-on-primary rounded-xl flex items-center justify-center gap-4 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 transition-all duration-200">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">stop_circle</span>
+<span class="text-xl font-black uppercase tracking-widest">Terminer</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full bg-[#131313]/90 backdrop-blur-2xl flex justify-around items-center px-4 pb-8 pt-4 border-t border-zinc-800/50 z-50">
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#42e5b0] bg-[#00c896]/10 rounded-2xl px-3 py-1.5 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="directions_bike" style="font-variation-settings: 'FILL' 1;">directions_bike</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Trajet</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Classement</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Profil</span>
+</a>
+</nav>
+</body></html>

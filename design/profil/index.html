@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-variant": "#353534",
+              "error": "#ffb4ab",
+              "primary": "#42e5b0",
+              "on-surface": "#e5e2e1",
+              "surface-bright": "#3a3939",
+              "surface-container-lowest": "#0e0e0e",
+              "surface": "#131313",
+              "on-error": "#690005",
+              "on-secondary-container": "#8ac1a8",
+              "inverse-surface": "#e5e2e1",
+              "tertiary-container": "#ff9467",
+              "secondary": "#9bd2b9",
+              "inverse-on-surface": "#313030",
+              "error-container": "#93000a",
+              "on-surface-variant": "#bbcac1",
+              "surface-container-high": "#2a2a2a",
+              "on-tertiary-fixed": "#370e00",
+              "surface-container-low": "#1c1b1b",
+              "secondary-fixed-dim": "#9bd2b9",
+              "primary-fixed-dim": "#3adfab",
+              "surface-container": "#201f1f",
+              "primary-fixed": "#60fcc6",
+              "on-tertiary": "#591d00",
+              "on-primary-container": "#004d38",
+              "surface-dim": "#131313",
+              "on-secondary-fixed": "#002116",
+              "on-primary-fixed-variant": "#00513b",
+              "primary-container": "#00c896",
+              "on-tertiary-container": "#762b05",
+              "on-secondary": "#003828",
+              "tertiary": "#ffbca2",
+              "outline": "#85948c",
+              "inverse-primary": "#006c4f",
+              "background": "#131313",
+              "surface-tint": "#3adfab",
+              "secondary-fixed": "#b7efd5",
+              "secondary-container": "#19503d",
+              "on-primary": "#003828",
+              "tertiary-fixed-dim": "#ffb598",
+              "on-tertiary-fixed-variant": "#7b2f09",
+              "on-secondary-fixed-variant": "#19503d",
+              "surface-container-highest": "#353534",
+              "on-background": "#e5e2e1",
+              "on-error-container": "#ffdad6",
+              "tertiary-fixed": "#ffdbce",
+              "on-primary-fixed": "#002116",
+              "outline-variant": "#3c4a43"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.75rem", "xl": "1.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#131313]/80 backdrop-blur-xl flex justify-between items-center px-6 py-4 shadow-none">
+<div class="flex items-center gap-3">
+<span class="text-xl font-bold text-[#42e5b0] tracking-tighter font-headline">EcoRide</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-zinc-500 hover:opacity-80 transition-opacity active:scale-95 duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-primary/20">
+<img class="w-full h-full object-cover" data-alt="User profile avatar of Alex Chen" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCbuPgJ_gZf_fQ3hOwGOzBfWSRsuk9RqK3MH6prR-PQLEcv8EhbgwU5Qp2VOQWOZBGZQnpe4we7JqZPBiTC_h2QH6NDCanohhpLpRRrp_M_pRy3ZIwuMXJzbJO4rEj18zHMSIQ4MewP61Pc4936y1JrtW01CLKbOUqRk2RJEnAL-t2j7LL1hXtcki1GxIoVcNteubfGmAlQHSgrutb-E3kM0ixfE7DGAIt0ijYGumrk_k8NUhsJTG5VNDb6UvYIEOjvYJi5pT8yQw"/>
+</div>
+</div>
+</header>
+<main class="pt-24 px-6 space-y-8 max-w-2xl mx-auto">
+<!-- User Identity Hero -->
+<section class="flex flex-col items-center text-center space-y-4">
+<div class="relative">
+<div class="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary to-secondary-container">
+<div class="w-full h-full rounded-full bg-surface overflow-hidden border-2 border-surface">
+<img class="w-full h-full object-cover" data-alt="Large profile photo of Alex Chen" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWSizonPCdZFVr7NxRZRRfNYeE0g2g0HGCfTbR8Ik9a4KsVSQBjhmv_fFmxfZJsBv3ATtVPm_5sr4NbDLXatktxu5zQG-jjWsRK3QSTBqIluPigLjj5XL_VqB-PfxwK2Aihwn14nNRD19oJWuNYg0FY6KmqzGeXFHo4MWXAaZUpKtK-cU3JmtmZAINsSZvLa26at3lfJW8kUlOCcySP8LS5trcxV6TGozgjHvrFrYhq-KebdFDya12SRQE2ahAmNC3L2tUu3LxPJU"/>
+</div>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-primary text-on-primary rounded-full p-1.5 shadow-lg">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<div>
+<h1 class="text-3xl font-bold tracking-tight text-on-surface">Alex Chen</h1>
+<div class="mt-1 inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold tracking-widest uppercase">
+                    Eco Warrior
+                </div>
+</div>
+</section>
+<!-- Stats Bento Grid -->
+<section class="grid grid-cols-2 gap-4">
+<div class="col-span-2 bg-surface-container-low p-6 rounded-lg relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl">eco</span>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-primary/70">Total Carbon Saved</p>
+<div class="flex items-baseline gap-2 mt-2">
+<span class="text-5xl font-extrabold tracking-tighter text-on-surface">142.5</span>
+<span class="text-xl font-bold text-zinc-500 uppercase">kg</span>
+</div>
+<div class="mt-4 flex items-center gap-2 text-primary text-sm font-semibold">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+12% this month</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-5 rounded-lg">
+<p class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Distance</p>
+<div class="flex items-baseline gap-1 mt-1">
+<span class="text-3xl font-bold text-on-surface">1,204</span>
+<span class="text-xs font-bold text-zinc-500 uppercase tracking-widest">km</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-5 rounded-lg">
+<p class="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Rides</p>
+<div class="flex items-baseline gap-1 mt-1">
+<span class="text-3xl font-bold text-on-surface">86</span>
+</div>
+</div>
+</section>
+<!-- Achievements -->
+<section class="space-y-4">
+<div class="flex justify-between items-end">
+<h2 class="text-lg font-bold tracking-tight">Badges</h2>
+<button class="text-primary text-xs font-bold uppercase tracking-widest">View All</button>
+</div>
+<div class="grid grid-cols-4 gap-4">
+<div class="flex flex-col items-center gap-2">
+<div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<span class="text-[10px] font-bold text-center text-zinc-400 uppercase leading-tight">100km club</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-14 h-14 rounded-2xl bg-secondary-container/30 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">eco</span>
+</div>
+<span class="text-[10px] font-bold text-center text-zinc-400 uppercase leading-tight">CO2 Hero</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-40">
+<div class="w-14 h-14 rounded-2xl bg-surface-container-high flex items-center justify-center text-zinc-500">
+<span class="material-symbols-outlined text-3xl">bolt</span>
+</div>
+<span class="text-[10px] font-bold text-center text-zinc-500 uppercase leading-tight">Speedster</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-40">
+<div class="w-14 h-14 rounded-2xl bg-surface-container-high flex items-center justify-center text-zinc-500">
+<span class="material-symbols-outlined text-3xl">forest</span>
+</div>
+<span class="text-[10px] font-bold text-center text-zinc-500 uppercase leading-tight">Planter</span>
+</div>
+</div>
+</section>
+<!-- Settings List -->
+<section class="space-y-2 pb-8">
+<h2 class="text-lg font-bold tracking-tight mb-4">Settings</h2>
+<div class="bg-surface-container-low rounded-lg overflow-hidden">
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-zinc-400">person</span>
+<span class="text-sm font-medium">Personal Information</span>
+</div>
+<span class="material-symbols-outlined text-zinc-600">chevron_right</span>
+</button>
+<div class="h-px bg-white/5 mx-4"></div>
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-zinc-400">directions_bike</span>
+<span class="text-sm font-medium">My Vehicle</span>
+</div>
+<span class="material-symbols-outlined text-zinc-600">chevron_right</span>
+</button>
+<div class="h-px bg-white/5 mx-4"></div>
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-zinc-400">notifications</span>
+<span class="text-sm font-medium">Notifications</span>
+</div>
+<span class="material-symbols-outlined text-zinc-600">chevron_right</span>
+</button>
+<div class="h-px bg-white/5 mx-4"></div>
+<button class="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-zinc-400">security</span>
+<span class="text-sm font-medium">Privacy &amp; Security</span>
+</div>
+<span class="material-symbols-outlined text-zinc-600">chevron_right</span>
+</button>
+</div>
+<button class="w-full mt-6 py-4 rounded-lg bg-surface-container-high text-error font-bold tracking-widest text-xs uppercase active:scale-95 duration-150">
+                Log Out
+            </button>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-8 pt-4 bg-[#131313]/90 backdrop-blur-2xl border-t border-zinc-800/50 shadow-[0px_-10px_30px_rgba(0,0,0,0.5)] z-50">
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">directions_bike</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Trajet</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Classement</span>
+</a>
+<!-- ACTIVE STATE: Profil -->
+<a class="flex flex-col items-center justify-center text-[#42e5b0] bg-[#00c896]/10 rounded-2xl px-3 py-1.5 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Profil</span>
+</a>
+</nav>
+</body></html>

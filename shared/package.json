@@ -1,0 +1,10 @@
+{
+  "name": "@ecoride/shared",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./types.ts",
+    "./types": "./types.ts",
+    "./api-contracts": "./api-contracts.ts"
+  }
+}

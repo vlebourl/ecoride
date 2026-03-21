@@ -1,0 +1,4 @@
+export { user, session, account, verification } from "./schema/auth";
+export { trips } from "./schema/trips";
+export { achievements } from "./schema/achievements";
+export { pushSubscriptions } from "./schema/push-subscriptions";

@@ -27,6 +27,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallbackDenylist: [/^\/api\//],
+        importScripts: ["/sw-api-guard.js"],
       },
     }),
   ],
@@ -46,4 +47,3 @@ export default defineConfig({
     },
   },
 });
-// Build cache bust: 2026-03-21

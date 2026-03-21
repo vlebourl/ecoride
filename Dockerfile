@@ -15,7 +15,7 @@ RUN bun install --frozen-lockfile
 COPY shared/ shared/
 COPY client/ client/
 COPY server/ server/
-COPY tsconfig.json ./
+COPY tsconfig.json drizzle.config.ts ./
 
 # Build du client (Vite)
 RUN cd client && bun run build

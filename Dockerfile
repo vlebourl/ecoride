@@ -31,7 +31,7 @@ RUN apk add --no-cache curl
 # Copier les manifests + install deps production
 # Le package.json racine reference le workspace "client" qui n'existe pas en runtime
 # On le retire via python pour eviter les problemes de sed avec les guillemets JSON
-COPY package.json bun.lock ./
+COPY package.json ./
 RUN apk add --no-cache python3 && \
     python3 -c "import json; d=json.load(open('package.json')); d['workspaces']=['shared','server']; json.dump(d,open('package.json','w'),indent=2)" && \
     apk del python3

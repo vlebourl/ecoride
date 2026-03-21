@@ -3,7 +3,7 @@
 **Date :** 2026-03-21  
 **Statut :** Validé — prêt pour développement  
 **Dossier projet :** `~/Documents/Obsidian/Lyra/Projets/velo-tracker/`  
-**URL de production :** `velo.tiarkaerell.com` (via Coolify)
+**URL de production :** `ecoride.tiarkaerell.com` (via Coolify)
 
 ---
 
@@ -105,7 +105,7 @@ Le visuel se remplit progressivement vers la prochaine référence. Une fois att
 | Base de données | PostgreSQL |
 | ORM | Drizzle ORM |
 | Déploiement | Coolify (self-hosted) |
-| Domain | velo.tiarkaerell.com |
+| Domain | ecoride.tiarkaerell.com |
 
 ### API externes
 - **Prix carburants FR** : `data.economie.gouv.fr` (open data, pas de clé API)

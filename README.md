@@ -8,7 +8,7 @@ PWA mobile-first de suivi de trajets vélo avec calcul d'économies CO₂, argen
 - **Backend** : Bun + Hono
 - **Auth** : Better Auth + Google OAuth
 - **DB** : PostgreSQL + Drizzle ORM
-- **Deploy** : Coolify → `velo.tiarkaerell.com`
+- **Deploy** : Coolify → `ecoride.tiarkaerell.com`
 
 ## Setup
 
@@ -58,7 +58,7 @@ client/     React PWA + Tailwind
 
 ### Production (Coolify)
 
-L'application est deployee automatiquement sur `velo.tiarkaerell.com` via Coolify a chaque push sur `main`.
+L'application est deployee automatiquement sur `ecoride.tiarkaerell.com` via Coolify a chaque push sur `main`.
 
 Secrets GitHub requis :
 - `COOLIFY_TOKEN` — Token API Coolify
@@ -81,10 +81,10 @@ Configurer dans Coolify → onglet **Environment** :
 |----------|-------------|
 | `DATABASE_URL` | Connexion PostgreSQL |
 | `BETTER_AUTH_SECRET` | Secret auth (`openssl rand -hex 32`) |
-| `BETTER_AUTH_URL` | `https://velo.tiarkaerell.com` |
+| `BETTER_AUTH_URL` | `https://ecoride.tiarkaerell.com` |
 | `GOOGLE_CLIENT_ID` | Client ID Google OAuth |
 | `GOOGLE_CLIENT_SECRET` | Client Secret Google OAuth |
-| `FRONTEND_URL` | `https://velo.tiarkaerell.com` |
+| `FRONTEND_URL` | `https://ecoride.tiarkaerell.com` |
 | `VAPID_PUBLIC_KEY` | Cle publique push (`bunx web-push generate-vapid-keys`) |
 | `VAPID_PRIVATE_KEY` | Cle privee push |
 | `VAPID_SUBJECT` | `mailto:contact@tiarkaerell.com` |

@@ -3,7 +3,7 @@ import { signIn } from "@/lib/auth";
 
 export function LoginPage() {
   const handleGoogleLogin = () => {
-    signIn.social({ provider: "google", callbackURL: "/" });
+    signIn.social({ provider: "google", callbackURL: window.location.origin + "/" });
   };
 
   return (

@@ -16,21 +16,25 @@ const app = new Hono();
 // ---- Global middleware ----
 app.use("*", requestId());
 app.use("*", logger());
+
+// ---- CORS for auth routes (before handler, with explicit methods) ----
+app.use("/api/auth/*", cors({
+  origin: env.FRONTEND_URL,
+  allowHeaders: ["Content-Type", "Authorization"],
+  allowMethods: ["POST", "GET", "OPTIONS"],
+  credentials: true,
+}));
+
+// ---- CORS for other API routes ----
 app.use("/api/*", cors({
   origin: [env.FRONTEND_URL],
   credentials: true,
 }));
 
 // ---- Better Auth handler (public, before authMiddleware) ----
-app.on(["POST", "GET"], "/api/auth/**", (c) => {
-  // Behind reverse proxy: rewrite the request URL to use the public baseURL
-  // so Better Auth generates correct redirect URLs and cookies
-  const reqUrl = new URL(c.req.url);
-  const publicUrl = new URL(env.BETTER_AUTH_URL);
-  reqUrl.protocol = publicUrl.protocol;
-  reqUrl.host = publicUrl.host;
-  const proxiedRequest = new Request(reqUrl.toString(), c.req.raw);
-  return auth.handler(proxiedRequest);
+// Use single wildcard * (not **) per Better Auth Hono docs
+app.on(["POST", "GET"], "/api/auth/*", (c) => {
+  return auth.handler(c.req.raw);
 });
 
 // ---- Health check (public) ----
@@ -88,9 +92,24 @@ initCronJobs();
 // ---- Start server ----
 console.log(`EcoRide API starting on port ${env.PORT} (${env.NODE_ENV})`);
 
+// FIX: Rewrite request URL at the Bun.serve level (not inside Hono handler)
+// Behind reverse proxy (Cloudflare → NPM → container), requests arrive as HTTP
+// but Better Auth needs the real HTTPS URL to set cookies and generate redirects correctly.
+// See: https://hono.dev/examples/behind-reverse-proxy
 export default {
   port: env.PORT,
-  fetch: app.fetch,
+  fetch: (req: Request) => {
+    const url = new URL(req.url);
+    const proto = req.headers.get("x-forwarded-proto");
+    if (proto) {
+      url.protocol = proto + ":";
+    }
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    if (host && host !== url.host) {
+      url.host = host;
+    }
+    return app.fetch(new Request(url, req));
+  },
 };
 
 export { app };

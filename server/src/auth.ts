@@ -10,6 +10,7 @@ export const auth = betterAuth({
     schema,
   }),
   baseURL: env.BETTER_AUTH_URL,
+  basePath: "/api/auth",
   secret: env.BETTER_AUTH_SECRET,
   socialProviders: {
     google: {
@@ -20,6 +21,7 @@ export const auth = betterAuth({
   trustedOrigins: [env.FRONTEND_URL],
   advanced: {
     useSecureCookies: env.NODE_ENV === "production",
+    trustedProxyHeaders: true,
     defaultCookieAttributes: {
       sameSite: "lax",
       secure: env.NODE_ENV === "production",

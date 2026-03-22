@@ -18,6 +18,17 @@ const app = new Hono();
 app.use("*", requestId());
 app.use("*", logger());
 
+// ---- HTTP security headers ----
+app.use("*", async (c, next) => {
+  if (env.NODE_ENV === "production") {
+    c.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  }
+  c.header("X-Frame-Options", "DENY");
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  await next();
+});
+
 // ---- CORS for auth routes (before handler, with explicit methods) ----
 app.use("/api/auth/*", cors({
   origin: env.FRONTEND_URL,

@@ -29,6 +29,12 @@ export const auth = betterAuth({
   advanced: {
     useSecureCookies: env.NODE_ENV === "production",
     trustedProxyHeaders: true,
+    // sameSite must remain "lax" (not "strict") because Better Auth's
+    // OAuth callback flow uses a cross-site redirect from the provider
+    // (e.g. Google) back to /api/auth/callback/*. With "strict", the
+    // session cookie would not be sent on that redirect, breaking login.
+    // CSRF protection is handled by Better Auth's built-in state/nonce
+    // verification on OAuth callbacks and its CSRF token on form posts.
     defaultCookieAttributes: {
       sameSite: "lax",
       secure: env.NODE_ENV === "production",

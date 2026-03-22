@@ -25,7 +25,7 @@ export function PullToRefresh({
       if (refreshing) return;
       const container = containerRef.current;
       if (!container || container.scrollTop > 0) return;
-      startY.current = e.touches[0].clientY;
+      startY.current = e.touches[0]!.clientY;
       pulling.current = true;
     },
     [refreshing],
@@ -41,7 +41,7 @@ export function PullToRefresh({
         setPullDistance(0);
         return;
       }
-      const delta = e.touches[0].clientY - startY.current;
+      const delta = e.touches[0]!.clientY - startY.current;
       if (delta > 0) {
         setPullDistance(delta / RESISTANCE);
       }

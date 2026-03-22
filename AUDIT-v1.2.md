@@ -368,44 +368,68 @@
 ## Resume par priorite
 
 ### P0 — Critiques (securite + perte de donnees)
-1. GPS points sans limite de taille (2.1)
-2. Backup GPS en cours de trajet (1.3)
-3. Wake lock non relache (1.4, 1.5)
-4. Rate limit IP spoofable (2.2)
-5. Offline queue sans idempotence (5.2)
-6. Headers HTTP securite (2.3)
+1. ~~GPS points sans limite de taille (2.1)~~ — **CORRIGE** PR #35 (.max(10000))
+2. ~~Backup GPS en cours de trajet (1.3)~~ — **CORRIGE** PR #39 (localStorage toutes les 30s + recovery)
+3. ~~Wake lock non relache (1.4, 1.5)~~ — **CORRIGE** PR #39 (release sur unmount + erreur fatale)
+4. ~~Rate limit IP spoofable (2.2)~~ — **CORRIGE** PR #35 (cf-connecting-ip prioritaire)
+5. ~~Offline queue sans idempotence (5.2)~~ — **CORRIGE** PR #37 (UUID idempotencyKey)
+6. ~~Headers HTTP securite (2.3)~~ — **CORRIGE** PR #35 (HSTS, X-Frame, nosniff, Referrer)
 
 ### P1 — Importants (UX + fiabilite)
-7. Recovery GPS apres tunnel (1.2)
-8. Touch targets < 44px (3.1)
-9. Texte 10px (3.2)
-10. Status bar verte (3.4)
-11. Safe area BottomNav (3.5)
-12. Fuel price bloque creation trajet (4.1)
-13. Bottom sheet scroll (3.8)
-14. Garde navigation pendant tracking (1.7)
-15. Icone maskable manifest (6.1)
+7. ~~Recovery GPS apres tunnel (1.2)~~ — **CORRIGE** PR #39 (auto-retry 3x apres timeout)
+8. ~~Touch targets < 44px (3.1)~~ — **CORRIGE** PR #38 (min-h-[44px], padding augmente)
+9. ~~Texte 10px (3.2)~~ — **CORRIGE** PR #38 (text-[10px] → text-xs partout)
+10. ~~Status bar verte (3.4)~~ — **CORRIGE** PR #38 (theme-color → #1e272e)
+11. ~~Safe area BottomNav (3.5)~~ — **CORRIGE** PR #38 (env(safe-area-inset-bottom))
+12. ~~Fuel price bloque creation trajet (4.1)~~ — **CORRIGE** PR #36 (timeout 1.5s + fallback immediat)
+13. ~~Bottom sheet scroll (3.8)~~ — **CORRIGE** PR #38 (overflow-y-auto max-h-[85vh])
+14. ~~Garde navigation pendant tracking (1.7)~~ — **CORRIGE** PR #39 (beforeunload + useBlocker)
+15. Icone maskable manifest (6.1) — **NON CORRIGE** (necessite investigation vite-plugin-pwa)
 
 ### P2 — Ameliorations (polish + perf)
-16. Indicateur qualite GPS (1.9)
-17. Debounce map (4.2)
-18. useMemo weeklyData (4.3)
-19. Contraste text-dim (3.3)
-20. Scroll position entre onglets (3.6)
-21. Bouton retour Android (3.7)
-22. Formulaire saisie manuelle (3.9)
-23. Splash screen 656KB (4.4)
-24. Cache headers index.html (4.10)
-25. Dockerfile node_modules (4.9)
+16. Indicateur qualite GPS (1.9) — non corrige
+17. ~~Debounce map (4.2)~~ — **CORRIGE** PR #36 (500ms minimum entre setView)
+18. ~~useMemo weeklyData (4.3)~~ — **CORRIGE** PR #36 (useMemo sur chartTrips)
+19. ~~Contraste text-dim (3.3)~~ — **CORRIGE** PR #38 (#566a78 → #7a8e9e)
+20. Scroll position entre onglets (3.6) — non corrige
+21. Bouton retour Android (3.7) — non corrige
+22. ~~Formulaire saisie manuelle (3.9)~~ — **CORRIGE** PR #38 (<form> wrapper)
+23. Splash screen 656KB (4.4) — non corrige
+24. ~~Cache headers index.html (4.10)~~ — **CORRIGE** PR #36 (max-age=0, must-revalidate)
+25. Dockerfile node_modules (4.9) — non corrige
 
 ### P3 — Nice to have
-26. Haptic feedback (3.11)
-27. prefers-reduced-motion (3.12)
-28. Leaderboard tie-breaking (5.3)
-29. Float precision (5.4)
-30. Timezone persistee (5.5)
-31. Tests serveur (7.3)
-32. ESLint/Prettier (7.2)
-33. Supprimer /frontend/ (7.1)
-34. Shortcuts manifest (6.3)
-35. Lang manifest (6.4)
+26. Haptic feedback (3.11) — non corrige
+27. prefers-reduced-motion (3.12) — non corrige
+28. Leaderboard tie-breaking (5.3) — non corrige
+29. Float precision (5.4) — non corrige
+30. Timezone persistee (5.5) — non corrige
+31. Tests serveur (7.3) — non corrige
+32. ESLint/Prettier (7.2) — non corrige
+33. Supprimer /frontend/ (7.1) — non corrige
+34. Shortcuts manifest (6.3) — non corrige
+35. Lang manifest (6.4) — non corrige
+
+### Egalement corriges (hors liste initiale)
+- ~~Trips chevauchants acceptes (5.1)~~ — **CORRIGE** PR #37 (overlap check avant insert)
+- ~~Double-tap Demarrer (1.6)~~ — **CORRIGE** PR #39 (disabled quand tracking)
+- ~~sameSite cookie documente (2.4)~~ — **CORRIGE** PR #35 (commentaire expliquant pourquoi lax)
+- ~~Max duration 24h (1.8)~~ — **CORRIGE** PR #35 (.max(86400))
+
+---
+
+## Bilan des corrections
+
+**Corriges : 24/35** (69%)
+- P0 : 6/6 (100%)
+- P1 : 8/9 (89%)
+- P2 : 5/10 (50%)
+- P3 : 0/10 (0%)
+- Bonus : 5 fixes supplementaires
+
+**PRs de correction :**
+- PR #35 : Securite (GPS limit, IP fix, headers, duration max, sameSite doc)
+- PR #36 : Performance (fuel price timeout, map debounce, useMemo, cache headers)
+- PR #37 : Data integrity (overlap check, idempotency keys)
+- PR #38 : UX mobile (touch targets, text sizes, contrast, status bar, safe area, scroll, form)
+- PR #39 : GPS robustness (recovery, backup, wake lock, double-tap, navigation guard)

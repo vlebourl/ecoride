@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Bike, Leaf, MapPin, ChevronRight, Car, X } from "lucide-react";
+import { Bike, Leaf, MapPin, ChevronRight, Car, X, CloudOff } from "lucide-react";
 import { ImpactMeter } from "@/components/ui/ImpactMeter";
 import { useDashboardSummary, useProfile } from "@/hooks/queries";
+import { getPendingTrips } from "@/lib/offline-queue";
 import appLogo from "/pwa-192x192.png?url";
 
 export function DashboardPage() {
@@ -10,6 +11,7 @@ export function DashboardPage() {
   const { data: allTime, isPending: allTimePending } = useDashboardSummary("all");
   const { data: profileData } = useProfile();
   const [vehiclePromptDismissed, setVehiclePromptDismissed] = useState(false);
+  const pendingTrips = getPendingTrips();
 
   const isPending = todayPending || allTimePending;
 
@@ -32,6 +34,16 @@ export function DashboardPage() {
           <span className="text-primary-light">Ride</span>
         </span>
       </header>
+
+      {/* Offline pending trips banner */}
+      {pendingTrips.length > 0 && (
+        <div className="mx-6 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3">
+          <CloudOff size={18} className="shrink-0 text-primary-light" />
+          <span className="flex-1 text-xs font-medium text-text">
+            {pendingTrips.length} trajet{pendingTrips.length > 1 ? "s" : ""} en attente de synchronisation
+          </span>
+        </div>
+      )}
 
       {isNewUser ? (
         /* ---- Empty state: first-time user ---- */

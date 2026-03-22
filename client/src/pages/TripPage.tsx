@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Play, Square, Keyboard, AlertTriangle, RotateCcw } from "lucide-react";
+import { Play, Square, Keyboard, AlertTriangle, CloudOff } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useGpsTracking } from "@/hooks/useGpsTracking";
 import type { TrackingSession } from "@/hooks/useGpsTracking";
+import { queueTrip } from "@/lib/offline-queue";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -76,14 +77,15 @@ export function TripPage() {
     setSaveError("");
     const endedAt = session?.endedAt ?? new Date().toISOString();
     const startedAt = session?.startedAt ?? new Date(new Date(endedAt).getTime() - durationSec * 1000).toISOString();
+    const tripData = {
+      distanceKm: Math.round(km * 100) / 100,
+      durationSec,
+      startedAt,
+      endedAt,
+      gpsPoints: session?.gpsPoints?.length ? session.gpsPoints : null,
+    };
     createTrip.mutate(
-      {
-        distanceKm: Math.round(km * 100) / 100,
-        durationSec,
-        startedAt,
-        endedAt,
-        gpsPoints: session?.gpsPoints?.length ? session.gpsPoints : null,
-      },
+      tripData,
       {
         onSuccess: () => {
           setSaveError("");
@@ -94,7 +96,17 @@ export function TripPage() {
           gps.reset();
         },
         onError: () => {
-          setSaveError("Impossible d'enregistrer le trajet. Vérifiez votre connexion.");
+          queueTrip(tripData);
+          setSaveError("Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement.");
+          // Reset UI to idle after a short delay so the user sees the message
+          setTimeout(() => {
+            setUiState("idle");
+            setManualKm("");
+            setManualMinutes("");
+            sessionRef.current = null;
+            gps.reset();
+            setSaveError("");
+          }, 3000);
         },
       },
     );
@@ -231,19 +243,11 @@ export function TripPage() {
               {createTrip.isPending ? "Enregistrement..." : "Enregistrer"}
             </button>
             {saveError && (
-              <div className="mt-4 rounded-xl bg-danger/10 p-4">
+              <div className="mt-4 rounded-xl bg-primary/10 p-4">
                 <div className="flex items-center gap-3">
-                  <AlertTriangle size={16} className="shrink-0 text-danger" />
-                  <span className="text-sm font-medium text-danger">{saveError}</span>
+                  <CloudOff size={16} className="shrink-0 text-primary-light" />
+                  <span className="text-sm font-medium text-primary-light">{saveError}</span>
                 </div>
-                <button
-                  onClick={() => handleSaveTrip(distance, elapsed, sessionRef.current)}
-                  disabled={createTrip.isPending}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-danger/20 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
-                >
-                  <RotateCcw size={14} />
-                  Réessayer
-                </button>
               </div>
             )}
           </div>
@@ -299,25 +303,11 @@ export function TripPage() {
               </button>
             </div>
             {saveError && (
-              <div className="mt-4 rounded-xl bg-danger/10 p-4">
+              <div className="mt-4 rounded-xl bg-primary/10 p-4">
                 <div className="flex items-center gap-3">
-                  <AlertTriangle size={16} className="shrink-0 text-danger" />
-                  <span className="text-sm font-medium text-danger">{saveError}</span>
+                  <CloudOff size={16} className="shrink-0 text-primary-light" />
+                  <span className="text-sm font-medium text-primary-light">{saveError}</span>
                 </div>
-                <button
-                  onClick={() => {
-                    const km = parseFloat(manualKm);
-                    if (km > 0) {
-                      const estimatedDuration = Math.round((km / 15) * 3600);
-                      handleSaveTrip(km, estimatedDuration);
-                    }
-                  }}
-                  disabled={createTrip.isPending}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-danger/20 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
-                >
-                  <RotateCcw size={14} />
-                  Réessayer
-                </button>
               </div>
             )}
           </div>

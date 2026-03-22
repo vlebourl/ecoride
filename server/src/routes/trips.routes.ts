@@ -37,8 +37,9 @@ tripsRouter.post(
     const consumptionL100 = profile?.consumptionL100 ?? 7; // Default 7L/100km
     const fuelType = (profile?.fuelType ?? "sp95") as "sp95" | "sp98" | "diesel" | "e85" | "gpl";
 
-    // Get current fuel price
-    const fuelPriceData = await getFuelPrice(fuelType);
+    // Get current fuel price — use GPS coordinates for nearest station when available
+    const startPoint = data.gpsPoints?.[0];
+    const fuelPriceData = await getFuelPrice(fuelType, startPoint?.lat, startPoint?.lng);
     const fuelPriceEur = fuelPriceData.priceEur;
 
     const savings = calculateSavings({

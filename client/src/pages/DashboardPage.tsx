@@ -24,8 +24,8 @@ export function DashboardPage() {
     <>
       {/* Header */}
       <header className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
-        <span className="text-2xl font-black tracking-tighter text-primary-light">
-          EcoRide
+        <span className="text-2xl font-black tracking-tighter">
+          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>
       </header>
 

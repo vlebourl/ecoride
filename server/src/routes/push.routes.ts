@@ -81,7 +81,7 @@ pushRouter.post("/test", async (c) => {
   const currentUser = c.get("user");
 
   const sent = await sendPushToUser(currentUser.id, {
-    title: "EcoRide",
+    title: "ecoRide",
     body: "Les notifications push fonctionnent ! 🚴",
     icon: "/icons/icon-192.png",
     url: "/",

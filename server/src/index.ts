@@ -103,7 +103,7 @@ app.notFound((c) => {
 initCronJobs();
 
 // ---- Start server ----
-console.log(`EcoRide API starting on port ${env.PORT} (${env.NODE_ENV})`);
+console.log(`ecoRide API starting on port ${env.PORT} (${env.NODE_ENV})`);
 
 // FIX: Rewrite request URL at the Bun.serve level (not inside Hono handler)
 // Behind reverse proxy (Cloudflare → NPM → container), requests arrive as HTTP

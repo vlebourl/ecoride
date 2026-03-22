@@ -2,30 +2,30 @@
 @import "tailwindcss";
 
 @theme {
-  /* Core palette (CDC + Stitch maquettes) */
-  --color-primary: #00C896;
-  --color-primary-light: #42e5b0;
-  --color-primary-dark: #00A67A;
-  --color-primary-container: #00C896;
+  /* Core palette — Luminous Carbon (charcoal + leaf green + white) */
+  --color-primary: #2ecc71;
+  --color-primary-light: #54e98a;
+  --color-primary-dark: #27ae60;
+  --color-primary-container: #2ecc71;
 
-  /* Surfaces (OLED tonal layering) */
-  --color-bg: #0A0A0A;
-  --color-surface: #131313;
-  --color-surface-container: #1a1919;
-  --color-surface-low: #1c1b1b;
-  --color-surface-high: #2a2a2a;
-  --color-surface-elevated: #1E1E1E;
-  --color-surface-highest: #353534;
+  /* Surfaces (charcoal tonal layering) */
+  --color-bg: #1e272e;
+  --color-surface: #232d35;
+  --color-surface-container: #283240;
+  --color-surface-low: #2b3640;
+  --color-surface-high: #333e47;
+  --color-surface-elevated: #2e3842;
+  --color-surface-highest: #3e4851;
 
   /* Text */
   --color-text: #FFFFFF;
-  --color-text-muted: #8A8A8A;
-  --color-text-dim: #555555;
-  --color-on-surface-variant: #bbcac1;
+  --color-text-muted: #8a9ba8;
+  --color-text-dim: #566a78;
+  --color-on-surface-variant: #a3b1ba;
 
   /* Borders & outline */
-  --color-border: #1E1E1E;
-  --color-outline-variant: #3c4a43;
+  --color-border: #2e3842;
+  --color-outline-variant: #3d4a3e;
 
   /* Semantic */
   --color-danger: #FF4D4D;

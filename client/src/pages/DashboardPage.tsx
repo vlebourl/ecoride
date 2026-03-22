@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { Bike, Leaf, Euro, TrendingUp } from "lucide-react";
 import { PeriodSwitcher } from "@/components/ui/PeriodSwitcher";
 import { StatCard } from "@/components/ui/StatCard";
@@ -20,6 +21,8 @@ export function DashboardPage() {
     );
   }
 
+  const hasNoTrips = s.tripCount === 0;
+
   return (
     <>
       {/* Header */}
@@ -29,6 +32,29 @@ export function DashboardPage() {
         </span>
       </header>
 
+      {hasNoTrips ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+            <Bike size={40} className="text-primary-light" />
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h2 className="text-2xl font-bold">
+              Bienvenue sur{" "}
+              <span className="text-text">eco</span>
+              <span className="text-primary-light">Ride</span> !
+            </h2>
+            <p className="max-w-xs text-sm text-text-muted">
+              Enregistrez votre premier trajet vélo pour commencer à suivre vos économies CO₂.
+            </p>
+          </div>
+          <Link
+            to="/trip"
+            className="mt-2 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-bg transition-colors hover:bg-primary-light"
+          >
+            Démarrer un trajet
+          </Link>
+        </div>
+      ) : (
       <div className="flex flex-col gap-6 px-6 pb-6">
         {/* Period Switcher */}
         <PeriodSwitcher value={period} onChange={setPeriod} />
@@ -93,6 +119,7 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bike } from "lucide-react";
+import { Bike, BarChart3 } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -89,6 +89,20 @@ export function StatsPage() {
       </header>
 
       <div className="space-y-12 px-6 pb-6">
+        {s.tripCount === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-6 py-20">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <BarChart3 size={40} className="text-primary-light" />
+            </div>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <h3 className="text-xl font-bold">Pas encore de statistiques</h3>
+              <p className="max-w-xs text-sm text-text-muted">
+                Vos données apparaîtront ici après votre premier trajet.
+              </p>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Monthly Totals */}
         <section className="space-y-6">
           <div className="flex items-end justify-between">
@@ -273,6 +287,8 @@ export function StatsPage() {
             ))}
           </div>
         </section>
+        </>
+        )}
 
         {/* Badges */}
         <section className="space-y-4">

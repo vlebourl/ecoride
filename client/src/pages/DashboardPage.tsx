@@ -111,7 +111,7 @@ export function DashboardPage() {
                 <button
                   onClick={() => setVehiclePromptDismissed(true)}
                   aria-label="Fermer"
-                  className="shrink-0 rounded p-1 text-text-muted hover:text-text"
+                  className="shrink-0 rounded p-2 text-text-muted hover:text-text"
                 >
                   <X size={14} />
                 </button>
@@ -132,7 +132,7 @@ export function DashboardPage() {
                       {today.tripCount}
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold uppercase text-text-muted">
+                  <span className="text-xs font-bold uppercase text-text-muted">
                     {today.tripCount > 1 ? "trajets" : "trajet"}
                   </span>
                 </div>
@@ -143,7 +143,7 @@ export function DashboardPage() {
                       {today.totalDistanceKm.toFixed(1)}
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold uppercase text-text-muted">
+                  <span className="text-xs font-bold uppercase text-text-muted">
                     km
                   </span>
                 </div>
@@ -154,7 +154,7 @@ export function DashboardPage() {
                       {today.totalCo2SavedKg.toFixed(1)}
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold uppercase text-text-muted">
+                  <span className="text-xs font-bold uppercase text-text-muted">
                     kg CO₂
                   </span>
                 </div>

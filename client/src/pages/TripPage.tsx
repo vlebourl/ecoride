@@ -170,7 +170,7 @@ export function TripPage() {
         {uiState === "tracking" && (
           <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2">
             <div className="flex items-center gap-3 rounded-full border border-primary/30 bg-primary/20 px-5 py-2.5 backdrop-blur-md">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+              <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                 CO₂ Saved
               </span>
               <span className="text-xl font-extrabold text-primary-light">
@@ -186,7 +186,7 @@ export function TripPage() {
         <div className="space-y-4 px-6 pb-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl border border-outline-variant/10 bg-surface-low/80 p-6 backdrop-blur-2xl">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-text-dim">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-text-dim">
                 Distance
               </p>
               <div className="flex items-baseline gap-1">
@@ -197,7 +197,7 @@ export function TripPage() {
               </div>
             </div>
             <div className="rounded-xl border border-outline-variant/10 bg-surface-low/80 p-6 backdrop-blur-2xl">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-text-dim">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-text-dim">
                 Temps
               </p>
               <div className="flex items-baseline gap-1">
@@ -220,13 +220,13 @@ export function TripPage() {
                 <div className="text-2xl font-black text-primary-light">
                   {distance.toFixed(1)}
                 </div>
-                <div className="text-[10px] font-bold uppercase text-text-muted">km</div>
+                <div className="text-xs font-bold uppercase text-text-muted">km</div>
               </div>
               <div>
                 <div className="text-2xl font-black text-primary-light">
                   {co2Saved.toFixed(1)}
                 </div>
-                <div className="text-[10px] font-bold uppercase text-text-muted">
+                <div className="text-xs font-bold uppercase text-text-muted">
                   kg CO₂
                 </div>
               </div>
@@ -234,7 +234,7 @@ export function TripPage() {
                 <div className="text-2xl font-black text-primary-light">
                   {formatTime(elapsed)}
                 </div>
-                <div className="text-[10px] font-bold uppercase text-text-muted">
+                <div className="text-xs font-bold uppercase text-text-muted">
                   durée
                 </div>
               </div>
@@ -261,7 +261,19 @@ export function TripPage() {
       {/* Manual entry */}
       {uiState === "manual" && (
         <div className="space-y-4 px-6 pb-4">
-          <div className="rounded-xl bg-surface-container p-6">
+          <form
+            className="rounded-xl bg-surface-container p-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const km = parseFloat(manualKm);
+              if (km > 0) {
+                const durationSec = manualMinutes
+                  ? parseInt(manualMinutes) * 60
+                  : Math.round((km / 15) * 3600); // Fallback: estimate ~15 km/h
+                handleSaveTrip(km, durationSec);
+              }
+            }}
+          >
             <h2 className="mb-4 text-lg font-bold">Saisie manuelle</h2>
             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted">
               Distance (km)
@@ -285,21 +297,14 @@ export function TripPage() {
             />
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setUiState("idle")}
                 className="flex-1 rounded-xl bg-surface-high py-4 text-sm font-bold text-text-muted active:scale-95"
               >
                 Annuler
               </button>
               <button
-                onClick={() => {
-                  const km = parseFloat(manualKm);
-                  if (km > 0) {
-                    const durationSec = manualMinutes
-                      ? parseInt(manualMinutes) * 60
-                      : Math.round((km / 15) * 3600); // Fallback: estimate ~15 km/h
-                    handleSaveTrip(km, durationSec);
-                  }
-                }}
+                type="submit"
                 disabled={createTrip.isPending || !manualKm || parseFloat(manualKm) <= 0}
                 className="flex-1 rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
               >
@@ -314,7 +319,7 @@ export function TripPage() {
                 </div>
               </div>
             )}
-          </div>
+          </form>
         </div>
       )}
 

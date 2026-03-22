@@ -11,6 +11,7 @@ import { calculateSavings } from "../lib/calculations";
 import { getFuelPrice } from "../lib/fuel-price";
 import { notFound, forbidden } from "../lib/errors";
 import { paginationToOffset, buildPagination } from "../lib/pagination";
+import { evaluateAndUnlockBadges } from "../lib/badges";
 import type { AuthEnv } from "../types/context";
 
 const tripsRouter = new Hono<AuthEnv>();
@@ -55,7 +56,10 @@ tripsRouter.post(
       gpsPoints: data.gpsPoints ?? null,
     }).returning();
 
-    return c.json({ ok: true, data: { trip } }, 201);
+    // Evaluate badge thresholds and unlock any newly earned achievements
+    const newBadges = await evaluateAndUnlockBadges(currentUser.id);
+
+    return c.json({ ok: true, data: { trip, newBadges } }, 201);
   },
 );
 

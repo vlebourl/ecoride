@@ -22,15 +22,25 @@ function RecenterMap({ position }: { position: [number, number] }) {
 export function TripPage() {
   const [uiState, setUiState] = useState<TripState>("idle");
   const [manualKm, setManualKm] = useState("");
+  const [initialPos, setInitialPos] = useState<[number, number]>(DEFAULT_CENTER);
   const sessionRef = useRef<TrackingSession | null>(null);
   const createTrip = useCreateTrip();
   const { data: profileData } = useProfile();
   const gps = useGpsTracking();
 
+  // Get user's real position on page load (one-shot)
+  useEffect(() => {
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => setInitialPos([pos.coords.latitude, pos.coords.longitude]),
+      () => {}, // silent fail — keep DEFAULT_CENTER
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+    );
+  }, []);
+
   // Derive map data from GPS state
   const positions: [number, number][] = gps.state.gpsPoints.map((p) => [p.lat, p.lng]);
   const lastPos = positions.length > 0 ? positions[positions.length - 1] : undefined;
-  const currentPos: [number, number] = lastPos ?? DEFAULT_CENTER;
+  const currentPos: [number, number] = lastPos ?? initialPos;
 
   const distance = uiState === "stopped" && sessionRef.current
     ? sessionRef.current.distanceKm

@@ -21,6 +21,17 @@ export function useDashboardSummary(period: StatsPeriod = "week") {
   });
 }
 
+export function useTrip(tripId: string | null) {
+  return useQuery({
+    queryKey: ["trip", tripId],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: { trip: Trip } }>(
+        `/trips/${tripId}`,
+      ).then((r) => r.data.trip),
+    enabled: !!tripId,
+  });
+}
+
 export function useTrips(page = 1, limit = 50) {
   return useQuery({
     queryKey: ["trips", page, limit],

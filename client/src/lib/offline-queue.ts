@@ -4,7 +4,8 @@ const STORAGE_KEY = "ecoride-pending-trips";
 
 export function queueTrip(data: CreateTripRequest): void {
   const pending = getPendingTrips();
-  pending.push(data);
+  const key = crypto.randomUUID();
+  pending.push({ ...data, idempotencyKey: key });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
 }
 

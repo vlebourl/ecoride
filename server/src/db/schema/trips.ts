@@ -17,6 +17,7 @@ export const trips = pgTable("trips", {
   endedAt: timestamp("ended_at", { withTimezone: true, mode: "date" }).notNull(),
 
   gpsPoints: jsonb("gps_points"), // GpsPoint[] | null
+  idempotencyKey: text("idempotency_key"),
 }, (table) => [
   index("trips_user_id_idx").on(table.userId),
   index("trips_started_at_idx").on(table.startedAt),

@@ -11,11 +11,11 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "EcoRide",
-        short_name: "EcoRide",
+        name: "ecoRide",
+        short_name: "ecoRide",
         description: "Suivez vos trajets vélo et vos économies CO₂",
-        theme_color: "#00C896",
-        background_color: "#0A0A0A",
+        theme_color: "#2ecc71",
+        background_color: "#1e272e",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",

@@ -22,8 +22,8 @@ export function LeaderboardPage() {
     <>
       {/* Header */}
       <header className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
-        <span className="text-lg font-bold tracking-tight text-primary-light">
-          EcoRide
+        <span className="text-lg font-bold tracking-tight">
+          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>
       </header>
 
@@ -66,7 +66,7 @@ export function LeaderboardPage() {
           {top3[0] && (
             <div className="flex flex-col items-center">
               <div className="relative mb-4 scale-125">
-                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-primary shadow-[0_0_30px_rgba(66,229,176,0.3)] bg-surface-high">
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-primary shadow-[0_0_30px_rgba(84,233,138,0.3)] bg-surface-high">
                   <span className="text-3xl font-bold text-primary-light">
                     {top3[0].name.charAt(0)}
                   </span>
@@ -116,7 +116,7 @@ export function LeaderboardPage() {
                 key={entry.userId}
                 className={`flex items-center gap-4 rounded-xl p-4 ${
                   isMe
-                    ? "border-2 border-primary bg-surface-low shadow-[0_10px_30px_rgba(0,200,150,0.1)]"
+                    ? "border-2 border-primary bg-surface-low shadow-[0_10px_30px_rgba(46,204,113,0.1)]"
                     : "bg-surface-low hover:bg-surface-container"
                 } transition-colors`}
               >

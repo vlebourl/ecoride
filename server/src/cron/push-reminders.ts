@@ -17,7 +17,7 @@ const DAY_MAP: Record<number, WeekDay> = {
 };
 
 const REMINDER_PAYLOAD: PushPayload = {
-  title: "EcoRide",
+  title: "ecoRide",
   body: "Tu n'as pas encore enregistré de trajet aujourd'hui 🚴",
   icon: "/icons/icon-192.png",
   url: "/",

@@ -83,8 +83,8 @@ export function StatsPage() {
         <span className="text-lg font-bold tracking-tight text-primary-light">
           Stats
         </span>
-        <span className="text-xl font-bold tracking-tighter text-primary-light">
-          EcoRide
+        <span className="text-xl font-bold tracking-tighter">
+          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>
       </header>
 
@@ -199,22 +199,22 @@ export function StatsPage() {
           <div className="rounded-xl border border-outline-variant/10 bg-surface-low p-4">
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={weeklyData}>
-                <CartesianGrid stroke="#1E1E1E" strokeDasharray="3 3" vertical={false} />
+                <CartesianGrid stroke="#2e3842" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="day"
-                  tick={{ fill: "#8A8A8A", fontSize: 11, fontWeight: 600 }}
+                  tick={{ fill: "#8a9ba8", fontSize: 11, fontWeight: 600 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#1a1919",
-                    border: "1px solid #2a2a2a",
+                    backgroundColor: "#283240",
+                    border: "1px solid #333e47",
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  labelStyle={{ color: "#8A8A8A", fontWeight: 600 }}
-                  itemStyle={{ color: "#00C896" }}
+                  labelStyle={{ color: "#8a9ba8", fontWeight: 600 }}
+                  itemStyle={{ color: "#2ecc71" }}
                   formatter={(value) => [
                     `${Number(value).toFixed(1)} ${metric === "km" ? "km" : metric === "co2" ? "kg" : "€"}`,
                     metricLabels[metric],
@@ -223,10 +223,10 @@ export function StatsPage() {
                 <Line
                   type="monotone"
                   dataKey={metric}
-                  stroke="#00C896"
+                  stroke="#2ecc71"
                   strokeWidth={2.5}
-                  dot={{ fill: "#00C896", r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: "#42e5b0", strokeWidth: 0 }}
+                  dot={{ fill: "#2ecc71", r: 4, strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: "#54e98a", strokeWidth: 0 }}
                 />
               </LineChart>
             </ResponsiveContainer>

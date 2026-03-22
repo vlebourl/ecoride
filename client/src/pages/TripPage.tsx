@@ -94,8 +94,8 @@ export function TripPage() {
     <div className="relative flex h-full flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
-        <span className="text-lg font-bold tracking-tight text-primary-light">
-          EcoRide
+        <span className="text-lg font-bold tracking-tight">
+          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>
       </header>
 
@@ -107,7 +107,7 @@ export function TripPage() {
           zoomControl={false}
           attributionControl={false}
           className="h-full w-full"
-          style={{ background: "#131313" }}
+          style={{ background: "#232d35" }}
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -116,14 +116,14 @@ export function TripPage() {
           {positions.length > 1 && (
             <Polyline
               positions={positions as LatLngExpression[]}
-              pathOptions={{ color: "#00C896", weight: 4, opacity: 0.9 }}
+              pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
             />
           )}
           <CircleMarker
             center={currentPos as LatLngExpression}
             radius={8}
             pathOptions={{
-              fillColor: "#00C896",
+              fillColor: "#2ecc71",
               fillOpacity: 1,
               color: "#ffffff",
               weight: 2,

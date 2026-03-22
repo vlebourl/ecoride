@@ -59,8 +59,8 @@ export function LoginPage() {
         <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/15">
           <Bike size={40} className="text-primary-light" />
         </div>
-        <h1 className="text-4xl font-black tracking-tighter text-primary-light">
-          EcoRide
+        <h1 className="text-4xl font-black tracking-tighter">
+          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </h1>
         <p className="text-center text-sm text-text-muted">
           Suivez vos trajets vélo et vos économies CO₂
@@ -96,9 +96,9 @@ export function LoginPage() {
 
         {/* Separator */}
         <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-[#2a2a2a]" />
+          <div className="h-px flex-1 bg-surface-high" />
           <span className="text-sm text-text-muted">ou</span>
-          <div className="h-px flex-1 bg-[#2a2a2a]" />
+          <div className="h-px flex-1 bg-surface-high" />
         </div>
 
         {/* Email/Password Form */}
@@ -110,7 +110,7 @@ export function LoginPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="rounded-xl border border-[#2a2a2a] bg-[#141414] px-4 py-3 text-white placeholder-[#8A8A8A] outline-none focus:border-[#00C896]"
+              className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary"
             />
           )}
           <input
@@ -119,7 +119,7 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="rounded-xl border border-[#2a2a2a] bg-[#141414] px-4 py-3 text-white placeholder-[#8A8A8A] outline-none focus:border-[#00C896]"
+            className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary"
           />
           <input
             type="password"
@@ -128,7 +128,7 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            className="rounded-xl border border-[#2a2a2a] bg-[#141414] px-4 py-3 text-white placeholder-[#8A8A8A] outline-none focus:border-[#00C896]"
+            className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary"
           />
 
           {error && (
@@ -138,7 +138,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 rounded-xl bg-[#00C896] py-3 font-bold text-black active:scale-95 disabled:opacity-50"
+            className="mt-1 rounded-xl bg-primary py-3 font-bold text-black active:scale-95 disabled:opacity-50"
           >
             {loading
               ? "Chargement..."
@@ -157,7 +157,7 @@ export function LoginPage() {
               setIsRegister(!isRegister);
               setError("");
             }}
-            className="text-[#00C896] underline"
+            className="text-primary underline"
           >
             {isRegister ? "Se connecter" : "Créer un compte"}
           </button>

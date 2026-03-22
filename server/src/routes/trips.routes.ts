@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { eq, and, desc, gte, lte, count, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, lt, gt, count, sql } from "drizzle-orm";
 import { db } from "../db";
 import { trips } from "../db/schema";
 import { user } from "../db/schema/auth";
@@ -29,6 +29,41 @@ tripsRouter.post(
   async (c) => {
     const data = c.req.valid("json");
     const currentUser = c.get("user");
+
+    // Idempotency: if key provided and trip already exists, return it
+    if (data.idempotencyKey) {
+      const [existing] = await db
+        .select({ id: trips.id })
+        .from(trips)
+        .where(and(
+          eq(trips.userId, currentUser.id),
+          eq(trips.idempotencyKey, data.idempotencyKey),
+        ))
+        .limit(1);
+      if (existing) {
+        return c.json({ ok: true, data: { trip: existing } }, 200);
+      }
+    }
+
+    // Reject trips that overlap in time with an existing trip
+    const [overlap] = await db
+      .select({ id: trips.id })
+      .from(trips)
+      .where(
+        and(
+          eq(trips.userId, currentUser.id),
+          lt(trips.startedAt, new Date(data.endedAt)),
+          gt(trips.endedAt, new Date(data.startedAt)),
+        )
+      )
+      .limit(1);
+
+    if (overlap) {
+      return c.json({
+        ok: false,
+        error: { code: "VALIDATION_ERROR", message: "Ce trajet chevauche un trajet existant." }
+      }, 409);
+    }
 
     // Get user's vehicle profile for savings calculation
     const [profile] = await db
@@ -68,6 +103,7 @@ tripsRouter.post(
       startedAt: new Date(data.startedAt),
       endedAt: new Date(data.endedAt),
       gpsPoints: data.gpsPoints ?? null,
+      idempotencyKey: data.idempotencyKey ?? null,
     }).returning();
 
     // Evaluate badge thresholds and unlock any newly earned achievements

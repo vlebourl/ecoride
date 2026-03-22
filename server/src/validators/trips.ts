@@ -12,6 +12,7 @@ export const createTripSchema = z.object({
   startedAt: z.string().datetime(),
   endedAt: z.string().datetime(),
   gpsPoints: z.array(gpsPointSchema).max(10000).nullable().optional(),
+  idempotencyKey: z.string().uuid().optional(),
 }).refine(
   (data) => new Date(data.startedAt) < new Date(data.endedAt),
   { message: "startedAt must be before endedAt", path: ["startedAt"] }

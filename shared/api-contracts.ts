@@ -44,6 +44,7 @@ export interface CreateTripRequest {
   startedAt: string;  // ISO 8601
   endedAt: string;    // ISO 8601
   gpsPoints?: GpsPoint[] | null;
+  idempotencyKey?: string;
 }
 
 export interface UpdateUserRequest {

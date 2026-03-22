@@ -6,45 +6,30 @@ Audit réalisé le 2026-03-22. Objectif : test grandeur nature lundi 2026-03-23.
 
 ## 🔴 Bloquants (avant test lundi)
 
-- [ ] **B1 — Brancher le vrai GPS dans TripPage**
-  `TripPage.tsx` utilise `setInterval` + `Math.random()` pour simuler les positions.
-  Le vrai hook `useGpsTracking.ts` (watchPosition, haversine, wake lock) existe dans `/frontend/`
-  mais n'est pas intégré dans `/client/`.
-  → Intégrer `useGpsTracking` + `useWakeLock` + haversine dans TripPage.
-  Fichiers : `client/src/pages/TripPage.tsx`, `frontend/src/hooks/useGpsTracking.ts`
+- [x] **B1 — Brancher le vrai GPS dans TripPage** — PR #6, déployé 2026-03-22
+  watchPosition + haversine + wake lock + gpsPoints envoyés au serveur.
 
-- [ ] **B2 — Implémenter le déblocage automatique des badges**
-  Table `achievements` et GET endpoint existent, mais aucune logique d'unlock.
-  Pas de POST, pas de trigger après création de trajet. Les badges restent vides.
-  → Ajouter évaluation des badges après chaque `POST /api/trips` (first_trip, km_100, co2_10kg, streak_7…).
-  Fichiers : `server/src/routes/trips.routes.ts`, `server/src/routes/achievements.routes.ts`, `shared/types.ts`
+- [x] **B2 — Implémenter le déblocage automatique des badges** — PR #5, déployé 2026-03-22
+  Évaluation des 12 seuils après chaque trip, ON CONFLICT DO NOTHING.
 
-- [ ] **B3 — Utiliser la conso profil pour l'affichage CO₂ temps réel**
-  `TripPage.tsx:69` hardcode `distance * 0.065 * 2.31` (6.5 L/100km).
-  → Récupérer `consumptionL100` du profil utilisateur et l'utiliser dans le calcul live.
-  Fichiers : `client/src/pages/TripPage.tsx`, `client/src/hooks/queries.ts`
+- [x] **B3 — Utiliser la conso profil pour l'affichage CO₂ temps réel** — PR #3, déployé 2026-03-22
+  Utilise `useProfile()` + `CO2_KG_PER_LITER`, fallback 7 L/100km (= serveur).
 
 ---
 
 ## 🟠 Importants (fort impact UX / fiabilité)
 
-- [ ] **I1 — Ajouter une page 404**
-  Routes invalides → écran blanc. Ajouter un catch-all dans React Router.
-  Fichier : `client/src/App.tsx`
+- [x] **I1 — Ajouter une page 404** — PR #4, déployé 2026-03-22
+  Catch-all route + NotFoundPage.
 
-- [ ] **I2 — Ajouter un Error Boundary React**
-  Erreur JS dans un composant → crash complet, écran blanc.
-  → Wrapper `<ErrorBoundary>` autour des routes dans App.tsx.
-  Fichier : `client/src/App.tsx`
+- [x] **I2 — Ajouter un Error Boundary React** — PR #4, déployé 2026-03-22
+  ErrorBoundary class component wrappant l'app dans main.tsx.
 
-- [ ] **I3 — Valider startedAt < endedAt côté serveur**
-  Le serveur accepte un trajet où la date de fin est avant la date de début.
-  → Ajouter `.refine()` dans le schéma Zod.
-  Fichier : `server/src/validators/trips.ts`
+- [x] **I3 — Valider startedAt < endedAt côté serveur** — PR #2, déployé 2026-03-22
+  `.refine()` Zod sur le schéma de création de trip.
 
-- [ ] **I4 — Limiter distanceKm max**
-  `z.number().positive()` accepte 99 999 km. Ajouter `.max(500)`.
-  Fichier : `server/src/validators/trips.ts`
+- [x] **I4 — Limiter distanceKm max** — PR #2, déployé 2026-03-22
+  `.max(500)` + `durationSec.min(1)`.
 
 - [ ] **I5 — Timezone des streaks**
   `stats.routes.ts:56` calcule "aujourd'hui" en timezone serveur, pas utilisateur.
@@ -92,10 +77,8 @@ Audit réalisé le 2026-03-22. Objectif : test grandeur nature lundi 2026-03-23.
   PWA installable mais aucun offline queue : un trajet créé sans réseau est perdu.
   → Implémenter une file IndexedDB + sync au retour réseau.
 
-- [ ] **S7 — Aligner le défaut de consommation client/serveur**
-  Client preview : 6.5 L/100km. Serveur fallback : 7 L/100km.
-  → Unifier à 7 L/100km ou exposer le défaut serveur au client.
-  Fichiers : `client/src/pages/TripPage.tsx`, `server/src/routes/trips.routes.ts`
+- [x] **S7 — Aligner le défaut de consommation client/serveur** — résolu par PR #3
+  Client et serveur utilisent maintenant 7 L/100km comme défaut.
 
 ---
 
@@ -109,5 +92,10 @@ Audit réalisé le 2026-03-22. Objectif : test grandeur nature lundi 2026-03-23.
 - Push notifications (VAPID, souscription, cron rappels)
 - Profil véhicule configurable (type carburant, conso, opt-out leaderboard)
 - Leaderboard (agrégation SQL réelle, respecte opt-out)
-- Docker multi-stage + Coolify auto-deploy
-- Validation Zod sur tous les endpoints
+- Docker multi-stage + Coolify auto-deploy (runner self-hosted dédié ecoride)
+- Validation Zod sur tous les endpoints (+ contraintes max distance, durée, dates)
+- CI GitHub Actions : typecheck + vitest (corrigé PR #1)
+- Charte graphique Luminous Carbon (charcoal #1e272e + leaf green #2ecc71 + white)
+- GPS réel avec watchPosition, haversine, wake lock
+- Badges auto-unlock après chaque trajet (12 seuils)
+- Error boundary + page 404

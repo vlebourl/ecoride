@@ -11,6 +11,7 @@ import { calculateSavings } from "../lib/calculations";
 import { getFuelPrice } from "../lib/fuel-price";
 import { notFound, forbidden } from "../lib/errors";
 import { paginationToOffset, buildPagination } from "../lib/pagination";
+import { rateLimit } from "../lib/rate-limit";
 import { evaluateAndUnlockBadges, reevaluateBadges } from "../lib/badges";
 import { sendPushToUser } from "../lib/push";
 import { checkLeaderboardChanges } from "../lib/leaderboard-notifications";
@@ -20,9 +21,10 @@ import type { AuthEnv } from "../types/context";
 
 const tripsRouter = new Hono<AuthEnv>();
 
-// POST /api/trips — Create trip
+// POST /api/trips — Create trip (strict: 10 req/min)
 tripsRouter.post(
   "/",
+  rateLimit({ maxRequests: 10, prefix: "trips-create" }),
   zValidator("json", createTripSchema, validationHook),
   async (c) => {
     const data = c.req.valid("json");

@@ -11,12 +11,14 @@ import type {
 
 // ---- Queries ----
 
+const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export function useDashboardSummary(period: StatsPeriod = "week") {
   return useQuery({
     queryKey: ["stats", "summary", period],
     queryFn: () =>
       apiFetch<{ ok: boolean; data: StatsSummaryResponse }>(
-        `/stats/summary?period=${period}`,
+        `/stats/summary?period=${period}&tz=${encodeURIComponent(browserTz)}`,
       ).then((r) => r.data),
   });
 }

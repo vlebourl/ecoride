@@ -1,6 +1,16 @@
-# EcoRide
+# ecoRide
 
 PWA mobile-first de suivi de trajets vélo avec calcul d'économies CO₂, argent et essence.
+
+## Aperçu
+
+<p align="center">
+  <img src="docs/screenshots/login.png" width="180" alt="Login" />
+  <img src="docs/screenshots/dashboard.png" width="180" alt="Dashboard" />
+  <img src="docs/screenshots/trajet.png" width="180" alt="Trajet" />
+  <img src="docs/screenshots/classement.png" width="180" alt="Classement" />
+  <img src="docs/screenshots/profil.png" width="180" alt="Profil" />
+</p>
 
 ## Stack
 

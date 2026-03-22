@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
-import { Play, Square, Keyboard, AlertTriangle, CloudOff } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Play, Square, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
+import { useBlocker } from "react-router";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
-import { useGpsTracking } from "@/hooks/useGpsTracking";
-import type { TrackingSession } from "@/hooks/useGpsTracking";
+import { useGpsTracking, getTrackingBackup, clearTrackingBackup } from "@/hooks/useGpsTracking";
+import type { TrackingSession, TrackingBackup } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
@@ -26,10 +27,40 @@ export function TripPage() {
   const [saveError, setSaveError] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
   const [initialPos, setInitialPos] = useState<[number, number]>(DEFAULT_CENTER);
+  const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
   const sessionRef = useRef<TrackingSession | null>(null);
   const createTrip = useCreateTrip();
   const { data: profileData } = useProfile();
   const gps = useGpsTracking();
+
+  // Fix 1.3: Check for tracking backup on mount
+  useEffect(() => {
+    const backup = getTrackingBackup();
+    if (backup) {
+      setPendingBackup(backup);
+    }
+  }, []);
+
+  // Fix 1.7: Navigation guard — beforeunload for browser close/refresh
+  useEffect(() => {
+    if (uiState !== "tracking") return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [uiState]);
+
+  // Fix 1.7: Navigation guard — React Router in-app navigation blocker
+  useBlocker(
+    useCallback(
+      () => {
+        if (uiState !== "tracking") return false;
+        return !window.confirm("Vous avez un trajet en cours. Quitter cette page ?");
+      },
+      [uiState],
+    ),
+  );
 
   // Get user's real position on page load (one-shot)
   useEffect(() => {
@@ -62,6 +93,19 @@ export function TripPage() {
     const session = gps.stop();
     sessionRef.current = session;
     setUiState("stopped");
+  };
+
+  // Fix 1.3: Restore tracking from backup
+  const handleRestore = () => {
+    if (!pendingBackup) return;
+    gps.restore(pendingBackup);
+    setUiState("tracking");
+    setPendingBackup(null);
+  };
+
+  const handleDismissBackup = () => {
+    clearTrackingBackup();
+    setPendingBackup(null);
   };
 
   const formatTime = (sec: number) => {
@@ -120,6 +164,32 @@ export function TripPage() {
           <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>
       </header>
+
+      {/* Fix 1.3: Recovery banner for interrupted trip */}
+      {pendingBackup && uiState === "idle" && (
+        <div className="z-50 flex items-center gap-3 bg-primary/20 px-6 py-3">
+          <RotateCcw size={16} className="shrink-0 text-primary-light" />
+          <div className="flex-1">
+            <span className="text-sm font-medium text-primary-light">
+              Un trajet en cours a été interrompu.{" "}
+              {pendingBackup.distanceKm.toFixed(1)} km — {formatTime(pendingBackup.durationSec)}
+            </span>
+          </div>
+          <button
+            onClick={handleRestore}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-bg"
+          >
+            Reprendre
+          </button>
+          <button
+            onClick={handleDismissBackup}
+            className="rounded-lg p-1.5 text-primary-light hover:bg-primary/10"
+            aria-label="Fermer"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* GPS Error banner */}
       {gps.state.error && (
@@ -317,9 +387,11 @@ export function TripPage() {
       {/* Action buttons */}
       {uiState === "idle" && (
         <div className="space-y-3 px-6 pb-6">
+          {/* Fix 1.6: Disable start button during tracking */}
           <button
             onClick={startTracking}
-            className="flex w-full items-center justify-center gap-4 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"
+            disabled={uiState !== "idle"}
+            className="flex w-full items-center justify-center gap-4 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 disabled:opacity-50"
           >
             <Play size={28} className="text-bg" fill="currentColor" />
             <span className="text-xl font-black uppercase tracking-widest text-bg">

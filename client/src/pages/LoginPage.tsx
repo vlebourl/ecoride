@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { signIn, signUp } from "@/lib/auth";
 import appLogo from "/pwa-192x192.png?url";
 
@@ -159,6 +159,13 @@ export function LoginPage() {
           >
             {isRegister ? "Se connecter" : "Créer un compte"}
           </button>
+        </p>
+
+        {/* Privacy policy */}
+        <p className="mt-6 text-center text-xs text-text-muted">
+          <Link to="/privacy" className="underline hover:text-text">
+            Politique de confidentialit&eacute;
+          </Link>
         </p>
       </div>
     </div>

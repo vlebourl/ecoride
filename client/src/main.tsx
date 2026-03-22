@@ -7,21 +7,34 @@ import { App } from "./App";
 import "./app.css";
 
 // Purge all SW caches when app version changes
+async function purgeAndReload() {
+  const names = await caches.keys();
+  await Promise.all(names.map((n) => caches.delete(n)));
+  const regs = await navigator.serviceWorker?.getRegistrations();
+  if (regs) await Promise.all(regs.map((r) => r.unregister()));
+  window.location.reload();
+}
+
 (async () => {
   const CACHE_VERSION_KEY = "ecoride-version";
   const prev = localStorage.getItem(CACHE_VERSION_KEY);
   if (prev !== __APP_VERSION__) {
     localStorage.setItem(CACHE_VERSION_KEY, __APP_VERSION__);
-    if (prev !== null) {
-      // Version changed — nuke all caches and reload once
-      const names = await caches.keys();
-      await Promise.all(names.map((n) => caches.delete(n)));
-      const regs = await navigator.serviceWorker?.getRegistrations();
-      if (regs) await Promise.all(regs.map((r) => r.unregister()));
-      window.location.reload();
-    }
+    if (prev !== null) await purgeAndReload();
   }
 })();
+
+// Poll server for new version every 5 minutes (catches updates while app stays open)
+setInterval(async () => {
+  try {
+    const res = await fetch("/api/health");
+    const data = await res.json();
+    if (data.version && data.version !== __APP_VERSION__) {
+      localStorage.setItem("ecoride-version", data.version);
+      await purgeAndReload();
+    }
+  } catch { /* offline or error — ignore */ }
+}, 5 * 60 * 1000);
 
 const queryClient = new QueryClient({
   defaultOptions: {

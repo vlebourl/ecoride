@@ -37,8 +37,12 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => {
   return auth.handler(c.req.raw);
 });
 
-// ---- Health check (public) ----
-app.get("/api/health", (c) => c.json({ ok: true, status: "healthy" }));
+// ---- Health check + version (public) ----
+const appVersion = (() => {
+  try { return require("../../package.json").version; }
+  catch { return "unknown"; }
+})();
+app.get("/api/health", (c) => c.json({ ok: true, status: "healthy", version: appVersion }));
 
 // ---- Auth middleware for all other /api routes ----
 app.use("/api/*", authMiddleware);

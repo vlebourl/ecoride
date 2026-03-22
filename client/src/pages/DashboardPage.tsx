@@ -7,6 +7,7 @@ import { ImpactMeter } from "@/components/ui/ImpactMeter";
 import { useDashboardSummary, useTrips, useDeleteTrip } from "@/hooks/queries";
 import type { StatsPeriod } from "@ecoride/shared/api-contracts";
 import type { Trip } from "@ecoride/shared/types";
+import appLogo from "/pwa-192x192.png?url";
 
 type Period = "day" | "week" | "month";
 
@@ -18,6 +19,7 @@ export function DashboardPage() {
   const deleteTrip = useDeleteTrip();
 
   const recentTrips = tripsData?.trips ?? [];
+  const hasNoTrips = recentTrips.length === 0 && s?.tripCount === 0;
 
   if (isPending || !s) {
     return (
@@ -27,7 +29,6 @@ export function DashboardPage() {
     );
   }
 
-  const hasNoTrips = s.tripCount === 0;
 
   return (
     <>
@@ -40,7 +41,7 @@ export function DashboardPage() {
 
       {hasNoTrips ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
-          <img src="/pwa-192x192.png" alt="ecoRide" className="h-20 w-20 rounded-2xl" />
+          <img src={appLogo} alt="ecoRide" className="h-20 w-20 rounded-2xl" />
           <div className="flex flex-col items-center gap-2 text-center">
             <h2 className="text-2xl font-bold">
               Bienvenue sur{" "}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-
 import { signIn, signUp } from "@/lib/auth";
+import appLogo from "/pwa-192x192.png?url";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -56,7 +56,7 @@ export function LoginPage() {
     <div className="flex min-h-dvh flex-col items-center justify-center bg-bg px-6">
       {/* Logo */}
       <div className="mb-12 flex flex-col items-center gap-4">
-        <img src="/pwa-192x192.png" alt="ecoRide" className="h-20 w-20 rounded-2xl" />
+        <img src={appLogo} alt="ecoRide" className="h-20 w-20 rounded-2xl" />
         <h1 className="text-4xl font-black tracking-tighter">
           <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </h1>

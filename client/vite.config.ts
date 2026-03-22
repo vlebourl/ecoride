@@ -31,6 +31,7 @@ export default defineConfig({
         name: "ecoRide",
         short_name: "ecoRide",
         description: "Suivez vos trajets vélo et vos économies CO₂",
+        lang: "fr",
         theme_color: "#1e272e",
         background_color: "#1e272e",
         display: "standalone",
@@ -40,6 +41,10 @@ export default defineConfig({
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
           { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
           { src: "pwa-maskable-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+        shortcuts: [
+          { name: "Démarrer un trajet", short_name: "Trajet", url: "/trip", icons: [{ src: "pwa-192x192.png", sizes: "192x192" }] },
+          { name: "Voir les stats", short_name: "Stats", url: "/stats", icons: [{ src: "pwa-192x192.png", sizes: "192x192" }] },
         ],
       },
       workbox: {

@@ -2,7 +2,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Play, Square, Keyboard } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
-import { useCreateTrip } from "@/hooks/queries";
+import { useCreateTrip, useProfile } from "@/hooks/queries";
+import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -26,6 +27,7 @@ export function TripPage() {
   const timerRef = useRef<ReturnType<typeof setInterval>>(null);
   const startTimeRef = useRef<Date>(new Date());
   const createTrip = useCreateTrip();
+  const { data: profileData } = useProfile();
 
   const startTracking = useCallback(() => {
     setState("tracking");
@@ -66,7 +68,8 @@ export function TripPage() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const co2Saved = distance * 0.065 * 2.31;
+  const consumptionL100 = profileData?.user.consumptionL100 ?? 7; // Default 7 L/100km (matches server)
+  const co2Saved = distance * (consumptionL100 / 100) * CO2_KG_PER_LITER;
 
   const handleSaveTrip = (km: number, durationSec: number) => {
     const endedAt = new Date();

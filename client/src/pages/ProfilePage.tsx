@@ -138,7 +138,7 @@ export function ProfilePage() {
         {/* Stats Bento Grid */}
         <section className="grid grid-cols-2 gap-4">
           <div className="group relative col-span-2 overflow-hidden rounded-lg bg-surface-low p-6">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary/70">
               Total CO₂ Économisé
             </p>
             <div className="mt-2 flex items-baseline gap-2">
@@ -151,7 +151,7 @@ export function ProfilePage() {
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
               Distance
             </p>
             <div className="mt-1 flex items-baseline gap-1">
@@ -164,7 +164,7 @@ export function ProfilePage() {
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
               Trajets
             </p>
             <div className="mt-1 flex items-baseline gap-1">
@@ -174,7 +174,7 @@ export function ProfilePage() {
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
               Carburant
             </p>
             <div className="mt-1 flex items-baseline gap-1">
@@ -187,7 +187,7 @@ export function ProfilePage() {
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
               Economisé
             </p>
             <div className="mt-1 flex items-baseline gap-1">
@@ -221,7 +221,7 @@ export function ProfilePage() {
                   {fuelPrice.fuelType.toUpperCase()}
                 </span>
               </div>
-              <p className="text-[10px] text-text-muted">
+              <p className="text-xs text-text-muted">
                 {fuelPrice.stationName ? fuelPrice.stationName : "Prix moyen national"}
               </p>
             </div>
@@ -253,7 +253,7 @@ export function ProfilePage() {
                   >
                     <span className="text-2xl">{badge.icon}</span>
                   </div>
-                  <span className="text-center text-[10px] font-bold uppercase leading-tight text-text-muted">
+                  <span className="text-center text-xs font-bold uppercase leading-tight text-text-muted">
                     {badge.label}
                   </span>
                 </div>
@@ -270,7 +270,7 @@ export function ProfilePage() {
             </h2>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
                   Modèle
                 </label>
                 <input
@@ -281,7 +281,7 @@ export function ProfilePage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
                   Carburant
                 </label>
                 <select
@@ -297,7 +297,7 @@ export function ProfilePage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
                   Consommation (L/100km)
                 </label>
                 <input
@@ -350,7 +350,7 @@ export function ProfilePage() {
             {showPersonalInfo && (
               <div className="space-y-3 px-4 pb-4">
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
                     Nom
                   </label>
                   <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
@@ -358,7 +358,7 @@ export function ProfilePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
                     Email
                   </label>
                   <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
@@ -366,7 +366,7 @@ export function ProfilePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
                     Membre depuis
                   </label>
                   <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
@@ -407,13 +407,13 @@ export function ProfilePage() {
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-medium">Notifications</span>
                   {push.status === "unsupported" && (
-                    <span className="text-[10px] text-text-dim">Non supporté par ce navigateur</span>
+                    <span className="text-xs text-text-dim">Non supporté par ce navigateur</span>
                   )}
                   {push.status === "denied" && (
-                    <span className="text-[10px] text-text-dim">Autorisation refusée dans les paramètres du navigateur</span>
+                    <span className="text-xs text-text-dim">Autorisation refusée dans les paramètres du navigateur</span>
                   )}
                   {push.status === "subscribed" && (
-                    <span className="text-[10px] text-primary/70">Activées</span>
+                    <span className="text-xs text-primary/70">Activées</span>
                   )}
                 </div>
               </div>
@@ -473,7 +473,7 @@ export function ProfilePage() {
             </div>
           </button>
 
-          <p className="mt-4 text-center text-[10px] text-text-dim">
+          <p className="mt-4 text-center text-xs text-text-dim">
             v{__APP_VERSION__}
           </p>
         </section>

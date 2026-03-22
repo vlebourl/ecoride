@@ -64,14 +64,14 @@ export function LeaderboardPage() {
                     {top3[1].name.charAt(0)}
                   </span>
                 </div>
-                <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-high text-[10px] font-bold text-text">
+                <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-high text-xs font-bold text-text">
                   2
                 </div>
               </div>
               <span className="w-full truncate text-center text-xs font-bold">
                 {top3[1].name}
               </span>
-              <span className="mt-1 text-[10px] font-black uppercase tracking-widest text-primary-light">
+              <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
                 {top3[1].totalCo2SavedKg} KG
               </span>
             </div>
@@ -108,14 +108,14 @@ export function LeaderboardPage() {
                     {top3[2].name.charAt(0)}
                   </span>
                 </div>
-                <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-highest text-[10px] font-bold text-text-muted">
+                <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-highest text-xs font-bold text-text-muted">
                   3
                 </div>
               </div>
               <span className="w-full truncate text-center text-xs font-bold">
                 {top3[2].name}
               </span>
-              <span className="mt-1 text-[10px] font-black uppercase tracking-widest text-primary-light">
+              <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
                 {top3[2].totalCo2SavedKg} KG
               </span>
             </div>

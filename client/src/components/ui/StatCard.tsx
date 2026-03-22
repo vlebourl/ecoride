@@ -14,7 +14,7 @@ export function StatCard({ icon: Icon, value, unit }: StatCardProps) {
         <div className="text-lg font-black leading-none tracking-tight">
           {value}
         </div>
-        <div className="mt-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+        <div className="mt-1 text-xs font-medium uppercase tracking-wider text-text-muted">
           {unit}
         </div>
       </div>

@@ -31,7 +31,7 @@ export default defineConfig({
         name: "ecoRide",
         short_name: "ecoRide",
         description: "Suivez vos trajets vélo et vos économies CO₂",
-        theme_color: "#2ecc71",
+        theme_color: "#1e272e",
         background_color: "#1e272e",
         display: "standalone",
         orientation: "portrait",

@@ -17,14 +17,14 @@ const tabs = [
 
 export function BottomNav() {
   return (
-    <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-surface/90 px-4 pb-8 pt-3 backdrop-blur-2xl border-t border-outline-variant/10">
+    <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-surface/90 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0.5rem))] pt-3 backdrop-blur-2xl border-t border-outline-variant/10">
       {tabs.map(({ to, icon: Icon, label }) => (
         <NavLink
           key={to}
           to={to}
           end={to === "/"}
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center gap-1 transition-all duration-150 active:scale-90 ${
+            `flex flex-col items-center justify-center gap-1 min-h-[44px] transition-all duration-150 active:scale-90 ${
               isActive
                 ? "text-primary-light rounded-2xl bg-primary/10 px-3 py-1.5"
                 : "text-text-dim hover:text-text-muted px-2 py-1.5"
@@ -33,8 +33,8 @@ export function BottomNav() {
         >
           {({ isActive }) => (
             <>
-              <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
-              <span className="text-[10px] font-bold uppercase tracking-widest">
+              <Icon size={24} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
+              <span className="text-xs font-bold uppercase tracking-widest">
                 {label}
               </span>
             </>

@@ -154,7 +154,7 @@ export function StatsPage() {
         <section className="space-y-6">
           <div className="flex items-end justify-between">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+              <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                 Ce mois
               </span>
               <h2 className="text-3xl font-extrabold tracking-tight">
@@ -245,7 +245,7 @@ export function StatsPage() {
               <button
                 key={m}
                 onClick={() => setMetric(m)}
-                className={`rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                className={`rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                   m === metric
                     ? "bg-primary/20 text-primary-light"
                     : "bg-surface-high text-text-muted"
@@ -315,7 +315,7 @@ export function StatsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-bold">{tripLabel(trip.startedAt)}</p>
-                    <p className="text-[10px] font-medium text-on-surface-variant">
+                    <p className="text-xs font-medium text-on-surface-variant">
                       {new Date(trip.startedAt).toLocaleDateString("fr-FR", {
                         day: "numeric",
                         month: "short",
@@ -327,7 +327,7 @@ export function StatsPage() {
                   <p className="text-sm font-bold text-primary-light">
                     +{trip.distanceKm} KM
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-tighter text-on-surface-variant">
+                  <p className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
                     {trip.co2SavedKg.toFixed(1)} KG CO₂
                   </p>
                 </div>
@@ -365,7 +365,7 @@ export function StatsPage() {
                   >
                     <span className="text-2xl">{badge.icon}</span>
                   </div>
-                  <span className="text-center text-[10px] font-bold uppercase leading-tight text-text-muted">
+                  <span className="text-center text-xs font-bold uppercase leading-tight text-text-muted">
                     {badge.label}
                   </span>
                 </div>
@@ -389,7 +389,7 @@ export function StatsPage() {
 
           {/* Sheet */}
           <div
-            className="relative w-full max-w-lg rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
+            className="relative w-full max-w-lg overflow-y-auto max-h-[85vh] rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}
@@ -428,15 +428,15 @@ export function StatsPage() {
             <div className="mb-6 grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-xl font-bold text-primary-light">{selectedTrip.distanceKm}</p>
-                <p className="text-[10px] font-bold uppercase text-text-muted">km</p>
+                <p className="text-xs font-bold uppercase text-text-muted">km</p>
               </div>
               <div>
                 <p className="text-xl font-bold text-primary-light">{selectedTrip.co2SavedKg.toFixed(1)}</p>
-                <p className="text-[10px] font-bold uppercase text-text-muted">kg CO₂</p>
+                <p className="text-xs font-bold uppercase text-text-muted">kg CO₂</p>
               </div>
               <div>
                 <p className="text-xl font-bold text-primary-light">{selectedTrip.moneySavedEur.toFixed(2)}</p>
-                <p className="text-[10px] font-bold uppercase text-text-muted">€</p>
+                <p className="text-xs font-bold uppercase text-text-muted">€</p>
               </div>
             </div>
 

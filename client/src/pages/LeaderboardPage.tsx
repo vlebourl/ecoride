@@ -1,3 +1,4 @@
+import { Trophy } from "lucide-react";
 import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
 
@@ -38,6 +39,20 @@ export function LeaderboardPage() {
           </p>
         </section>
 
+        {entries.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 py-20">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <Trophy size={40} className="text-primary-light" />
+            </div>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <h3 className="text-xl font-bold">Pas encore de classement</h3>
+              <p className="max-w-xs text-sm text-text-muted">
+                Enregistrez des trajets pour apparaître ici.
+              </p>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Podium */}
         <section className="mb-12 grid grid-cols-3 items-end gap-4">
           {/* Rank 2 */}
@@ -156,6 +171,8 @@ export function LeaderboardPage() {
             );
           })}
         </div>
+        </>
+        )}
       </div>
     </>
   );

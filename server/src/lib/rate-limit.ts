@@ -21,16 +21,25 @@ setInterval(() => {
 
 /**
  * Extract client IP from request, accounting for reverse proxies.
+ *
+ * Prefer Cloudflare's cf-connecting-ip (set by Cloudflare and cannot be
+ * spoofed by the client), then x-real-ip (set by Nginx), then the first
+ * entry of x-forwarded-for, and finally fall back to "unknown".
  */
 function getClientIp(req: Request): string {
-  // Behind reverse proxy (Cloudflare / Nginx), the real IP is in x-forwarded-for
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    // x-forwarded-for may contain multiple IPs: "client, proxy1, proxy2"
-    return forwarded.split(",")[0]!.trim();
-  }
+  // Cloudflare sets this header; it cannot be spoofed by the client
+  const cfIp = req.headers.get("cf-connecting-ip");
+  if (cfIp) return cfIp.trim();
+
   const realIp = req.headers.get("x-real-ip");
   if (realIp) return realIp.trim();
+
+  // x-forwarded-for may contain multiple IPs: "client, proxy1, proxy2"
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0]!.trim();
+  }
+
   return "unknown";
 }
 

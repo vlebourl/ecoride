@@ -12,6 +12,10 @@ import { getFuelPrice } from "../lib/fuel-price";
 import { notFound, forbidden } from "../lib/errors";
 import { paginationToOffset, buildPagination } from "../lib/pagination";
 import { evaluateAndUnlockBadges, reevaluateBadges } from "../lib/badges";
+import { sendPushToUser } from "../lib/push";
+import { checkLeaderboardChanges } from "../lib/leaderboard-notifications";
+import { BADGES } from "@ecoride/shared/types";
+import type { BadgeId } from "@ecoride/shared/types";
 import type { AuthEnv } from "../types/context";
 
 const tripsRouter = new Hono<AuthEnv>();
@@ -58,6 +62,18 @@ tripsRouter.post(
 
     // Evaluate badge thresholds and unlock any newly earned achievements
     const newBadges = await evaluateAndUnlockBadges(currentUser.id);
+
+    // Fire-and-forget: push notifications for newly unlocked badges
+    for (const badgeId of newBadges) {
+      const badge = BADGES[badgeId as BadgeId];
+      sendPushToUser(currentUser.id, {
+        title: "ecoRide",
+        body: `Badge débloqué : ${badge.label} ${badge.icon}`,
+      }).catch(() => {});
+    }
+
+    // Fire-and-forget: check leaderboard overtakes
+    checkLeaderboardChanges(currentUser.id, savings.co2SavedKg).catch(() => {});
 
     return c.json({ ok: true, data: { trip, newBadges } }, 201);
   },

@@ -48,7 +48,7 @@ describe('computeImpactLevel', () => {
   })
   it('references are ordered ascending', () => {
     for (let i = 1; i < IMPACT_REFERENCES.length; i++) {
-      expect(IMPACT_REFERENCES[i].co2Kg).toBeGreaterThan(IMPACT_REFERENCES[i - 1].co2Kg)
+      expect(IMPACT_REFERENCES[i]!.co2Kg).toBeGreaterThan(IMPACT_REFERENCES[i - 1]!.co2Kg)
     }
   })
 })

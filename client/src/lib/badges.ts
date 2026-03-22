@@ -69,7 +69,9 @@ const CATEGORY_TO_STAT: Record<string, keyof UserStats> = {
 export function evaluateBadges(stats: UserStats): BadgeStatus[] {
   return BADGE_THRESHOLDS.map((bt) => {
     const badge = BADGES[bt.id]
-    const value = stats[CATEGORY_TO_STAT[bt.category]]
+    const statKey = CATEGORY_TO_STAT[bt.category]
+    if (!statKey) return null as never
+    const value = stats[statKey]
     return {
       id: bt.id,
       label: badge.label,

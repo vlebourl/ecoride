@@ -81,7 +81,7 @@ describe('fetchFuelPrice', () => {
   it('uses correct API field for diesel', async () => {
     mockFetch.mockReturnValueOnce(jsonResponse({ results: [{ avg_price: 1.55 }] }))
     await fetchFuelPrice('diesel')
-    const url = mockFetch.mock.calls[0][0] as string
+    const url = mockFetch.mock.calls[0]![0] as string
     expect(url).toContain('gazole_prix')
   })
 })

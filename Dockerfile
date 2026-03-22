@@ -23,6 +23,11 @@ COPY tsconfig.json drizzle.config.ts ./
 ENV GIT_HASH=$GIT_HASH
 RUN cd client && bun run build
 
+# Separate production dependencies from full node_modules
+RUN cp -r node_modules node_modules_full && \
+    rm -rf node_modules && \
+    bun install --frozen-lockfile --production
+
 # ---- Stage 2: Runtime ----
 FROM oven/bun:1-alpine AS runtime
 
@@ -32,7 +37,7 @@ WORKDIR /app
 # Without this, BuildKit caches the runtime stage even when the build stage changed
 ARG CACHEBUST=1
 
-# Copier tout depuis le build stage (node_modules inclus, avec drizzle-kit)
+# Copy only production node_modules (no devDependencies)
 COPY --from=build /app/node_modules node_modules/
 COPY --from=build /app/shared shared/
 COPY --from=build /app/server server/

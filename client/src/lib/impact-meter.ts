@@ -25,7 +25,7 @@ export function computeImpactLevel(totalCo2Kg: number): ImpactLevel {
   let remaining = co2
 
   for (let i = 0; i < IMPACT_REFERENCES.length; i++) {
-    const ref = IMPACT_REFERENCES[i]
+    const ref = IMPACT_REFERENCES[i]!
 
     if (remaining < ref.co2Kg) {
       return {
@@ -41,7 +41,7 @@ export function computeImpactLevel(totalCo2Kg: number): ImpactLevel {
     completed.push(ref)
   }
 
-  const lastRef = IMPACT_REFERENCES[IMPACT_REFERENCES.length - 1]
+  const lastRef = IMPACT_REFERENCES[IMPACT_REFERENCES.length - 1]!
   return {
     currentRef: lastRef,
     nextRef: null,

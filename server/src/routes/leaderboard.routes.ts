@@ -47,18 +47,22 @@ leaderboardRouter.get(
       ? [gte(trips.startedAt, periodStart)]
       : [];
 
+    const joinCondition = periodStart
+      ? and(eq(user.id, trips.userId), gte(trips.startedAt, periodStart))
+      : eq(user.id, trips.userId);
+
     const entries = await db
       .select({
         userId: user.id,
         name: user.name,
         image: user.image,
-        totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
+        totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
       })
       .from(user)
-      .innerJoin(trips, eq(user.id, trips.userId))
-      .where(and(...conditions, ...tripConditions))
+      .leftJoin(trips, joinCondition)
+      .where(and(...conditions))
       .groupBy(user.id, user.name, user.image)
-      .orderBy(desc(sum(trips.co2SavedKg)))
+      .orderBy(desc(sql`coalesce(${sum(trips.co2SavedKg)}, 0)`))
       .limit(limit);
 
     // Add rank

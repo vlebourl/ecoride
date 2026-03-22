@@ -177,3 +177,31 @@ export function useUpdateProfile() {
     },
   });
 }
+
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ ok: boolean }>("/user/profile", { method: "DELETE" }),
+  });
+}
+
+export function useExportData() {
+  return useMutation({
+    mutationFn: async () => {
+      const API_BASE = import.meta.env.VITE_API_URL || "/api";
+      const res = await fetch(`${API_BASE}/user/export`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ecoride-data-export.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
+}

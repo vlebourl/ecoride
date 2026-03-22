@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { eq, sum, count, sql } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
-import { trips } from "../db/schema";
+import { trips, achievements } from "../db/schema";
 import { updateUserSchema } from "../validators/users";
 import { validationHook } from "../lib/validation";
 import type { AuthEnv } from "../types/context";
@@ -65,5 +65,40 @@ usersRouter.patch(
     return c.json({ ok: true, data: { user: updated } });
   },
 );
+
+// GET /api/user/export — GDPR data export
+usersRouter.get("/export", async (c) => {
+  const currentUser = c.get("user");
+
+  const userTrips = await db
+    .select()
+    .from(trips)
+    .where(eq(trips.userId, currentUser.id));
+
+  const userAchievements = await db
+    .select()
+    .from(achievements)
+    .where(eq(achievements.userId, currentUser.id));
+
+  const exportData = {
+    profile: currentUser,
+    trips: userTrips,
+    achievements: userAchievements,
+    exportedAt: new Date().toISOString(),
+  };
+
+  c.header("Content-Disposition", 'attachment; filename="ecoride-data-export.json"');
+  c.header("Content-Type", "application/json");
+  return c.json(exportData);
+});
+
+// DELETE /api/user/profile — Delete account (GDPR right to erasure)
+usersRouter.delete("/profile", async (c) => {
+  const currentUser = c.get("user");
+
+  await db.delete(user).where(eq(user.id, currentUser.id));
+
+  return c.json({ ok: true });
+});
 
 export { usersRouter };

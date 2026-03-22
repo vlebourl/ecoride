@@ -10,10 +10,11 @@ import {
   LogOut,
   Loader2,
   Check,
+  Droplets,
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
-import { useProfile, useAchievements, useUpdateProfile } from "@/hooks/queries";
+import { useProfile, useAchievements, useUpdateProfile, useFuelPrice } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
 
@@ -26,6 +27,9 @@ export function ProfilePage() {
   const updateProfile = useUpdateProfile();
 
   const push = usePushNotifications();
+
+  const userFuelType = profileData?.user?.fuelType ?? "sp95";
+  const { data: fuelPrice, isPending: fuelPriceLoading } = useFuelPrice(userFuelType);
 
   const [showVehicle, setShowVehicle] = useState(false);
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
@@ -178,6 +182,33 @@ export function ProfilePage() {
             </div>
           </div>
         </section>
+
+        {/* Fuel Price */}
+        <div className="flex items-center gap-4 rounded-lg bg-surface-low px-5 py-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Droplets size={20} className="text-primary-light" />
+          </div>
+          {fuelPriceLoading ? (
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-24 animate-pulse rounded bg-surface-high" />
+              <div className="h-3 w-32 animate-pulse rounded bg-surface-high" />
+            </div>
+          ) : fuelPrice ? (
+            <div className="flex-1">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-lg font-bold text-text">
+                  {fuelPrice.priceEur.toFixed(2)} &euro;/L
+                </span>
+                <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                  {fuelPrice.fuelType.toUpperCase()}
+                </span>
+              </div>
+              <p className="text-[10px] text-text-muted">
+                {fuelPrice.stationName ? fuelPrice.stationName : "Prix moyen national"}
+              </p>
+            </div>
+          ) : null}
+        </div>
 
         {/* Badges */}
         <section className="space-y-4">

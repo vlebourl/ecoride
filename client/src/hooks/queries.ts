@@ -110,6 +110,23 @@ export function useAchievements() {
   });
 }
 
+export function useFuelPrice(fuelType: string) {
+  return useQuery({
+    queryKey: ["fuel-price", fuelType],
+    queryFn: () =>
+      apiFetch<{
+        ok: boolean;
+        data: {
+          priceEur: number;
+          fuelType: string;
+          stationName?: string;
+          updatedAt: string;
+        };
+      }>(`/fuel-price?type=${fuelType}`).then((r) => r.data),
+    staleTime: 3_600_000, // 1 hour cache
+  });
+}
+
 // ---- Mutations ----
 
 export function useCreateTrip() {

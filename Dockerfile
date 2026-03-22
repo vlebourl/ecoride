@@ -1,7 +1,7 @@
 # ---- Stage 1: Build client ----
 FROM oven/bun:1-alpine AS build
 
-RUN apk add --no-cache git
+ARG GIT_HASH=unknown
 
 WORKDIR /app
 
@@ -13,14 +13,14 @@ COPY server/package.json server/
 
 RUN bun install --frozen-lockfile
 
-# Copier le code source (including .git for version hash)
-COPY .git/ .git/
+# Copier le code source
 COPY shared/ shared/
 COPY client/ client/
 COPY server/ server/
 COPY tsconfig.json drizzle.config.ts ./
 
-# Build du client (Vite)
+# Build du client (Vite) — GIT_HASH passed as env for version display
+ENV GIT_HASH=$GIT_HASH
 RUN cd client && bun run build
 
 # ---- Stage 2: Runtime ----

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { eq, sql, sum, desc, and, gte } from "drizzle-orm";
+import { eq, sql, sum, desc, asc, and, gte } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips } from "../db/schema";
@@ -62,15 +62,18 @@ leaderboardRouter.get(
       .leftJoin(trips, joinCondition)
       .where(and(...conditions))
       .groupBy(user.id, user.name, user.image)
-      .orderBy(desc(sql`coalesce(${sum(trips.co2SavedKg)}, 0)`))
+      .orderBy(desc(sql`coalesce(${sum(trips.co2SavedKg)}, 0)`), asc(user.name))
       .limit(limit);
 
-    // Add rank
-    const ranked = entries.map((entry, idx) => ({
-      ...entry,
-      totalCo2SavedKg: entry.totalCo2SavedKg ?? 0,
-      rank: idx + 1,
-    }));
+    // Dense ranking: tied users share the same rank
+    let currentRank = 1;
+    const ranked = entries.map((entry, idx) => {
+      const co2 = entry.totalCo2SavedKg ?? 0;
+      if (idx > 0 && co2 !== (entries[idx - 1].totalCo2SavedKg ?? 0)) {
+        currentRank = idx + 1;
+      }
+      return { ...entry, totalCo2SavedKg: co2, rank: currentRank };
+    });
 
     // Find current user's rank
     const userRank = ranked.find((e) => e.userId === currentUser.id)?.rank ?? null;

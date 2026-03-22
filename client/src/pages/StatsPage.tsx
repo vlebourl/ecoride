@@ -9,9 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { MapContainer, TileLayer, Polyline, useMap } from "react-leaflet";
+import type { LatLngTuple, LatLngBoundsExpression } from "leaflet";
+import L from "leaflet";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
-import { useDashboardSummary, useTrips, useWeeklyTrips, useAchievements, useDeleteTrip } from "@/hooks/queries";
+import { useDashboardSummary, useTrips, useTrip, useWeeklyTrips, useAchievements, useDeleteTrip } from "@/hooks/queries";
 
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
@@ -32,6 +35,44 @@ const DAY_LABELS = ["L", "M", "M", "J", "V", "S", "D"];
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
+function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
+  const map = useMap();
+  map.fitBounds(bounds, { padding: [20, 20] });
+  return null;
+}
+
+function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
+  const positions: LatLngTuple[] = gpsPoints.map((p) => [p.lat, p.lng]);
+  const bounds = L.latLngBounds(positions);
+
+  return (
+    <div className="mb-4 h-48 rounded-xl overflow-hidden">
+      <MapContainer
+        center={bounds.getCenter()}
+        zoom={13}
+        zoomControl={false}
+        attributionControl={false}
+        dragging={false}
+        scrollWheelZoom={false}
+        doubleClickZoom={false}
+        touchZoom={false}
+        className="h-full w-full"
+        style={{ background: "#232d35" }}
+      >
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+        />
+        <Polyline
+          positions={positions}
+          pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
+        />
+        <FitBounds bounds={bounds} />
+      </MapContainer>
+    </div>
+  );
+}
+
 export function StatsPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("km");
@@ -40,7 +81,13 @@ export function StatsPage() {
   const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
   const { data: weeklyTrips, isPending: weeklyLoading } = useWeeklyTrips();
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
+  const { data: tripDetail } = useTrip(selectedTrip?.id ?? null);
   const deleteTrip = useDeleteTrip();
+
+  // Use detailed trip data (with gpsPoints) when available, otherwise fall back to list data
+  const displayTrip = tripDetail ?? selectedTrip;
+  const gpsPoints = displayTrip?.gpsPoints;
+  const hasGpsTrack = Array.isArray(gpsPoints) && gpsPoints.length > 1;
 
   const isPending = summaryLoading || tripsLoading || weeklyLoading || achievementsLoading;
 
@@ -363,6 +410,14 @@ export function StatsPage() {
                 <X size={20} />
               </button>
             </div>
+
+            {/* GPS Track Map */}
+            {hasGpsTrack && <TripMiniMap gpsPoints={gpsPoints} />}
+
+            {/* Manual entry label */}
+            {!hasGpsTrack && (
+              <p className="mb-4 text-center text-xs text-text-dim">Saisie manuelle</p>
+            )}
 
             {/* Stats */}
             <div className="mb-6 grid grid-cols-3 gap-4 text-center">

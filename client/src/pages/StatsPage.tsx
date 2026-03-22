@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import {
@@ -103,25 +103,29 @@ export function StatsPage() {
   const trips = tripsData?.trips ?? [];
   const chartTrips = weeklyTrips ?? [];
 
-  // Build weekly chart data from all trips this week
-  const weeklyData = DAY_LABELS.map((day) => ({ day, km: 0, co2: 0, eur: 0 }));
+  // Build weekly chart data from all trips this week (memoized)
+  const weeklyData = useMemo(() => {
+    const data = DAY_LABELS.map((day) => ({ day, km: 0, co2: 0, eur: 0 }));
 
-  for (const trip of chartTrips) {
-    const tripDate = new Date(trip.startedAt);
-    const dayIdx = (tripDate.getDay() + 6) % 7; // Mon=0, Sun=6
-    if (weeklyData[dayIdx]) {
-      weeklyData[dayIdx].km += trip.distanceKm;
-      weeklyData[dayIdx].co2 += trip.co2SavedKg;
-      weeklyData[dayIdx].eur += trip.moneySavedEur;
+    for (const trip of chartTrips) {
+      const tripDate = new Date(trip.startedAt);
+      const dayIdx = (tripDate.getDay() + 6) % 7; // Mon=0, Sun=6
+      if (data[dayIdx]) {
+        data[dayIdx].km += trip.distanceKm;
+        data[dayIdx].co2 += trip.co2SavedKg;
+        data[dayIdx].eur += trip.moneySavedEur;
+      }
     }
-  }
 
-  // Round values for display
-  for (const d of weeklyData) {
-    d.km = Math.round(d.km * 10) / 10;
-    d.co2 = Math.round(d.co2 * 10) / 10;
-    d.eur = Math.round(d.eur * 100) / 100;
-  }
+    // Round values for display
+    for (const d of data) {
+      d.km = Math.round(d.km * 10) / 10;
+      d.co2 = Math.round(d.co2 * 10) / 10;
+      d.eur = Math.round(d.eur * 100) / 100;
+    }
+
+    return data;
+  }, [chartTrips]);
 
   return (
     <>

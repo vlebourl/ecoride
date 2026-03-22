@@ -106,6 +106,7 @@ if (env.NODE_ENV === "production") {
   // SPA fallback: serve index.html for non-API routes that don't match a static file
   app.get("*", (c, next) => {
     if (c.req.path.startsWith("/api")) return next();
+    c.header("Cache-Control", "public, max-age=0, must-revalidate");
     return c.html(Bun.file("./client/dist/index.html").text());
   });
 }

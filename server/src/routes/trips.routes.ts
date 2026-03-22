@@ -11,7 +11,7 @@ import { calculateSavings } from "../lib/calculations";
 import { getFuelPrice } from "../lib/fuel-price";
 import { notFound, forbidden } from "../lib/errors";
 import { paginationToOffset, buildPagination } from "../lib/pagination";
-import { evaluateAndUnlockBadges } from "../lib/badges";
+import { evaluateAndUnlockBadges, reevaluateBadges } from "../lib/badges";
 import type { AuthEnv } from "../types/context";
 
 const tripsRouter = new Hono<AuthEnv>();
@@ -129,7 +129,10 @@ tripsRouter.delete(
 
     await db.delete(trips).where(eq(trips.id, id));
 
-    return c.json({ ok: true, data: null });
+    // Re-evaluate badges — revoke any that are no longer earned
+    const revokedBadges = await reevaluateBadges(currentUser.id);
+
+    return c.json({ ok: true, data: { revokedBadges } });
   },
 );
 

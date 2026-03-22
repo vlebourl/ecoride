@@ -1,4 +1,4 @@
-import { eq, sum, count } from "drizzle-orm";
+import { eq, and, sum, count, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { trips, achievements } from "../db/schema";
 import { computeStreak } from "./streaks";
@@ -82,4 +82,62 @@ export async function evaluateAndUnlockBadges(userId: string): Promise<BadgeId[]
   }
 
   return newlyUnlocked;
+}
+
+/**
+ * Re-evaluate all unlocked badges for a user and revoke any whose thresholds
+ * are no longer met. This should be called after trip deletion.
+ *
+ * @returns Array of BadgeIds that were revoked.
+ */
+export async function reevaluateBadges(userId: string): Promise<BadgeId[]> {
+  // 1. Aggregate lifetime stats (same query as evaluateAndUnlockBadges)
+  const [stats] = await db
+    .select({
+      totalDistanceKm: sum(trips.distanceKm).mapWith(Number),
+      totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
+      tripCount: count(),
+    })
+    .from(trips)
+    .where(eq(trips.userId, userId));
+
+  const streaks = await computeStreak(userId);
+
+  const userStats: UserStats = {
+    totalDistanceKm: stats?.totalDistanceKm ?? 0,
+    totalCo2SavedKg: stats?.totalCo2SavedKg ?? 0,
+    tripCount: stats?.tripCount ?? 0,
+    currentStreak: streaks.current,
+  };
+
+  // 2. Get all currently unlocked badges
+  const existing = await db
+    .select({ badgeId: achievements.badgeId })
+    .from(achievements)
+    .where(eq(achievements.userId, userId));
+
+  // 3. Check each unlocked badge against thresholds — collect those no longer met
+  const revoked: BadgeId[] = [];
+
+  for (const row of existing) {
+    const badgeId = row.badgeId as BadgeId;
+    const check = BADGE_THRESHOLDS[badgeId];
+    if (check && !check(userStats)) {
+      revoked.push(badgeId);
+    }
+  }
+
+  // 4. Delete revoked achievements
+  if (revoked.length > 0) {
+    await db
+      .delete(achievements)
+      .where(
+        and(
+          eq(achievements.userId, userId),
+          inArray(achievements.badgeId, revoked),
+        ),
+      );
+  }
+
+  return revoked;
 }

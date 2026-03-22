@@ -55,3 +55,9 @@ body {
 .ring-transition {
   transition: stroke-dashoffset 1s ease-out;
 }
+
+/* Bottom sheet slide up */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}

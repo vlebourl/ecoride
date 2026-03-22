@@ -34,9 +34,7 @@ export function DashboardPage() {
 
       {hasNoTrips ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-            <Bike size={40} className="text-primary-light" />
-          </div>
+          <img src="/pwa-192x192.png" alt="ecoRide" className="h-20 w-20 rounded-2xl" />
           <div className="flex flex-col items-center gap-2 text-center">
             <h2 className="text-2xl font-bold">
               Bienvenue sur{" "}

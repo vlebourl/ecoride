@@ -69,6 +69,7 @@ export function LoginPage() {
         {/* Google Sign In */}
         <button
           onClick={handleGoogleLogin}
+          aria-label="Se connecter avec Google"
           className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-6 py-4 text-sm font-bold text-gray-800 shadow-lg active:scale-95"
         >
           <svg width="20" height="20" viewBox="0 0 24 24">
@@ -102,35 +103,47 @@ export function LoginPage() {
         {/* Email/Password Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {isRegister && (
-            <input
-              type="text"
-              placeholder="Nom"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary"
-            />
+            <label>
+              <span className="sr-only">Nom</span>
+              <input
+                type="text"
+                placeholder="Nom"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoComplete="name"
+                className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary w-full"
+              />
+            </label>
           )}
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary"
-          />
-          <input
-            type="password"
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary"
-          />
+          <label>
+            <span className="sr-only">Email</span>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary w-full"
+            />
+          </label>
+          <label>
+            <span className="sr-only">Mot de passe</span>
+            <input
+              type="password"
+              placeholder="Mot de passe"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete={isRegister ? "new-password" : "current-password"}
+              className="rounded-xl border border-surface-high bg-surface px-4 py-3 text-white placeholder-text-muted outline-none focus:border-primary w-full"
+            />
+          </label>
 
           {error && (
-            <p className="text-sm text-red-400">{error}</p>
+            <p role="alert" className="text-sm text-red-400">{error}</p>
           )}
 
           <button

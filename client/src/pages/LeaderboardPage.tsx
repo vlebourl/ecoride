@@ -8,7 +8,7 @@ export function LeaderboardPage() {
 
   if (isPending || !data) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Chargement">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -22,7 +22,7 @@ export function LeaderboardPage() {
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
+      <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
         <span className="text-lg font-bold tracking-tight">
           <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>

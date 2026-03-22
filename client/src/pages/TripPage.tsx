@@ -103,7 +103,7 @@ export function TripPage() {
   return (
     <div className="relative flex h-full flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
+      <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
         <span className="text-lg font-bold tracking-tight">
           <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>

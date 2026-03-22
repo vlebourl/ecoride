@@ -17,7 +17,7 @@ const tabs = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-surface/90 px-4 pb-8 pt-3 backdrop-blur-2xl border-t border-outline-variant/10">
+    <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-surface/90 px-4 pb-8 pt-3 backdrop-blur-2xl border-t border-outline-variant/10">
       {tabs.map(({ to, icon: Icon, label }) => (
         <NavLink
           key={to}
@@ -33,7 +33,7 @@ export function BottomNav() {
         >
           {({ isActive }) => (
             <>
-              <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} />
+              <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
               <span className="text-[10px] font-bold uppercase tracking-widest">
                 {label}
               </span>

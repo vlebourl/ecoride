@@ -7,11 +7,14 @@ const gpsPointSchema = z.object({
 });
 
 export const createTripSchema = z.object({
-  distanceKm: z.number().positive(),
-  durationSec: z.number().int().nonnegative(),
+  distanceKm: z.number().positive().max(500),
+  durationSec: z.number().int().min(1),
   startedAt: z.string().datetime(),
   endedAt: z.string().datetime(),
   gpsPoints: z.array(gpsPointSchema).nullable().optional(),
-});
+}).refine(
+  (data) => new Date(data.startedAt) < new Date(data.endedAt),
+  { message: "startedAt must be before endedAt", path: ["startedAt"] }
+);
 
 export type CreateTripInput = z.infer<typeof createTripSchema>;

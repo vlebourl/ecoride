@@ -15,6 +15,7 @@ import L from "leaflet";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
 import { useDashboardSummary, useTrips, useTrip, useWeeklyTrips, useAchievements, useDeleteTrip } from "@/hooks/queries";
+import { tripLabel } from "@/lib/trip-utils";
 
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
@@ -313,7 +314,7 @@ export function StatsPage() {
                     <Bike size={20} className="text-primary-light" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">Trajet</p>
+                    <p className="text-sm font-bold">{tripLabel(trip.startedAt)}</p>
                     <p className="text-[10px] font-medium text-on-surface-variant">
                       {new Date(trip.startedAt).toLocaleDateString("fr-FR", {
                         day: "numeric",
@@ -394,7 +395,7 @@ export function StatsPage() {
             {/* Header */}
             <div className="mb-6 flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold">Trajet</h3>
+                <h3 className="text-lg font-bold">{tripLabel(selectedTrip.startedAt)}</h3>
                 <p className="text-sm text-text-muted">
                   {new Date(selectedTrip.startedAt).toLocaleDateString("fr-FR", {
                     weekday: "long",

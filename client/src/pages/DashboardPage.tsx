@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router";
-import { Bike, Leaf, MapPin, ChevronRight } from "lucide-react";
+import { Bike, Leaf, MapPin, ChevronRight, Car, X } from "lucide-react";
 import { ImpactMeter } from "@/components/ui/ImpactMeter";
-import { useDashboardSummary } from "@/hooks/queries";
+import { useDashboardSummary, useProfile } from "@/hooks/queries";
 import appLogo from "/pwa-192x192.png?url";
 
 export function DashboardPage() {
   const { data: today, isPending: todayPending } = useDashboardSummary("day");
   const { data: allTime, isPending: allTimePending } = useDashboardSummary("all");
+  const { data: profileData } = useProfile();
+  const [vehiclePromptDismissed, setVehiclePromptDismissed] = useState(false);
 
   const isPending = todayPending || allTimePending;
 
@@ -79,6 +82,28 @@ export function DashboardPage() {
               className="text-bg/60 transition-transform group-hover:translate-x-1"
             />
           </Link>
+
+          {/* Vehicle onboarding prompt */}
+          {!vehiclePromptDismissed &&
+            profileData?.user.consumptionL100 == null &&
+            allTime.tripCount > 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
+                <Car size={18} className="shrink-0 text-warning" />
+                <Link
+                  to="/profile"
+                  className="flex-1 text-xs font-medium text-text"
+                >
+                  Configurez votre véhicule de référence pour des calculs CO₂
+                  plus précis
+                </Link>
+                <button
+                  onClick={() => setVehiclePromptDismissed(true)}
+                  className="shrink-0 rounded p-1 text-text-muted hover:text-text"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
 
           {/* Today's Summary */}
           <section className="rounded-xl bg-surface-container p-5">

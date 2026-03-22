@@ -10,7 +10,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   VAPID_PUBLIC_KEY: z.string().default(""),
   VAPID_PRIVATE_KEY: z.string().default(""),
-  VAPID_SUBJECT: z.string().default("mailto:contact@tiarkaerell.com"),
+  VAPID_SUBJECT: z.string().default("mailto:noreply@example.com"),
   FRONTEND_URL: z.string().url().default("http://localhost:5173"),
 });
 

@@ -92,7 +92,7 @@ Audit réalisé le 2026-03-22. Objectif : test grandeur nature lundi 2026-03-23.
 - Push notifications (VAPID, souscription, cron rappels)
 - Profil véhicule configurable (type carburant, conso, opt-out leaderboard)
 - Leaderboard (agrégation SQL réelle, respecte opt-out)
-- Docker multi-stage + Coolify auto-deploy (runner self-hosted dédié ecoride)
+- Docker multi-stage + auto-deploy via CI
 - Validation Zod sur tous les endpoints (+ contraintes max distance, durée, dates)
 - CI GitHub Actions : typecheck + vitest (corrigé PR #1)
 - Charte graphique Luminous Carbon (charcoal #1e272e + leaf green #2ecc71 + white)

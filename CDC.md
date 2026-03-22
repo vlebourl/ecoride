@@ -3,7 +3,7 @@
 **Date :** 2026-03-21  
 **Statut :** Validé — prêt pour développement  
 **Dossier projet :** `~/Documents/Obsidian/Lyra/Projets/velo-tracker/`  
-**URL de production :** `ecoride.tiarkaerell.com` (via Coolify)
+**URL de production :** *(configurable via variables d'environnement)*
 
 ---
 
@@ -104,8 +104,7 @@ Le visuel se remplit progressivement vers la prochaine référence. Une fois att
 | Backend | Bun + Hono (ou Fastify) — API REST |
 | Base de données | PostgreSQL |
 | ORM | Drizzle ORM |
-| Déploiement | Coolify (self-hosted) |
-| Domain | ecoride.tiarkaerell.com |
+| Déploiement | Docker (auto-hébergé) |
 
 ### API externes
 - **Prix carburants FR** : `data.economie.gouv.fr` (open data, pas de clé API)
@@ -172,7 +171,7 @@ push_subscriptions
 
 1. **Scaffold + maquettes en parallèle** → Claude Code lance simultanément l'Agent Architecte et l'Agent Design (Stitch)
 2. **Features** → Claude Code en mode team of agents une fois les interfaces définies
-3. **Déploiement** → Coolify (Docker compose)
+3. **Déploiement** → Docker
 
 ---
 
@@ -195,7 +194,7 @@ La seule chose attendue : un **rapport de fin de session** synthétique (ce qui 
 - **Agent Backend** : Bun/Hono, routes API, auth Better Auth, intégration PostgreSQL/Drizzle, Web Push
 - **Agent Frontend** : React + Vite, composants UI TailwindCSS — implémente les maquettes Stitch reçues de l'Agent Design
 - **Agent Features** : GPS tracking, calculs économies, Impact Meter, gamification, prix carburants API
-- **Agent DevOps** : Docker compose, Coolify config, variables d'environnement, CI
+- **Agent DevOps** : Docker compose, déploiement, variables d'environnement, CI
 
 Les agents travaillent en parallèle dès que les interfaces sont définies. Ne pas attendre qu'un agent finisse pour en démarrer un autre.
 

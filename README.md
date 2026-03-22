@@ -17,7 +17,7 @@ PWA mobile-first de suivi de trajets vélo avec calcul d'économies CO₂, argen
 - **Backend** : Bun + Hono
 - **Auth** : Better Auth + Google OAuth
 - **DB** : PostgreSQL + Drizzle ORM
-- **Deploy** : Coolify → `ecoride.tiarkaerell.com`
+- **Deploy** : Docker (compatible Coolify, Dokku, etc.)
 
 ## Setup
 
@@ -65,15 +65,7 @@ client/     React PWA + Tailwind
 
 ## Deploiement
 
-### Production (Coolify)
-
-L'application est deployee automatiquement sur `ecoride.tiarkaerell.com` via Coolify a chaque push sur `main`.
-
-Secrets GitHub requis :
-- `COOLIFY_TOKEN` — Token API Coolify
-- `COOLIFY_APP_UUID` — UUID de l'application dans Coolify
-
-### Docker local
+### Docker
 
 ```bash
 # Build et lancer tous les services
@@ -84,16 +76,14 @@ docker compose up --build
 
 ### Variables d'environnement (production)
 
-Configurer dans Coolify → onglet **Environment** :
-
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | Connexion PostgreSQL |
 | `BETTER_AUTH_SECRET` | Secret auth (`openssl rand -hex 32`) |
-| `BETTER_AUTH_URL` | `https://ecoride.tiarkaerell.com` |
+| `BETTER_AUTH_URL` | URL publique de l'app (ex: `https://mon-domaine.com`) |
 | `GOOGLE_CLIENT_ID` | Client ID Google OAuth |
 | `GOOGLE_CLIENT_SECRET` | Client Secret Google OAuth |
-| `FRONTEND_URL` | `https://ecoride.tiarkaerell.com` |
-| `VAPID_PUBLIC_KEY` | Cle publique push (`bunx web-push generate-vapid-keys`) |
-| `VAPID_PRIVATE_KEY` | Cle privee push |
-| `VAPID_SUBJECT` | `mailto:contact@tiarkaerell.com` |
+| `FRONTEND_URL` | URL publique de l'app (même valeur que `BETTER_AUTH_URL`) |
+| `VAPID_PUBLIC_KEY` | Clé publique push (`bunx web-push generate-vapid-keys`) |
+| `VAPID_PRIVATE_KEY` | Clé privée push |
+| `VAPID_SUBJECT` | `mailto:votre-email@exemple.com` |

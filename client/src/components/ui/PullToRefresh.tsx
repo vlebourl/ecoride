@@ -1,10 +1,12 @@
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
   children: ReactNode;
   /** Pull distance in px required to trigger a refresh */
   threshold?: number;
+  /** Key used to persist scroll position in sessionStorage */
+  scrollKey?: string;
 }
 
 const RESISTANCE = 2.5; // dampen finger movement
@@ -13,12 +15,34 @@ export function PullToRefresh({
   onRefresh,
   children,
   threshold = 80,
+  scrollKey,
 }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef(0);
   const pulling = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fix 3.6: Restore scroll position on mount
+  useEffect(() => {
+    if (!scrollKey) return;
+    const saved = sessionStorage.getItem(`scroll:${scrollKey}`);
+    if (saved && containerRef.current) {
+      containerRef.current.scrollTop = Number(saved);
+    }
+  }, [scrollKey]);
+
+  // Fix 3.6: Debounce-save scroll position on scroll
+  const onScroll = useCallback(() => {
+    if (!scrollKey) return;
+    if (scrollSaveTimer.current) clearTimeout(scrollSaveTimer.current);
+    scrollSaveTimer.current = setTimeout(() => {
+      if (containerRef.current) {
+        sessionStorage.setItem(`scroll:${scrollKey}`, String(containerRef.current.scrollTop));
+      }
+    }, 150);
+  }, [scrollKey]);
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
@@ -75,6 +99,7 @@ export function PullToRefresh({
     <div
       ref={containerRef}
       className="relative h-full overflow-y-auto"
+      onScroll={onScroll}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}

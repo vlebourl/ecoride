@@ -36,6 +36,27 @@ export function useTrips(page = 1, limit = 50) {
   });
 }
 
+export function useWeeklyTrips() {
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const from = monday.toISOString();
+  const to = now.toISOString();
+
+  return useQuery({
+    queryKey: ["trips", "weekly", from],
+    queryFn: () =>
+      apiFetch<{
+        ok: boolean;
+        data: { trips: Trip[] };
+        pagination: { page: number; limit: number; total: number; totalPages: number };
+      }>(`/trips?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=100`).then(
+        (r) => r.data.trips,
+      ),
+  });
+}
+
 export function useLeaderboard(period: StatsPeriod = "all") {
   return useQuery({
     queryKey: ["leaderboard", period],

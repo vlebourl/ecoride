@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
-import { useDashboardSummary, useTrips, useAchievements, useDeleteTrip } from "@/hooks/queries";
+import { useDashboardSummary, useTrips, useWeeklyTrips, useAchievements, useDeleteTrip } from "@/hooks/queries";
 
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
@@ -38,10 +38,11 @@ export function StatsPage() {
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const { data: s, isPending: summaryLoading } = useDashboardSummary("month");
   const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
+  const { data: weeklyTrips, isPending: weeklyLoading } = useWeeklyTrips();
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
   const deleteTrip = useDeleteTrip();
 
-  const isPending = summaryLoading || tripsLoading || achievementsLoading;
+  const isPending = summaryLoading || tripsLoading || weeklyLoading || achievementsLoading;
 
   if (isPending || !s) {
     return (
@@ -52,23 +53,18 @@ export function StatsPage() {
   }
 
   const trips = tripsData?.trips ?? [];
+  const chartTrips = weeklyTrips ?? [];
 
-  // Build weekly chart data from recent trips
+  // Build weekly chart data from all trips this week
   const weeklyData = DAY_LABELS.map((day) => ({ day, km: 0, co2: 0, eur: 0 }));
-  const now = new Date();
-  const mondayStart = new Date(now);
-  mondayStart.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  mondayStart.setHours(0, 0, 0, 0);
 
-  for (const trip of trips) {
+  for (const trip of chartTrips) {
     const tripDate = new Date(trip.startedAt);
-    if (tripDate >= mondayStart) {
-      const dayIdx = (tripDate.getDay() + 6) % 7; // Mon=0, Sun=6
-      if (weeklyData[dayIdx]) {
-        weeklyData[dayIdx].km += trip.distanceKm;
-        weeklyData[dayIdx].co2 += trip.co2SavedKg;
-        weeklyData[dayIdx].eur += trip.moneySavedEur;
-      }
+    const dayIdx = (tripDate.getDay() + 6) % 7; // Mon=0, Sun=6
+    if (weeklyData[dayIdx]) {
+      weeklyData[dayIdx].km += trip.distanceKm;
+      weeklyData[dayIdx].co2 += trip.co2SavedKg;
+      weeklyData[dayIdx].eur += trip.moneySavedEur;
     }
   }
 

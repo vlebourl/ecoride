@@ -195,7 +195,7 @@ export function TripPage() {
       )}
 
       {/* Map */}
-      <div className="relative flex-1">
+      <div className="relative" style={{ height: "50vh", minHeight: "250px" }}>
         <MapContainer
           center={currentPos as LatLngExpression}
           zoom={15}

@@ -94,7 +94,7 @@ export function StatsPage() {
 
   if (isPending || !s) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Chargement">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -126,7 +126,7 @@ export function StatsPage() {
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
+      <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
         <span className="text-lg font-bold tracking-tight text-primary-light">
           Stats
         </span>
@@ -378,6 +378,9 @@ export function StatsPage() {
       {/* Bottom sheet — trip detail / delete */}
       {selectedTrip && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Détail du trajet"
           className="fixed inset-0 z-[60] flex items-end justify-center"
           onClick={() => setSelectedTrip(null)}
         >
@@ -406,6 +409,7 @@ export function StatsPage() {
               </div>
               <button
                 onClick={() => setSelectedTrip(null)}
+                aria-label="Fermer"
                 className="rounded-lg p-2 text-text-muted active:bg-surface-high"
               >
                 <X size={20} />

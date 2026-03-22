@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Bike, Leaf, Euro, TrendingUp } from "lucide-react";
+import { Bike, Leaf, Euro, TrendingUp, Trash2, X } from "lucide-react";
 import { PeriodSwitcher } from "@/components/ui/PeriodSwitcher";
 import { StatCard } from "@/components/ui/StatCard";
 import { ImpactMeter } from "@/components/ui/ImpactMeter";
-import { useDashboardSummary } from "@/hooks/queries";
+import { useDashboardSummary, useTrips, useDeleteTrip } from "@/hooks/queries";
 import type { StatsPeriod } from "@ecoride/shared/api-contracts";
+import type { Trip } from "@ecoride/shared/types";
 
 type Period = "day" | "week" | "month";
 
 export function DashboardPage() {
   const [period, setPeriod] = useState<Period>("week");
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const { data: s, isPending } = useDashboardSummary(period as StatsPeriod);
+  const { data: tripsData } = useTrips(1, 5);
+  const deleteTrip = useDeleteTrip();
+
+  const recentTrips = tripsData?.trips ?? [];
 
   if (isPending || !s) {
     return (
@@ -116,7 +122,108 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Recent Trips */}
+        {recentTrips.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-text-muted">
+                Derniers trajets
+              </h3>
+              <Link to="/stats" className="text-xs font-bold text-primary-light">
+                Tout voir
+              </Link>
+            </div>
+            {recentTrips.map((trip) => (
+              <button
+                key={trip.id}
+                onClick={() => setSelectedTrip(trip)}
+                className="flex w-full items-center justify-between rounded-xl bg-surface-container p-4 text-left active:scale-[0.98] transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-high">
+                    <Bike size={18} className="text-primary-light" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{trip.distanceKm} km</p>
+                    <p className="text-[10px] text-text-muted">
+                      {new Date(trip.startedAt).toLocaleDateString("fr-FR", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-primary-light">
+                  {trip.co2SavedKg.toFixed(1)} kg CO₂
+                </span>
+              </button>
+            ))}
+          </section>
+        )}
       </div>
+      )}
+
+      {/* Bottom sheet — trip detail / delete */}
+      {selectedTrip && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center"
+          onClick={() => setSelectedTrip(null)}
+        >
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className="relative w-full max-w-lg rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-highest" />
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold">Trajet</h3>
+                <p className="text-sm text-text-muted">
+                  {new Date(selectedTrip.startedAt).toLocaleDateString("fr-FR", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedTrip(null)}
+                className="rounded-lg p-2 text-text-muted active:bg-surface-high"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="mb-6 grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xl font-bold text-primary-light">{selectedTrip.distanceKm}</p>
+                <p className="text-[10px] font-bold uppercase text-text-muted">km</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-primary-light">{selectedTrip.co2SavedKg.toFixed(1)}</p>
+                <p className="text-[10px] font-bold uppercase text-text-muted">kg CO₂</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-primary-light">{selectedTrip.moneySavedEur.toFixed(2)}</p>
+                <p className="text-[10px] font-bold uppercase text-text-muted">€</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                deleteTrip.mutate(selectedTrip.id, {
+                  onSuccess: () => setSelectedTrip(null),
+                });
+              }}
+              disabled={deleteTrip.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-danger/10 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
+            >
+              <Trash2 size={16} />
+              {deleteTrip.isPending ? "Suppression..." : "Supprimer ce trajet"}
+            </button>
+          </div>
+        </div>
       )}
     </>
   );

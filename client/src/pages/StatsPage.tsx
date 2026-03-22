@@ -334,7 +334,7 @@ export function StatsPage() {
       {/* Bottom sheet — trip detail / delete */}
       {selectedTrip && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
+          className="fixed inset-0 z-[60] flex items-end justify-center"
           onClick={() => setSelectedTrip(null)}
         >
           {/* Backdrop */}
@@ -342,7 +342,7 @@ export function StatsPage() {
 
           {/* Sheet */}
           <div
-            className="relative w-full max-w-lg rounded-t-2xl bg-surface-container p-6 pb-safe animate-[slideUp_0.2s_ease-out]"
+            className="relative w-full max-w-lg rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}

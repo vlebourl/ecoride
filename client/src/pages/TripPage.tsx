@@ -1,9 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Play, Square, Keyboard } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Play, Square, Keyboard, AlertTriangle } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
+import { useGpsTracking } from "@/hooks/useGpsTracking";
+import type { TrackingSession } from "@/hooks/useGpsTracking";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -18,49 +20,36 @@ function RecenterMap({ position }: { position: [number, number] }) {
 }
 
 export function TripPage() {
-  const [state, setState] = useState<TripState>("idle");
-  const [distance, setDistance] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [uiState, setUiState] = useState<TripState>("idle");
   const [manualKm, setManualKm] = useState("");
-  const [positions, setPositions] = useState<[number, number][]>([]);
-  const [currentPos, setCurrentPos] = useState<[number, number]>(DEFAULT_CENTER);
-  const timerRef = useRef<ReturnType<typeof setInterval>>(null);
-  const startTimeRef = useRef<Date>(new Date());
+  const sessionRef = useRef<TrackingSession | null>(null);
   const createTrip = useCreateTrip();
   const { data: profileData } = useProfile();
+  const gps = useGpsTracking();
 
-  const startTracking = useCallback(() => {
-    setState("tracking");
-    setDistance(0);
-    setElapsed(0);
-    setPositions([DEFAULT_CENTER]);
-    setCurrentPos(DEFAULT_CENTER);
-    startTimeRef.current = new Date();
+  // Derive map data from GPS state
+  const positions: [number, number][] = gps.state.gpsPoints.map((p) => [p.lat, p.lng]);
+  const lastPos = positions.length > 0 ? positions[positions.length - 1] : undefined;
+  const currentPos: [number, number] = lastPos ?? DEFAULT_CENTER;
 
-    timerRef.current = setInterval(() => {
-      setElapsed((e) => e + 1);
-      setDistance((d) => d + 0.003 + Math.random() * 0.005);
-      setCurrentPos((prev) => {
-        const next: [number, number] = [
-          prev[0] + (Math.random() - 0.3) * 0.0003,
-          prev[1] + (Math.random() - 0.3) * 0.0004,
-        ];
-        setPositions((pts) => [...pts, next]);
-        return next;
-      });
-    }, 1000);
-  }, []);
+  const distance = uiState === "stopped" && sessionRef.current
+    ? sessionRef.current.distanceKm
+    : gps.state.distanceKm;
+  const elapsed = uiState === "stopped" && sessionRef.current
+    ? sessionRef.current.durationSec
+    : gps.state.durationSec;
 
-  const stopTracking = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setState("stopped");
-  }, []);
+  const startTracking = () => {
+    sessionRef.current = null;
+    gps.start();
+    setUiState("tracking");
+  };
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+  const stopTracking = () => {
+    const session = gps.stop();
+    sessionRef.current = session;
+    setUiState("stopped");
+  };
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -71,23 +60,23 @@ export function TripPage() {
   const consumptionL100 = profileData?.user.consumptionL100 ?? 7; // Default 7 L/100km (matches server)
   const co2Saved = distance * (consumptionL100 / 100) * CO2_KG_PER_LITER;
 
-  const handleSaveTrip = (km: number, durationSec: number) => {
-    const endedAt = new Date();
-    const startedAt = new Date(endedAt.getTime() - durationSec * 1000);
+  const handleSaveTrip = (km: number, durationSec: number, session?: TrackingSession | null) => {
+    const endedAt = session?.endedAt ?? new Date().toISOString();
+    const startedAt = session?.startedAt ?? new Date(new Date(endedAt).getTime() - durationSec * 1000).toISOString();
     createTrip.mutate(
       {
         distanceKm: Math.round(km * 100) / 100,
         durationSec,
-        startedAt: startedAt.toISOString(),
-        endedAt: endedAt.toISOString(),
+        startedAt,
+        endedAt,
+        gpsPoints: session?.gpsPoints?.length ? session.gpsPoints : null,
       },
       {
         onSuccess: () => {
-          setState("idle");
-          setDistance(0);
-          setElapsed(0);
+          setUiState("idle");
           setManualKm("");
-          setPositions([]);
+          sessionRef.current = null;
+          gps.reset();
         },
       },
     );
@@ -101,6 +90,14 @@ export function TripPage() {
           <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>
       </header>
+
+      {/* GPS Error banner */}
+      {gps.state.error && (
+        <div className="z-50 flex items-center gap-3 bg-danger/20 px-6 py-3">
+          <AlertTriangle size={16} className="shrink-0 text-danger" />
+          <span className="text-sm font-medium text-danger">{gps.state.error}</span>
+        </div>
+      )}
 
       {/* Map */}
       <div className="relative flex-1">
@@ -136,7 +133,7 @@ export function TripPage() {
         </MapContainer>
 
         {/* Floating CO2 chip */}
-        {state === "tracking" && (
+        {uiState === "tracking" && (
           <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2">
             <div className="flex items-center gap-3 rounded-full border border-primary/30 bg-primary/20 px-5 py-2.5 backdrop-blur-md">
               <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -151,7 +148,7 @@ export function TripPage() {
       </div>
 
       {/* Stats overlay */}
-      {state === "tracking" && (
+      {uiState === "tracking" && (
         <div className="space-y-4 px-6 pb-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl border border-outline-variant/10 bg-surface-low/80 p-6 backdrop-blur-2xl">
@@ -180,7 +177,7 @@ export function TripPage() {
       )}
 
       {/* Stopped summary */}
-      {state === "stopped" && (
+      {uiState === "stopped" && (
         <div className="space-y-4 px-6 pb-4">
           <div className="rounded-xl bg-surface-container p-6">
             <h2 className="mb-4 text-lg font-bold">Trajet terminé</h2>
@@ -209,7 +206,7 @@ export function TripPage() {
               </div>
             </div>
             <button
-              onClick={() => handleSaveTrip(distance, elapsed)}
+              onClick={() => handleSaveTrip(distance, elapsed, sessionRef.current)}
               disabled={createTrip.isPending}
               className="mt-6 w-full rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
             >
@@ -220,7 +217,7 @@ export function TripPage() {
       )}
 
       {/* Manual entry */}
-      {state === "manual" && (
+      {uiState === "manual" && (
         <div className="space-y-4 px-6 pb-4">
           <div className="rounded-xl bg-surface-container p-6">
             <h2 className="mb-4 text-lg font-bold">Saisie manuelle</h2>
@@ -236,7 +233,7 @@ export function TripPage() {
             />
             <div className="flex gap-3">
               <button
-                onClick={() => setState("idle")}
+                onClick={() => setUiState("idle")}
                 className="flex-1 rounded-xl bg-surface-high py-4 text-sm font-bold text-text-muted active:scale-95"
               >
                 Annuler
@@ -261,7 +258,7 @@ export function TripPage() {
       )}
 
       {/* Action buttons */}
-      {state === "idle" && (
+      {uiState === "idle" && (
         <div className="space-y-3 px-6 pb-6">
           <button
             onClick={startTracking}
@@ -273,7 +270,7 @@ export function TripPage() {
             </span>
           </button>
           <button
-            onClick={() => setState("manual")}
+            onClick={() => setUiState("manual")}
             className="flex w-full items-center justify-center gap-3 rounded-xl bg-surface-container py-4 active:scale-95"
           >
             <Keyboard size={18} className="text-text-muted" />
@@ -284,7 +281,7 @@ export function TripPage() {
         </div>
       )}
 
-      {state === "tracking" && (
+      {uiState === "tracking" && (
         <div className="px-6 pb-6">
           <button
             onClick={stopTracking}

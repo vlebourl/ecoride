@@ -263,6 +263,10 @@ export function ProfilePage() {
               Déconnexion
             </div>
           </button>
+
+          <p className="mt-4 text-center text-[10px] text-text-dim">
+            v{__APP_VERSION__}
+          </p>
         </section>
       </div>
     </>

@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Play, Square, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
-import { useBlocker } from "react-router";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useGpsTracking, getTrackingBackup, clearTrackingBackup } from "@/hooks/useGpsTracking";
@@ -55,16 +54,8 @@ export function TripPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [uiState]);
 
-  // Fix 1.7: Navigation guard — React Router in-app navigation blocker
-  useBlocker(
-    useCallback(
-      () => {
-        if (uiState !== "tracking") return false;
-        return !window.confirm("Vous avez un trajet en cours. Quitter cette page ?");
-      },
-      [uiState],
-    ),
-  );
+  // Fix 1.7: Navigation guard — in-app navigation uses beforeunload above
+  // useBlocker removed (not available in react-router v7.13+)
 
   // Get user's real position on page load (one-shot)
   useEffect(() => {

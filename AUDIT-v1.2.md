@@ -387,28 +387,28 @@
 15. Icone maskable manifest (6.1) — **NON CORRIGE** (necessite investigation vite-plugin-pwa)
 
 ### P2 — Ameliorations (polish + perf)
-16. Indicateur qualite GPS (1.9) — non corrige
+16. ~~Indicateur qualite GPS (1.9)~~ — **CORRIGE** PR #43 (chip couleur avec precision en metres)
 17. ~~Debounce map (4.2)~~ — **CORRIGE** PR #36 (500ms minimum entre setView)
 18. ~~useMemo weeklyData (4.3)~~ — **CORRIGE** PR #36 (useMemo sur chartTrips)
 19. ~~Contraste text-dim (3.3)~~ — **CORRIGE** PR #38 (#566a78 → #7a8e9e)
-20. Scroll position entre onglets (3.6) — non corrige
-21. Bouton retour Android (3.7) — non corrige
+20. ~~Scroll position entre onglets (3.6)~~ — **CORRIGE** PR #43 (sessionStorage par route)
+21. ~~Bouton retour Android (3.7)~~ — **CORRIGE** PR #43 (popstate ferme le bottom sheet)
 22. ~~Formulaire saisie manuelle (3.9)~~ — **CORRIGE** PR #38 (<form> wrapper)
-23. Splash screen 656KB (4.4) — non corrige
+23. ~~Splash screen 656KB (4.4)~~ — **CORRIGE** PR #44 (656 KB → 115 KB via compression)
 24. ~~Cache headers index.html (4.10)~~ — **CORRIGE** PR #36 (max-age=0, must-revalidate)
-25. Dockerfile node_modules (4.9) — non corrige
+25. ~~Dockerfile node_modules (4.9)~~ — **CORRIGE** PR #44 (bun install --production)
 
 ### P3 — Nice to have
 26. Haptic feedback (3.11) — non corrige
 27. prefers-reduced-motion (3.12) — non corrige
-28. Leaderboard tie-breaking (5.3) — non corrige
+28. ~~Leaderboard tie-breaking (5.3)~~ — **CORRIGE** PR #42 (dense ranking + tri alphabetique)
 29. Float precision (5.4) — non corrige
 30. Timezone persistee (5.5) — non corrige
 31. Tests serveur (7.3) — non corrige
 32. ESLint/Prettier (7.2) — non corrige
-33. Supprimer /frontend/ (7.1) — non corrige
-34. Shortcuts manifest (6.3) — non corrige
-35. Lang manifest (6.4) — non corrige
+33. ~~Supprimer /frontend/ (7.1)~~ — **CORRIGE** PR #44 (migre vers client/, supprime)
+34. ~~Shortcuts manifest (6.3)~~ — **CORRIGE** PR #41 (Trajet + Stats)
+35. ~~Lang manifest (6.4)~~ — **CORRIGE** PR #41 (lang: "fr")
 
 ### Egalement corriges (hors liste initiale)
 - ~~Trips chevauchants acceptes (5.1)~~ — **CORRIGE** PR #37 (overlap check avant insert)
@@ -420,12 +420,20 @@
 
 ## Bilan des corrections
 
-**Corriges : 24/35** (69%)
+**Corriges : 31/35** (89%)
 - P0 : 6/6 (100%)
-- P1 : 8/9 (89%)
-- P2 : 5/10 (50%)
-- P3 : 0/10 (0%)
+- P1 : 9/9 (100%)
+- P2 : 10/10 (100%)
+- P3 : 4/10 (40%)
 - Bonus : 5 fixes supplementaires
+
+**Restent non corriges (P3) :**
+- 26. Haptic feedback
+- 27. prefers-reduced-motion
+- 29. Float precision (numeric vs real)
+- 30. Timezone persistee dans le profil
+- 31. Tests serveur
+- 32. ESLint/Prettier
 
 **PRs de correction :**
 - PR #35 : Securite (GPS limit, IP fix, headers, duration max, sameSite doc)
@@ -433,3 +441,7 @@
 - PR #37 : Data integrity (overlap check, idempotency keys)
 - PR #38 : UX mobile (touch targets, text sizes, contrast, status bar, safe area, scroll, form)
 - PR #39 : GPS robustness (recovery, backup, wake lock, double-tap, navigation guard)
+- PR #41 : PWA manifest (lang fr, shortcuts)
+- PR #42 : Leaderboard dense ranking
+- PR #43 : UX v2 (scroll position, back button sheets, GPS indicator)
+- PR #44 : Cleanup (splash compress, Dockerfile prod, /frontend/ supprime)

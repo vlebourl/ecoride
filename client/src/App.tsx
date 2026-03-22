@@ -8,11 +8,13 @@ import { StatsPage } from "@/pages/StatsPage";
 import { LeaderboardPage } from "@/pages/LeaderboardPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { PrivacyPage } from "@/pages/PrivacyPage";
 
 export function App() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="privacy" element={<PrivacyPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />

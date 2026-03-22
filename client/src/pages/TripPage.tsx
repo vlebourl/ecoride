@@ -23,6 +23,7 @@ export function TripPage() {
   const [uiState, setUiState] = useState<TripState>("idle");
   const [manualKm, setManualKm] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [manualMinutes, setManualMinutes] = useState("");
   const [initialPos, setInitialPos] = useState<[number, number]>(DEFAULT_CENTER);
   const sessionRef = useRef<TrackingSession | null>(null);
   const createTrip = useCreateTrip();
@@ -88,6 +89,7 @@ export function TripPage() {
           setSaveError("");
           setUiState("idle");
           setManualKm("");
+          setManualMinutes("");
           sessionRef.current = null;
           gps.reset();
         },
@@ -263,6 +265,16 @@ export function TripPage() {
               placeholder="0.0"
               className="mb-4 w-full rounded-lg bg-surface-high p-4 text-2xl font-bold text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
+            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted">
+              Durée (minutes)
+            </label>
+            <input
+              type="number"
+              value={manualMinutes}
+              onChange={(e) => setManualMinutes(e.target.value)}
+              placeholder="Optionnel"
+              className="mb-4 w-full rounded-lg bg-surface-high p-4 text-2xl font-bold text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
             <div className="flex gap-3">
               <button
                 onClick={() => setUiState("idle")}
@@ -274,9 +286,10 @@ export function TripPage() {
                 onClick={() => {
                   const km = parseFloat(manualKm);
                   if (km > 0) {
-                    // Estimate ~15 km/h average cycling speed
-                    const estimatedDuration = Math.round((km / 15) * 3600);
-                    handleSaveTrip(km, estimatedDuration);
+                    const durationSec = manualMinutes
+                      ? parseInt(manualMinutes) * 60
+                      : Math.round((km / 15) * 3600); // Fallback: estimate ~15 km/h
+                    handleSaveTrip(km, durationSec);
                   }
                 }}
                 disabled={createTrip.isPending || !manualKm || parseFloat(manualKm) <= 0}

@@ -20,7 +20,7 @@ function longestRun(sortedDesc: string[]): number {
   let max = 1
   let run = 1
   for (let i = 1; i < sortedDesc.length; i++) {
-    if (sortedDesc[i] === addDays(sortedDesc[i - 1], -1)) {
+    if (sortedDesc[i] === addDays(sortedDesc[i - 1]!, -1)) {
       run++
       if (run > max) max = run
     } else {
@@ -37,7 +37,7 @@ export function computeStreak(tripDates: string[], today?: string): StreakInfo {
 
   const unique = [...new Set(tripDates)].sort().reverse()
   const todayStr = today ?? toDateStr(new Date())
-  const last = unique[0]
+  const last = unique[0]!
 
   const isActiveToday = last === todayStr
   const isYesterday = last === addDays(todayStr, -1)
@@ -53,7 +53,7 @@ export function computeStreak(tripDates: string[], today?: string): StreakInfo {
 
   let current = 1
   for (let i = 1; i < unique.length; i++) {
-    if (unique[i] === addDays(unique[i - 1], -1)) {
+    if (unique[i] === addDays(unique[i - 1]!, -1)) {
       current++
     } else {
       break

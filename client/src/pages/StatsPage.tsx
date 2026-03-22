@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import {
@@ -84,6 +84,16 @@ export function StatsPage() {
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
   const { data: tripDetail } = useTrip(selectedTrip?.id ?? null);
   const deleteTrip = useDeleteTrip();
+
+  // Fix 3.7: Android back button closes the bottom sheet
+  useEffect(() => {
+    if (selectedTrip) {
+      window.history.pushState({ sheet: true }, "");
+      const handlePop = () => setSelectedTrip(null);
+      window.addEventListener("popstate", handlePop);
+      return () => window.removeEventListener("popstate", handlePop);
+    }
+  }, [selectedTrip]);
 
   // Use detailed trip data (with gpsPoints) when available, otherwise fall back to list data
   const displayTrip = tripDetail ?? selectedTrip;

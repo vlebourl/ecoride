@@ -16,6 +16,7 @@ export interface TrackingState {
   durationSec: number;
   gpsPoints: GpsPoint[];
   error: string | null;
+  lastAccuracy: number | null;
 }
 
 export interface TrackingSession {
@@ -36,7 +37,7 @@ export interface TrackingBackup {
 type Action =
   | { type: "START" }
   | { type: "STOP" }
-  | { type: "GPS_POINT"; point: GpsPoint }
+  | { type: "GPS_POINT"; point: GpsPoint; accuracy: number }
   | { type: "TICK" }
   | { type: "ERROR"; message: string }
   | { type: "RESTORE"; backup: TrackingBackup };
@@ -47,12 +48,13 @@ const initial: TrackingState = {
   durationSec: 0,
   gpsPoints: [],
   error: null,
+  lastAccuracy: null,
 };
 
 function reducer(state: TrackingState, action: Action): TrackingState {
   switch (action.type) {
     case "START":
-      return { ...initial, isTracking: true };
+      return { ...initial, isTracking: true, lastAccuracy: null };
     case "STOP":
       return { ...state, isTracking: false };
     case "GPS_POINT": {
@@ -63,7 +65,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         const d = haversineDistance(prev.lat, prev.lng, action.point.lat, action.point.lng);
         if (d >= MIN_DISTANCE_KM) added = d;
       }
-      return { ...state, gpsPoints: points, distanceKm: state.distanceKm + added, error: null };
+      return { ...state, gpsPoints: points, distanceKm: state.distanceKm + added, error: null, lastAccuracy: action.accuracy };
     }
     case "TICK":
       return { ...state, durationSec: state.durationSec + 1 };
@@ -76,6 +78,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         distanceKm: action.backup.distanceKm,
         durationSec: action.backup.durationSec,
         error: null,
+        lastAccuracy: null,
       };
   }
 }
@@ -167,6 +170,7 @@ export function useGpsTracking() {
         dispatch({
           type: "GPS_POINT",
           point: { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: pos.timestamp },
+          accuracy: pos.coords.accuracy,
         });
       },
       (err) => {

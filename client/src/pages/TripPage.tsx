@@ -236,9 +236,9 @@ export function TripPage() {
           <RecenterMap position={currentPos} />
         </MapContainer>
 
-        {/* Floating CO2 chip */}
+        {/* Floating CO2 chip + GPS accuracy indicator */}
         {uiState === "tracking" && (
-          <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2">
+          <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 flex flex-col items-center gap-2">
             <div className="flex items-center gap-3 rounded-full border border-primary/30 bg-primary/20 px-5 py-2.5 backdrop-blur-md">
               <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                 CO₂ Saved
@@ -246,6 +246,34 @@ export function TripPage() {
               <span className="text-xl font-extrabold text-primary-light">
                 {co2Saved.toFixed(1)} kg
               </span>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 backdrop-blur-md">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: gps.state.lastAccuracy == null
+                    ? "#9ca3af"
+                    : gps.state.lastAccuracy < 10
+                      ? "#2ecc71"
+                      : gps.state.lastAccuracy < 30
+                        ? "#FFB800"
+                        : "#FF4D4D",
+                }}
+              />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                {gps.state.lastAccuracy == null
+                  ? "GPS..."
+                  : gps.state.lastAccuracy < 10
+                    ? "GPS précis"
+                    : gps.state.lastAccuracy < 30
+                      ? "GPS moyen"
+                      : "GPS faible"}
+              </span>
+              {gps.state.lastAccuracy != null && (
+                <span className="text-[10px] text-text-dim">
+                  {Math.round(gps.state.lastAccuracy)}m
+                </span>
+              )}
             </div>
           </div>
         )}

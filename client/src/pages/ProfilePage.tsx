@@ -5,10 +5,11 @@ import {
   Bike,
   Bell,
   BellOff,
-  Shield,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Loader2,
+  Check,
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
@@ -27,9 +28,11 @@ export function ProfilePage() {
   const push = usePushNotifications();
 
   const [showVehicle, setShowVehicle] = useState(false);
+  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
   const [vehicleModel, setVehicleModel] = useState("");
   const [fuelType, setFuelType] = useState<FuelType>("sp95");
   const [consumption, setConsumption] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const user = profileData?.user;
   const stats = profileData?.stats;
@@ -52,11 +55,22 @@ export function ProfilePage() {
   }
 
   const handleSaveVehicle = () => {
-    updateProfile.mutate({
-      vehicleModel: vehicleModel || undefined,
-      fuelType,
-      consumptionL100: consumption ? Number(consumption) : undefined,
-    });
+    updateProfile.mutate(
+      {
+        vehicleModel: vehicleModel || undefined,
+        fuelType,
+        consumptionL100: consumption ? Number(consumption) : undefined,
+      },
+      {
+        onSuccess: () => {
+          setSaveSuccess(true);
+          setTimeout(() => {
+            setSaveSuccess(false);
+            setShowVehicle(false);
+          }, 500);
+        },
+      },
+    );
   };
 
   const handleLogout = async () => {
@@ -137,6 +151,32 @@ export function ProfilePage() {
               </span>
             </div>
           </div>
+          <div className="rounded-lg bg-surface-low p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim">
+              Carburant
+            </p>
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-3xl font-bold text-text">
+                {stats.totalFuelSavedL.toFixed(1)}
+              </span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                L
+              </span>
+            </div>
+          </div>
+          <div className="rounded-lg bg-surface-low p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim">
+              Economisé
+            </p>
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-3xl font-bold text-text">
+                {stats.totalMoneySavedEur.toFixed(0)}
+              </span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                EUR
+              </span>
+            </div>
+          </div>
         </section>
 
         {/* Badges */}
@@ -145,7 +185,7 @@ export function ProfilePage() {
             <h2 className="text-lg font-bold tracking-tight">Badges</h2>
           </div>
           <div className="grid grid-cols-4 gap-4">
-            {allBadgeIds.slice(0, 4).map((id) => {
+            {allBadgeIds.map((id) => {
               const badge = BADGES[id];
               const unlocked = (achievements ?? []).some((a) => a.badgeId === id);
               return (
@@ -221,10 +261,20 @@ export function ProfilePage() {
             </div>
             <button
               onClick={handleSaveVehicle}
-              disabled={updateProfile.isPending}
-              className="w-full rounded-xl bg-primary py-3 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
+              disabled={updateProfile.isPending || saveSuccess}
+              className={`w-full rounded-xl py-3 text-sm font-black uppercase tracking-widest active:scale-95 disabled:opacity-50 ${
+                saveSuccess ? "bg-green-600 text-white" : "bg-primary text-bg"
+              }`}
             >
-              {updateProfile.isPending ? "Enregistrement..." : "Enregistrer"}
+              {saveSuccess ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Check size={16} /> Enregistré
+                </span>
+              ) : updateProfile.isPending ? (
+                "Enregistrement..."
+              ) : (
+                "Enregistrer"
+              )}
             </button>
           </section>
         )}
@@ -234,13 +284,52 @@ export function ProfilePage() {
           <h2 className="mb-4 text-lg font-bold tracking-tight">Paramètres</h2>
           <div className="overflow-hidden rounded-lg bg-surface-low">
             {/* Informations personnelles */}
-            <button className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high">
+            <button
+              onClick={() => setShowPersonalInfo(!showPersonalInfo)}
+              className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high"
+            >
               <div className="flex items-center gap-4">
                 <UserIcon size={20} className="text-text-muted" />
                 <span className="text-sm font-medium">Informations personnelles</span>
               </div>
-              <ChevronRight size={18} className="text-text-dim" />
+              {showPersonalInfo ? (
+                <ChevronDown size={18} className="text-text-dim" />
+              ) : (
+                <ChevronRight size={18} className="text-text-dim" />
+              )}
             </button>
+            {showPersonalInfo && (
+              <div className="space-y-3 px-4 pb-4">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                    Nom
+                  </label>
+                  <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
+                    {user.name}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                    Email
+                  </label>
+                  <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
+                    {user.email}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                    Membre depuis
+                  </label>
+                  <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
+                    {new Date(user.createdAt).toLocaleDateString("fr-FR", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mx-4 h-px bg-white/5" />
 
@@ -301,16 +390,6 @@ export function ProfilePage() {
               )}
             </div>
 
-            <div className="mx-4 h-px bg-white/5" />
-
-            {/* Confidentialité */}
-            <button className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high">
-              <div className="flex items-center gap-4">
-                <Shield size={20} className="text-text-muted" />
-                <span className="text-sm font-medium">Confidentialité</span>
-              </div>
-              <ChevronRight size={18} className="text-text-dim" />
-            </button>
           </div>
 
           <button

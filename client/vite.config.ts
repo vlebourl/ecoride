@@ -3,14 +3,26 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
-import { execSync } from "node:child_process";
-import pkg from "../package.json" with { type: "json" };
+const gitHash = (() => {
+  try {
+    const { execSync } = require("node:child_process");
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return process.env.GIT_HASH || "unknown";
+  }
+})();
 
-const gitHash = execSync("git rev-parse --short HEAD").toString().trim();
+const pkgVersion = (() => {
+  try {
+    return require("../package.json").version;
+  } catch {
+    return "0.0.0";
+  }
+})();
 
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(`${pkg.version}-${gitHash}`),
+    __APP_VERSION__: JSON.stringify(`${pkgVersion}-${gitHash}`),
   },
   plugins: [
     react(),

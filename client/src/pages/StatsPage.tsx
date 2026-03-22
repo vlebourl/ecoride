@@ -102,18 +102,11 @@ export function StatsPage() {
 
   const isPending = summaryLoading || tripsLoading || weeklyLoading || achievementsLoading;
 
-  if (isPending || !s) {
-    return (
-      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Chargement">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
   const trips = tripsData?.trips ?? [];
   const chartTrips = weeklyTrips ?? [];
 
   // Build weekly chart data from all trips this week (memoized)
+  // MUST be before any early return to respect Rules of Hooks
   const weeklyData = useMemo(() => {
     const data = DAY_LABELS.map((day) => ({ day, km: 0, co2: 0, eur: 0 }));
 
@@ -136,6 +129,14 @@ export function StatsPage() {
 
     return data;
   }, [chartTrips]);
+
+  if (isPending || !s) {
+    return (
+      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Chargement">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <>

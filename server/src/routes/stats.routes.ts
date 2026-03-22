@@ -11,6 +11,7 @@ import type { StatsPeriod } from "@ecoride/shared/api-contracts";
 
 const statsQuery = z.object({
   period: z.enum(["day", "week", "month", "year", "all"]).default("month"),
+  tz: z.string().optional(),
 });
 
 function getPeriodStart(period: StatsPeriod): Date | null {
@@ -36,7 +37,7 @@ statsRouter.get(
   "/summary",
   zValidator("query", statsQuery, validationHook),
   async (c) => {
-    const { period } = c.req.valid("query");
+    const { period, tz } = c.req.valid("query");
     const currentUser = c.get("user");
 
     const periodStart = getPeriodStart(period);
@@ -54,7 +55,7 @@ statsRouter.get(
       .from(trips)
       .where(and(...conditions));
 
-    const streaks = await computeStreak(currentUser.id);
+    const streaks = await computeStreak(currentUser.id, tz);
 
     return c.json({
       ok: true,

@@ -7,6 +7,7 @@ import { TripPage } from "@/pages/TripPage";
 import { StatsPage } from "@/pages/StatsPage";
 import { LeaderboardPage } from "@/pages/LeaderboardPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 
 export function App() {
   return (
@@ -21,6 +22,7 @@ export function App() {
           <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Route>
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
+      - run: bun install
       - run: bun run typecheck
 
   test:
@@ -22,5 +22,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
+      - run: bun install
       - run: cd client && bunx vitest run
+
+  smoke:
+    name: Smoke test (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: cd client && bun run build
+      - run: cd client && bunx playwright install chromium --with-deps
+      - run: cd client && bunx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: client/test-results/
+          retention-days: 7

@@ -3,9 +3,11 @@ import { Outlet } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav } from "./BottomNav";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 export function AppShell() {
   const queryClient = useQueryClient();
+  useOfflineSync();
 
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries();

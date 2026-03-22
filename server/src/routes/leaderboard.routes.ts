@@ -69,7 +69,7 @@ leaderboardRouter.get(
     let currentRank = 1;
     const ranked = entries.map((entry, idx) => {
       const co2 = entry.totalCo2SavedKg ?? 0;
-      if (idx > 0 && co2 !== (entries[idx - 1].totalCo2SavedKg ?? 0)) {
+      if (idx > 0 && co2 !== (entries[idx - 1]!.totalCo2SavedKg ?? 0)) {
         currentRank = idx + 1;
       }
       return { ...entry, totalCo2SavedKg: co2, rank: currentRank };

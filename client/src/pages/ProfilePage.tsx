@@ -4,13 +4,16 @@ import {
   User as UserIcon,
   Bike,
   Bell,
+  BellOff,
   Shield,
   ChevronRight,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
 import { useProfile, useAchievements, useUpdateProfile } from "@/hooks/queries";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
@@ -20,6 +23,8 @@ export function ProfilePage() {
   const { data: profileData, isPending: profileLoading } = useProfile();
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
   const updateProfile = useUpdateProfile();
+
+  const push = usePushNotifications();
 
   const [showVehicle, setShowVehicle] = useState(false);
   const [vehicleModel, setVehicleModel] = useState("");
@@ -228,30 +233,84 @@ export function ProfilePage() {
         <section className="space-y-2">
           <h2 className="mb-4 text-lg font-bold tracking-tight">Paramètres</h2>
           <div className="overflow-hidden rounded-lg bg-surface-low">
-            {[
-              { icon: UserIcon, label: "Informations personnelles" },
-              {
-                icon: Bike,
-                label: "Mon véhicule",
-                onClick: () => setShowVehicle(!showVehicle),
-              },
-              { icon: Bell, label: "Notifications" },
-              { icon: Shield, label: "Confidentialité" },
-            ].map(({ icon: Icon, label, onClick }, i) => (
-              <div key={label}>
-                {i > 0 && <div className="mx-4 h-px bg-white/5" />}
-                <button
-                  onClick={onClick}
-                  className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high"
-                >
-                  <div className="flex items-center gap-4">
-                    <Icon size={20} className="text-text-muted" />
-                    <span className="text-sm font-medium">{label}</span>
-                  </div>
-                  <ChevronRight size={18} className="text-text-dim" />
-                </button>
+            {/* Informations personnelles */}
+            <button className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high">
+              <div className="flex items-center gap-4">
+                <UserIcon size={20} className="text-text-muted" />
+                <span className="text-sm font-medium">Informations personnelles</span>
               </div>
-            ))}
+              <ChevronRight size={18} className="text-text-dim" />
+            </button>
+
+            <div className="mx-4 h-px bg-white/5" />
+
+            {/* Mon véhicule */}
+            <button
+              onClick={() => setShowVehicle(!showVehicle)}
+              className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high"
+            >
+              <div className="flex items-center gap-4">
+                <Bike size={20} className="text-text-muted" />
+                <span className="text-sm font-medium">Mon véhicule</span>
+              </div>
+              <ChevronRight size={18} className="text-text-dim" />
+            </button>
+
+            <div className="mx-4 h-px bg-white/5" />
+
+            {/* Notifications — toggle */}
+            <div className="flex w-full items-center justify-between p-4">
+              <div className="flex items-center gap-4">
+                {push.status === "subscribed" ? (
+                  <Bell size={20} className="text-primary-light" />
+                ) : (
+                  <BellOff size={20} className="text-text-muted" />
+                )}
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-medium">Notifications</span>
+                  {push.status === "unsupported" && (
+                    <span className="text-[10px] text-text-dim">Non supporté par ce navigateur</span>
+                  )}
+                  {push.status === "denied" && (
+                    <span className="text-[10px] text-text-dim">Autorisation refusée dans les paramètres du navigateur</span>
+                  )}
+                  {push.status === "subscribed" && (
+                    <span className="text-[10px] text-primary/70">Activées</span>
+                  )}
+                </div>
+              </div>
+              {(push.status === "subscribed" || push.status === "unsubscribed") && (
+                <button
+                  onClick={push.toggle}
+                  disabled={push.busy}
+                  aria-label={push.status === "subscribed" ? "Désactiver les notifications" : "Activer les notifications"}
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
+                    push.status === "subscribed" ? "bg-primary" : "bg-surface-high"
+                  }`}
+                >
+                  {push.busy ? (
+                    <Loader2 size={14} className="mx-auto animate-spin text-text-dim" />
+                  ) : (
+                    <span
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
+                        push.status === "subscribed" ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  )}
+                </button>
+              )}
+            </div>
+
+            <div className="mx-4 h-px bg-white/5" />
+
+            {/* Confidentialité */}
+            <button className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high">
+              <div className="flex items-center gap-4">
+                <Shield size={20} className="text-text-muted" />
+                <span className="text-sm font-medium">Confidentialité</span>
+              </div>
+              <ChevronRight size={18} className="text-text-dim" />
+            </button>
           </div>
 
           <button

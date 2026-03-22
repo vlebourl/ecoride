@@ -11,10 +11,12 @@ import {
   Loader2,
   Check,
   Droplets,
+  Download,
+  Trash2,
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
-import { useProfile, useAchievements, useUpdateProfile, useFuelPrice } from "@/hooks/queries";
+import { useProfile, useAchievements, useUpdateProfile, useFuelPrice, useDeleteAccount, useExportData } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
 
@@ -27,6 +29,8 @@ export function ProfilePage() {
   const updateProfile = useUpdateProfile();
 
   const push = usePushNotifications();
+  const deleteAccount = useDeleteAccount();
+  const exportData = useExportData();
 
   const userFuelType = profileData?.user?.fuelType ?? "sp95";
   const { data: fuelPrice, isPending: fuelPriceLoading } = useFuelPrice(userFuelType);
@@ -80,6 +84,20 @@ export function ProfilePage() {
   const handleLogout = async () => {
     await signOut();
     navigate("/login");
+  };
+
+  const handleDeleteAccount = () => {
+    const confirmed = window.confirm(
+      "Êtes-vous sûr ? Toutes vos données seront supprimées définitivement.",
+    );
+    if (!confirmed) return;
+    deleteAccount.mutate(undefined, {
+      onSuccess: () => navigate("/login"),
+    });
+  };
+
+  const handleExportData = () => {
+    exportData.mutate();
   };
 
   return (
@@ -430,6 +448,28 @@ export function ProfilePage() {
             <div className="flex items-center justify-center gap-2">
               <LogOut size={16} />
               Déconnexion
+            </div>
+          </button>
+
+          <button
+            onClick={handleExportData}
+            disabled={exportData.isPending}
+            className="mt-4 w-full rounded-lg bg-surface-high py-4 text-xs font-bold uppercase tracking-widest text-text-muted active:scale-95 disabled:opacity-50"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Download size={16} />
+              {exportData.isPending ? "Export en cours..." : "Exporter mes données"}
+            </div>
+          </button>
+
+          <button
+            onClick={handleDeleteAccount}
+            disabled={deleteAccount.isPending}
+            className="mt-4 w-full rounded-lg border border-red-500/30 bg-red-500/10 py-4 text-xs font-bold uppercase tracking-widest text-red-400 active:scale-95 disabled:opacity-50"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Trash2 size={16} />
+              {deleteAccount.isPending ? "Suppression..." : "Supprimer mon compte"}
             </div>
           </button>
 

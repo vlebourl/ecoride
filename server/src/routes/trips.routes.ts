@@ -39,10 +39,17 @@ tripsRouter.post(
     const consumptionL100 = profile?.consumptionL100 ?? 7; // Default 7L/100km
     const fuelType = (profile?.fuelType ?? "sp95") as "sp95" | "sp98" | "diesel" | "e85" | "gpl";
 
-    // Get current fuel price — use GPS coordinates for nearest station when available
+    // Get current fuel price — non-blocking: use cache or fallback immediately
     const startPoint = data.gpsPoints?.[0];
-    const fuelPriceData = await getFuelPrice(fuelType, startPoint?.lat, startPoint?.lng);
-    const fuelPriceEur = fuelPriceData.priceEur;
+    let fuelPriceEur: number;
+    try {
+      const fuelPriceData = await getFuelPrice(fuelType, startPoint?.lat, startPoint?.lng);
+      fuelPriceEur = fuelPriceData.priceEur;
+    } catch {
+      // On any failure, use hardcoded fallback so trip creation is never blocked
+      const FALLBACK: Record<string, number> = { sp95: 1.75, sp98: 1.85, diesel: 1.65, e85: 0.85, gpl: 0.95 };
+      fuelPriceEur = FALLBACK[fuelType] ?? 1.75;
+    }
 
     const savings = calculateSavings({
       distanceKm: data.distanceKm,

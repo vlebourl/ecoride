@@ -14,7 +14,11 @@ const DEFAULT_CENTER: [number, number] = [48.8566, 2.3522]; // Paris
 
 function RecenterMap({ position }: { position: [number, number] }) {
   const map = useMap();
+  const lastUpdateRef = useRef(0);
   useEffect(() => {
+    const now = Date.now();
+    if (now - lastUpdateRef.current < 500) return;
+    lastUpdateRef.current = now;
     map.setView(position, map.getZoom(), { animate: true });
   }, [map, position]);
   return null;

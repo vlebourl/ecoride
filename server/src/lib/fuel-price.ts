@@ -59,7 +59,7 @@ export async function getFuelPrice(
     }
 
     const url = `https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records?${params}`;
-    const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    const response = await fetch(url, { signal: AbortSignal.timeout(1500) });
 
     if (!response.ok) {
       throw new Error(`API responded ${response.status}`);

@@ -10,6 +10,7 @@ import { authMiddleware } from "./auth/middleware";
 import { apiRouter } from "./routes";
 import { initCronJobs } from "./cron";
 import { AppError } from "./lib/errors";
+import { rateLimit } from "./lib/rate-limit";
 
 const app = new Hono();
 
@@ -30,6 +31,9 @@ app.use("/api/*", cors({
   origin: [env.FRONTEND_URL],
   credentials: true,
 }));
+
+// ---- Rate limiting for all API routes (100 req/min per IP) ----
+app.use("/api/*", rateLimit({ maxRequests: 100, prefix: "api" }));
 
 // ---- Better Auth handler (public, before authMiddleware) ----
 // Use ** to match nested paths like /api/auth/callback/google

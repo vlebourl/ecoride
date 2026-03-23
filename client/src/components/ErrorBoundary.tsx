@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { Bike } from "lucide-react";
@@ -22,6 +23,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info.componentStack);
+    Sentry.captureException(error, {
+      extra: { componentStack: info.componentStack },
+    });
   }
 
   render() {

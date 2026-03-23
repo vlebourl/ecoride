@@ -11,7 +11,7 @@ import {
   useDashboardSummary,
   useTrips,
   useTrip,
-  useWeeklyTrips,
+  useChartTrips,
   useAchievements,
   useDeleteTrip,
 } from "@/hooks/queries";
@@ -33,6 +33,20 @@ const metricLabels: Record<Metric, string> = {
 };
 
 const DAY_LABELS = ["L", "M", "M", "J", "V", "S", "D"];
+const MONTH_LABELS = [
+  "Jan",
+  "Fév",
+  "Mar",
+  "Avr",
+  "Mai",
+  "Juin",
+  "Juil",
+  "Août",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Déc",
+];
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
@@ -80,7 +94,7 @@ export function StatsPage() {
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const { data: s, isPending: summaryLoading } = useDashboardSummary("month");
   const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
-  const { data: weeklyTrips, isPending: weeklyLoading } = useWeeklyTrips();
+  const { data: chartTripsData, isPending: chartLoading } = useChartTrips(period);
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
   const { data: tripDetail } = useTrip(selectedTrip?.id ?? null);
   const deleteTrip = useDeleteTrip();
@@ -100,27 +114,55 @@ export function StatsPage() {
   const gpsPoints = displayTrip?.gpsPoints;
   const hasGpsTrack = Array.isArray(gpsPoints) && gpsPoints.length > 1;
 
-  const isPending = summaryLoading || tripsLoading || weeklyLoading || achievementsLoading;
+  const isPending = summaryLoading || tripsLoading || chartLoading || achievementsLoading;
 
   const trips = tripsData?.trips ?? [];
-  const chartTrips = weeklyTrips ?? [];
+  const chartTrips = chartTripsData ?? [];
 
-  // Build weekly chart data from all trips this week (memoized)
+  // Build chart data from trips for the selected period (memoized)
   // MUST be before any early return to respect Rules of Hooks
-  const weeklyData = useMemo(() => {
-    const data = DAY_LABELS.map((day) => ({ day, km: 0, co2: 0, eur: 0 }));
+  const chartData = useMemo(() => {
+    let data: { label: string; km: number; co2: number; eur: number }[];
 
-    for (const trip of chartTrips) {
-      const tripDate = new Date(trip.startedAt);
-      const dayIdx = (tripDate.getDay() + 6) % 7; // Mon=0, Sun=6
-      if (data[dayIdx]) {
-        data[dayIdx].km += trip.distanceKm;
-        data[dayIdx].co2 += trip.co2SavedKg;
-        data[dayIdx].eur += trip.moneySavedEur;
+    if (period === "week") {
+      data = DAY_LABELS.map((label) => ({ label, km: 0, co2: 0, eur: 0 }));
+      for (const trip of chartTrips) {
+        const dayIdx = (new Date(trip.startedAt).getDay() + 6) % 7;
+        if (data[dayIdx]) {
+          data[dayIdx].km += trip.distanceKm;
+          data[dayIdx].co2 += trip.co2SavedKg;
+          data[dayIdx].eur += trip.moneySavedEur;
+        }
+      }
+    } else if (period === "month") {
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      data = Array.from({ length: daysInMonth }, (_, i) => ({
+        label: String(i + 1),
+        km: 0,
+        co2: 0,
+        eur: 0,
+      }));
+      for (const trip of chartTrips) {
+        const dayOfMonth = new Date(trip.startedAt).getDate() - 1;
+        if (data[dayOfMonth]) {
+          data[dayOfMonth].km += trip.distanceKm;
+          data[dayOfMonth].co2 += trip.co2SavedKg;
+          data[dayOfMonth].eur += trip.moneySavedEur;
+        }
+      }
+    } else {
+      data = MONTH_LABELS.map((label) => ({ label, km: 0, co2: 0, eur: 0 }));
+      for (const trip of chartTrips) {
+        const monthIdx = new Date(trip.startedAt).getMonth();
+        if (data[monthIdx]) {
+          data[monthIdx].km += trip.distanceKm;
+          data[monthIdx].co2 += trip.co2SavedKg;
+          data[monthIdx].eur += trip.moneySavedEur;
+        }
       }
     }
 
-    // Round values for display
     for (const d of data) {
       d.km = Math.round(d.km * 10) / 10;
       d.co2 = Math.round(d.co2 * 10) / 10;
@@ -128,7 +170,7 @@ export function StatsPage() {
     }
 
     return data;
-  }, [chartTrips]);
+  }, [chartTrips, period]);
 
   if (isPending || !s) {
     return (
@@ -274,13 +316,14 @@ export function StatsPage() {
               {/* Line Chart */}
               <div className="rounded-xl border border-outline-variant/10 bg-surface-low p-4">
                 <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={weeklyData}>
+                  <LineChart data={chartData}>
                     <CartesianGrid stroke="#2e3842" strokeDasharray="3 3" vertical={false} />
                     <XAxis
-                      dataKey="day"
+                      dataKey="label"
                       tick={{ fill: "#8a9ba8", fontSize: 11, fontWeight: 600 }}
                       axisLine={false}
                       tickLine={false}
+                      interval={period === "month" ? 4 : 0}
                     />
                     <Tooltip
                       contentStyle={{

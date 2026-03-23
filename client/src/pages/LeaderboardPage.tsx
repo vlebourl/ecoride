@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Trophy } from "lucide-react";
+import { Trophy, Leaf, Flame, MapPin, Zap } from "lucide-react";
 import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
-import type { StatsPeriod } from "@ecoride/shared/api-contracts";
+import type { StatsPeriod, LeaderboardCategory } from "@ecoride/shared/api-contracts";
 
 const periodOptions = [
   { label: "Semaine", value: "week" as StatsPeriod },
@@ -10,16 +10,42 @@ const periodOptions = [
   { label: "Tout", value: "all" as StatsPeriod },
 ];
 
-const periodSubtitles: Record<string, string> = {
-  week: "L'impact écologique cette semaine",
-  month: "L'impact écologique ce mois-ci",
-  all: "L'impact écologique global",
+const categoryOptions: { label: string; value: LeaderboardCategory; icon: typeof Leaf }[] = [
+  { label: "CO₂", value: "co2", icon: Leaf },
+  { label: "Série", value: "streak", icon: Flame },
+  { label: "Trajets", value: "trips", icon: MapPin },
+  { label: "Vitesse", value: "speed", icon: Zap },
+];
+
+const categorySubtitles: Record<LeaderboardCategory, string> = {
+  co2: "L'impact écologique",
+  streak: "La régularité",
+  trips: "L'activité",
+  speed: "La performance",
+};
+
+const categoryUnits: Record<LeaderboardCategory, string> = {
+  co2: "KG",
+  streak: "JOURS",
+  trips: "TRAJETS",
+  speed: "KM/H",
+};
+
+const periodSuffixes: Record<StatsPeriod, string> = {
+  day: " aujourd'hui",
+  week: " cette semaine",
+  month: " ce mois-ci",
+  year: " cette année",
+  all: " global",
 };
 
 export function LeaderboardPage() {
   const { data: session } = useSession();
   const [period, setPeriod] = useState<StatsPeriod>("all");
-  const { data, isPending } = useLeaderboard(period);
+  const [category, setCategory] = useState<LeaderboardCategory>("co2");
+  const { data, isPending } = useLeaderboard(period, category);
+
+  const unit = categoryUnits[category];
 
   if (isPending || !data) {
     return (
@@ -50,7 +76,7 @@ export function LeaderboardPage() {
             Classement
           </h2>
           <p className="text-sm font-medium text-text-dim">
-            {periodSubtitles[period]}
+            {categorySubtitles[category]}{periodSuffixes[period] ?? ""}
           </p>
 
           {/* Period switcher */}
@@ -68,6 +94,27 @@ export function LeaderboardPage() {
                 {opt.label}
               </button>
             ))}
+          </div>
+
+          {/* Category switcher */}
+          <div className="mt-3 flex gap-2" data-testid="category-switcher">
+            {categoryOptions.map((opt) => {
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setCategory(opt.value)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                    opt.value === category
+                      ? "bg-primary/20 text-primary-light"
+                      : "bg-surface-high text-text-muted"
+                  }`}
+                >
+                  <Icon size={14} />
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -104,7 +151,7 @@ export function LeaderboardPage() {
                 {top3[1].name}
               </span>
               <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
-                {top3[1].totalCo2SavedKg} KG
+                {top3[1].value} {unit}
               </span>
             </div>
           )}
@@ -126,7 +173,7 @@ export function LeaderboardPage() {
                 {top3[0].name}
               </span>
               <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
-                {top3[0].totalCo2SavedKg} KG
+                {top3[0].value} {unit}
               </span>
             </div>
           )}
@@ -148,7 +195,7 @@ export function LeaderboardPage() {
                 {top3[2].name}
               </span>
               <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
-                {top3[2].totalCo2SavedKg} KG
+                {top3[2].value} {unit}
               </span>
             </div>
           )}
@@ -193,10 +240,7 @@ export function LeaderboardPage() {
                 </div>
                 <div className="text-right">
                   <span className="block text-sm font-black text-text">
-                    {entry.totalCo2SavedKg} kg
-                  </span>
-                  <span className="text-[9px] font-bold uppercase tracking-tighter text-text-dim">
-                    CO₂ Économisé
+                    {entry.value} {unit.toLowerCase()}
                   </span>
                 </div>
               </div>

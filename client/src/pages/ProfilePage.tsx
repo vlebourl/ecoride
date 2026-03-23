@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import {
   User as UserIcon,
   Bike,
@@ -13,6 +13,7 @@ import {
   Droplets,
   Download,
   Trash2,
+  Shield,
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
@@ -436,6 +437,20 @@ export function ProfilePage() {
               )}
             </div>
           </div>
+
+          {/* Admin link (only visible for admins) */}
+          {user.isAdmin && (
+            <Link
+              to="/admin"
+              className="mt-4 flex w-full items-center justify-between rounded-lg bg-surface-high p-4 transition-colors hover:bg-surface-low"
+            >
+              <div className="flex items-center gap-4">
+                <Shield size={20} className="text-primary-light" />
+                <span className="text-sm font-medium">Administration</span>
+              </div>
+              <ChevronRight size={18} className="text-text-dim" />
+            </Link>
+          )}
 
           <button
             onClick={handleLogout}

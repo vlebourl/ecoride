@@ -21,6 +21,7 @@ export const user = pgTable("user", {
   reminderEnabled: boolean("reminder_enabled").notNull().default(false),
   reminderTime: text("reminder_time"), // HH:MM
   reminderDays: text("reminder_days").array(), // ["mon","tue",...]
+  isAdmin: boolean("is_admin").notNull().default(false),
 });
 
 // Better Auth session table

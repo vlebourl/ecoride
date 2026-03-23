@@ -1,4 +1,5 @@
 import type { FuelType } from "@ecoride/shared/types";
+import { logger } from "./logger";
 
 interface CachedPrice {
   priceEur: number;
@@ -89,10 +90,10 @@ export async function getFuelPrice(
       return result;
     }
   } catch (err) {
-    console.warn(
-      "[fuel-price] API fetch failed, using fallback:",
-      err instanceof Error ? err.message : err,
-    );
+    logger.warn("fuel_price_api_failed", {
+      fuelType,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Fallback to national average

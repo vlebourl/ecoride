@@ -13,6 +13,7 @@ import { notFound, forbidden } from "../lib/errors";
 import { paginationToOffset, buildPagination } from "../lib/pagination";
 import { rateLimit } from "../lib/rate-limit";
 import { evaluateAndUnlockBadges, reevaluateBadges } from "../lib/badges";
+import { logAudit } from "../lib/audit";
 import { sendPushToUser } from "../lib/push";
 import { checkLeaderboardChanges } from "../lib/leaderboard-notifications";
 import { BADGES } from "@ecoride/shared/types";
@@ -184,6 +185,12 @@ tripsRouter.delete("/:id", zValidator("param", uuidParam, validationHook), async
   if (trip.userId !== currentUser.id) throw forbidden();
 
   await db.delete(trips).where(eq(trips.id, id));
+
+  // Fire-and-forget: audit log
+  logAudit(currentUser.id, "delete_trip", id, {
+    distanceKm: trip.distanceKm,
+    startedAt: trip.startedAt,
+  });
 
   // Re-evaluate badges — revoke any that are no longer earned
   const revokedBadges = await reevaluateBadges(currentUser.id);

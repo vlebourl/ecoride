@@ -1,5 +1,6 @@
 import { Cron } from "croner";
 import { processReminders } from "./push-reminders";
+import { logger } from "../lib/logger";
 
 export function initCronJobs(): void {
   // Run push reminder check every minute
@@ -7,9 +8,11 @@ export function initCronJobs(): void {
     try {
       await processReminders();
     } catch (err) {
-      console.error("[cron:push-reminders] Error:", err);
+      logger.error("cron_push_reminders_failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   });
 
-  console.log("[cron] Push reminders scheduled (every minute)");
+  logger.info("cron_jobs_initialized", { job: "push-reminders", schedule: "* * * * *" });
 }

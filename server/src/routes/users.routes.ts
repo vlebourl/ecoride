@@ -6,6 +6,7 @@ import { user } from "../db/schema/auth";
 import { trips, achievements } from "../db/schema";
 import { updateUserSchema } from "../validators/users";
 import { validationHook } from "../lib/validation";
+import { logAudit } from "../lib/audit";
 import type { AuthEnv } from "../types/context";
 
 const usersRouter = new Hono<AuthEnv>();
@@ -59,6 +60,9 @@ usersRouter.patch("/profile", zValidator("json", updateUserSchema, validationHoo
     .where(eq(user.id, currentUser.id))
     .returning();
 
+  // Fire-and-forget: audit log
+  logAudit(currentUser.id, "update_profile", undefined, { fields: Object.keys(data) });
+
   return c.json({ ok: true, data: { user: updated } });
 });
 
@@ -80,6 +84,9 @@ usersRouter.get("/export", async (c) => {
     exportedAt: new Date().toISOString(),
   };
 
+  // Fire-and-forget: audit log
+  logAudit(currentUser.id, "data_export");
+
   c.header("Content-Disposition", 'attachment; filename="ecoride-data-export.json"');
   c.header("Content-Type", "application/json");
   return c.json(exportData);
@@ -88,6 +95,10 @@ usersRouter.get("/export", async (c) => {
 // DELETE /api/user/profile — Delete account (GDPR right to erasure)
 usersRouter.delete("/profile", async (c) => {
   const currentUser = c.get("user");
+
+  // Audit BEFORE deletion (cascading delete will remove audit_logs too,
+  // but the structured log line is kept in stdout)
+  logAudit(currentUser.id, "delete_account");
 
   await db.delete(user).where(eq(user.id, currentUser.id));
 

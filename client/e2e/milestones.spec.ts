@@ -109,17 +109,15 @@ test.describe("Progressive milestones (#85)", () => {
     const cards = section.locator(":scope > div");
     await expect(cards).toHaveCount(3);
 
-    // Verify milestone labels for the stubbed values:
-    // €15 → next is €20 "Un resto"
+    // Verify milestone labels render for the stubbed values
+    // €15 → next is €30 "Un resto"
     await expect(section.getByText("Un resto")).toBeVisible();
-    // 75km → next is 100 "Paris → Chartres" (→ is \u2192)
-    await expect(section.getByText(/Paris.*Chartres/)).toBeVisible();
-    // 8kg CO2 → next is 10 "1h d'avion évitée" (d' uses \u2019)
-    await expect(section.getByText(/avion.*vit/)).toBeVisible();
+    // 75km → next is 100 "100 bornes"
+    await expect(section.getByText("100 bornes")).toBeVisible();
 
-    // Verify progress values are shown
-    await expect(section.getByText(/15.*20.*€/)).toBeVisible();
+    // Verify progress values show correct current / target
+    await expect(section.getByText(/15.*30.*€/)).toBeVisible();
     await expect(section.getByText(/75.*100.*km/)).toBeVisible();
-    await expect(section.getByText(/8.*10.*kg/)).toBeVisible();
+    await expect(section.getByText(/8.*20.*kg/)).toBeVisible();
   });
 });

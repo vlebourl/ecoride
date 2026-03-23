@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router";
 import { Bike, Leaf, MapPin, ChevronRight, Car, X, CloudOff, Euro, Route } from "lucide-react";
-import { ImpactMeter } from "@/components/ui/ImpactMeter";
 import { useDashboardSummary, useProfile } from "@/hooks/queries";
 import { getPendingTrips } from "@/lib/offline-queue";
 import appLogo from "/pwa-192x192.png?url";
@@ -11,34 +10,50 @@ interface Milestone {
   label: string;
 }
 
+// --- Milestone data ---
+// Money: subjective price comparisons (approximate French prices 2024)
 const MONEY_MILESTONES: Milestone[] = [
-  { value: 5, label: "Un café offert" },
-  { value: 10, label: "Une place de ciné" },
-  { value: 20, label: "Un resto" },
-  { value: 50, label: "Un plein gratuit" },
-  { value: 100, label: "Un weekend" },
-  { value: 200, label: "Un vélo neuf" },
-  { value: 500, label: "Des vacances" },
-  { value: 1000, label: "Millionnaire vert" },
+  { value: 5, label: "Un caf\u00e9 offert" },
+  { value: 15, label: "Une place de cin\u00e9" },
+  { value: 30, label: "Un resto" },
+  { value: 75, label: "Un plein d\u2019essence" },
+  { value: 150, label: "Une r\u00e9vision v\u00e9lo" },
+  { value: 300, label: "Un weekend en France" },
+  { value: 750, label: "Un v\u00e9lo d\u2019occasion" },
+  { value: 1500, label: "Un v\u00e9lo \u00e9lectrique" },
+  { value: 3000, label: "Des vacances au soleil" },
+  { value: 5000, label: "Un an de transports" },
+  { value: 10000, label: "Une voiture \u00e9conomis\u00e9e" },
 ];
 
+// KM: real distances (road: Google Maps, flight: great circle)
 const KM_MILESTONES: Milestone[] = [
-  { value: 10, label: "Première vraie balade" },
-  { value: 50, label: "Paris \u2192 Versailles" },
-  { value: 100, label: "Paris \u2192 Chartres" },
-  { value: 500, label: "Paris \u2192 Lyon" },
-  { value: 1000, label: "Paris \u2192 Barcelone" },
-  { value: 5000, label: "Paris \u2192 Moscou" },
-  { value: 10000, label: "Tour de France" },
+  { value: 10, label: "Premi\u00e8re sortie" },
+  { value: 100, label: "100 bornes" },
+  { value: 500, label: "Paris \u2192 Lyon" }, // 465 km route
+  { value: 1000, label: "Paris \u2192 Barcelone" }, // 1 040 km route
+  { value: 2500, label: "Paris \u2192 Istanbul" }, // 2 550 km
+  { value: 3500, label: "Un Tour de France" }, // ~3 500 km
+  { value: 6000, label: "Distance Paris \u2194 New York" }, // 5 850 km vol
+  { value: 10000, label: "Quart du tour de la Terre" }, // 40 075 / 4
+  { value: 40000, label: "Tour du monde" }, // 40 075 km
 ];
 
+// CO2: car equivalents (ADEME: 7 L/100km × 2.31 kg/L = 0.162 kg/km)
+// Aviation: DGAC emission factors per passenger
 const CO2_MILESTONES: Milestone[] = [
-  { value: 1, label: "Un aller-retour CDG" },
-  { value: 10, label: "1h d\u2019avion \u00e9vit\u00e9e" },
-  { value: 50, label: "Paris \u2192 Bordeaux" },
-  { value: 100, label: "Paris \u2192 Marseille" },
-  { value: 500, label: "Un vol transatlantique" },
+  { value: 5, label: "Trajet a\u00e9roport \u00e9vit\u00e9" }, // CDG 30 km = 4.9 kg
+  { value: 20, label: "Paris \u2192 Rouen en voiture" }, // 135 km = 21.9 kg
+  { value: 50, label: "Paris \u2192 Rennes en voiture" }, // 350 km = 56.7 kg
+  { value: 75, label: "Paris \u2192 Lyon en voiture" }, // 465 km = 75.3 kg
+  { value: 150, label: "Vol Paris \u2192 Gen\u00e8ve \u00e9vit\u00e9" }, // DGAC ~150 kg/pax
+  { value: 250, label: "Vol Paris \u2192 Rome \u00e9vit\u00e9" }, // DGAC ~250 kg/pax
+  { value: 500, label: "Vol Paris \u2192 Marrakech \u00e9vit\u00e9" }, // DGAC ~500 kg/pax
   { value: 1000, label: "1 tonne de CO\u2082 !" },
+  { value: 1500, label: "Vol Paris \u2192 New York \u00e9vit\u00e9" }, // DGAC ~1 400 kg/pax
+  { value: 2500, label: "Vol Paris \u2192 Johannesburg \u00e9vit\u00e9" }, // DGAC ~2 400 kg/pax
+  { value: 5000, label: "Empreinte transport d\u2019un Fran\u00e7ais" }, // ~5t/an
+  { value: 10000, label: "10 tonnes \u00e9vit\u00e9es" },
 ];
 
 function getNextMilestone(current: number, milestones: Milestone[]) {
@@ -275,9 +290,6 @@ export function DashboardPage() {
               </div>
             ))}
           </section>
-
-          {/* Impact Meter (all-time) */}
-          <ImpactMeter co2TotalKg={allTime.totalCo2SavedKg} />
         </div>
       )}
     </>

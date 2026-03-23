@@ -269,3 +269,16 @@ export function useExportData() {
     },
   });
 }
+
+export function useSubmitFeedback() {
+  return useMutation({
+    mutationFn: (data: { type: "bug" | "feature"; title: string; description: string }) =>
+      apiFetch<{
+        ok: boolean;
+        data: { issueNumber: number | null; issueUrl: string | null };
+      }>("/feedback", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data),
+  });
+}

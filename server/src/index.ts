@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 import { requestId } from "hono/request-id";
 import { serveStatic } from "hono/bun";
 import { HTTPException } from "hono/http-exception";
@@ -11,12 +10,30 @@ import { apiRouter } from "./routes";
 import { initCronJobs } from "./cron";
 import { AppError } from "./lib/errors";
 import { rateLimit } from "./lib/rate-limit";
+import { logger } from "./lib/logger";
 
 const app = new Hono();
 
 // ---- Global middleware ----
 app.use("*", requestId());
-app.use("*", logger());
+
+// Structured JSON request logger (replaces hono/logger)
+app.use("*", async (c, next) => {
+  const start = Date.now();
+  await next();
+  const duration = Date.now() - start;
+  const reqId = c.get("requestId") as string | undefined;
+  // User may not be set for unauthenticated routes
+  const userId = (c.var as Record<string, unknown>)["user"]
+    ? ((c.var as Record<string, unknown>)["user"] as { id: string }).id
+    : undefined;
+  logger.withContext(reqId, userId).info("http_request", {
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    duration_ms: duration,
+  });
+});
 
 // ---- HTTP security headers ----
 app.use("*", async (c, next) => {
@@ -95,7 +112,11 @@ app.onError((err, c) => {
       err.status,
     );
   }
-  console.error("[UNHANDLED]", err);
+  const reqId = c.get("requestId") as string | undefined;
+  logger.withContext(reqId).error("unhandled_error", {
+    error: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined,
+  });
   return c.json(
     {
       ok: false,
@@ -144,7 +165,7 @@ app.notFound((c) => {
 initCronJobs();
 
 // ---- Start server ----
-console.log(`ecoRide API starting on port ${env.PORT} (${env.NODE_ENV})`);
+logger.info("server_starting", { port: env.PORT, env: env.NODE_ENV });
 
 // FIX: Rewrite request URL at the Bun.serve level (not inside Hono handler)
 // Behind reverse proxy (Cloudflare → NPM → container), requests arrive as HTTP

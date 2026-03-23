@@ -3,13 +3,14 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { pushSubscriptions } from "../db/schema";
 import { env } from "../env";
+import { logger } from "./logger";
 
 let initialized = false;
 
 function ensureInitialized() {
   if (initialized) return;
   if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
-    console.warn("[push] VAPID keys not configured — push notifications disabled");
+    logger.warn("vapid_keys_not_configured");
     return;
   }
   webpush.setVapidDetails(env.VAPID_SUBJECT, env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
@@ -48,9 +49,12 @@ export async function sendPushNotification(
     if (statusCode === 410 || statusCode === 404) {
       // Subscription expired or invalid — clean up
       await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscription.id));
-      console.log(`[push] Removed expired subscription ${subscription.id}`);
+      logger.info("push_subscription_expired", { subscriptionId: subscription.id });
     } else {
-      console.error(`[push] Failed to send to ${subscription.id}:`, err);
+      logger.error("push_send_failed", {
+        subscriptionId: subscription.id,
+        error: err instanceof Error ? (err as Error).message : String(err),
+      });
     }
     return false;
   }

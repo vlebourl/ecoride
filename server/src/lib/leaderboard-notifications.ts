@@ -3,6 +3,7 @@ import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips } from "../db/schema";
 import { sendPushToUser } from "./push";
+import { logger } from "./logger";
 
 /**
  * After a trip is created, check if the user overtook anyone on the all-time
@@ -65,6 +66,9 @@ export async function checkLeaderboardChanges(
     }
   } catch (err) {
     // Never let leaderboard notification errors propagate
-    console.error("[leaderboard-notifications] Error:", err);
+    logger.error("leaderboard_notification_failed", {
+      userId,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }

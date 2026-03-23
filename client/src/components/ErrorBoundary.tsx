@@ -26,6 +26,17 @@ export class ErrorBoundary extends Component<Props, State> {
     Sentry.captureException(error, {
       extra: { componentStack: info.componentStack },
     });
+
+    // Auto-reload on stale chunk errors (after deploy, old JS files are gone)
+    const msg = error.message || "";
+    if (
+      msg.includes("not a valid JavaScript MIME type") ||
+      msg.includes("Failed to fetch dynamically imported module") ||
+      msg.includes("Loading chunk") ||
+      msg.includes("Loading CSS chunk")
+    ) {
+      window.location.reload();
+    }
   }
 
   render() {

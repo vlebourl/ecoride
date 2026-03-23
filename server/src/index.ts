@@ -142,9 +142,12 @@ if (env.NODE_ENV === "production") {
     return c.body(await file.text(), 200, { "Content-Type": "application/javascript" });
   });
   app.use("/*", serveStatic({ root: "./client/dist" }));
-  // SPA fallback: serve index.html for non-API routes that don't match a static file
+  // SPA fallback: serve index.html for navigation routes only.
+  // Static assets (.js, .css, .png, etc.) that don't exist should 404,
+  // NOT return index.html (which causes "not a valid JavaScript MIME type" on iOS Safari).
   app.get("*", (c, next) => {
     if (c.req.path.startsWith("/api")) return next();
+    if (/\.\w{2,5}$/.test(c.req.path)) return next(); // Has file extension → let 404 handler catch it
     c.header("Cache-Control", "public, max-age=0, must-revalidate");
     return c.html(Bun.file("./client/dist/index.html").text());
   });

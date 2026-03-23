@@ -16,18 +16,18 @@ export interface UserStats {
 }
 
 export const BADGE_THRESHOLDS: Record<BadgeId, (s: UserStats) => boolean> = {
-  first_trip:  (s) => s.tripCount >= 1,
-  trips_10:    (s) => s.tripCount >= 10,
-  trips_50:    (s) => s.tripCount >= 50,
-  trips_100:   (s) => s.tripCount >= 100,
-  km_100:      (s) => s.totalDistanceKm >= 100,
-  km_500:      (s) => s.totalDistanceKm >= 500,
-  km_1000:     (s) => s.totalDistanceKm >= 1000,
-  co2_10kg:    (s) => s.totalCo2SavedKg >= 10,
-  co2_100kg:   (s) => s.totalCo2SavedKg >= 100,
-  co2_1t:      (s) => s.totalCo2SavedKg >= 1000,
-  streak_7:    (s) => s.currentStreak >= 7,
-  streak_30:   (s) => s.currentStreak >= 30,
+  first_trip: (s) => s.tripCount >= 1,
+  trips_10: (s) => s.tripCount >= 10,
+  trips_50: (s) => s.tripCount >= 50,
+  trips_100: (s) => s.tripCount >= 100,
+  km_100: (s) => s.totalDistanceKm >= 100,
+  km_500: (s) => s.totalDistanceKm >= 500,
+  km_1000: (s) => s.totalDistanceKm >= 1000,
+  co2_10kg: (s) => s.totalCo2SavedKg >= 10,
+  co2_100kg: (s) => s.totalCo2SavedKg >= 100,
+  co2_1t: (s) => s.totalCo2SavedKg >= 1000,
+  streak_7: (s) => s.currentStreak >= 7,
+  streak_30: (s) => s.currentStreak >= 30,
 };
 
 /**
@@ -67,7 +67,10 @@ export async function evaluateAndUnlockBadges(userId: string): Promise<BadgeId[]
   // 3. Determine which badges are newly earned
   const newlyUnlocked: BadgeId[] = [];
 
-  for (const [badgeId, check] of Object.entries(BADGE_THRESHOLDS) as [BadgeId, (s: UserStats) => boolean][]) {
+  for (const [badgeId, check] of Object.entries(BADGE_THRESHOLDS) as [
+    BadgeId,
+    (s: UserStats) => boolean,
+  ][]) {
     if (!unlockedSet.has(badgeId) && check(userStats)) {
       newlyUnlocked.push(badgeId);
     }
@@ -131,12 +134,7 @@ export async function reevaluateBadges(userId: string): Promise<BadgeId[]> {
   if (revoked.length > 0) {
     await db
       .delete(achievements)
-      .where(
-        and(
-          eq(achievements.userId, userId),
-          inArray(achievements.badgeId, revoked),
-        ),
-      );
+      .where(and(eq(achievements.userId, userId), inArray(achievements.badgeId, revoked)));
   }
 
   return revoked;

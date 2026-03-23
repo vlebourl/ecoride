@@ -283,7 +283,10 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
  * Assign dense ranks based on a value extractor.
  * Entries with the same value get the same rank.
  */
-export function denseRank<T>(entries: T[], getValue: (entry: T) => number): (T & { rank: number })[] {
+export function denseRank<T>(
+  entries: T[],
+  getValue: (entry: T) => number,
+): (T & { rank: number })[] {
   let currentRank = 1;
   return entries.map((entry, idx) => {
     const val = getValue(entry);

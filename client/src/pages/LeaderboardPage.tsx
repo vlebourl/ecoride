@@ -1,10 +1,25 @@
+import { useState } from "react";
 import { Trophy } from "lucide-react";
 import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
+import type { StatsPeriod } from "@ecoride/shared/api-contracts";
+
+const periodOptions = [
+  { label: "Semaine", value: "week" as StatsPeriod },
+  { label: "Mois", value: "month" as StatsPeriod },
+  { label: "Tout", value: "all" as StatsPeriod },
+];
+
+const periodSubtitles: Record<string, string> = {
+  week: "L'impact écologique cette semaine",
+  month: "L'impact écologique ce mois-ci",
+  all: "L'impact écologique global",
+};
 
 export function LeaderboardPage() {
   const { data: session } = useSession();
-  const { data, isPending } = useLeaderboard();
+  const [period, setPeriod] = useState<StatsPeriod>("all");
+  const { data, isPending } = useLeaderboard(period);
 
   if (isPending || !data) {
     return (
@@ -35,8 +50,25 @@ export function LeaderboardPage() {
             Classement
           </h2>
           <p className="text-sm font-medium text-text-dim">
-            L'impact écologique ce mois-ci
+            {periodSubtitles[period]}
           </p>
+
+          {/* Period switcher */}
+          <div className="mt-4 flex gap-2" data-testid="period-switcher">
+            {periodOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setPeriod(opt.value)}
+                className={`rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                  opt.value === period
+                    ? "bg-primary/20 text-primary-light"
+                    : "bg-surface-high text-text-muted"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </section>
 
         {entries.length === 0 ? (

@@ -4,7 +4,8 @@
 // If the denylist is missing (e.g., stale Docker cache), this catches the case.
 self.addEventListener("fetch", function (event) {
   var url = new URL(event.request.url);
-  if (url.pathname.startsWith("/api/")) {
+  // Only intercept our own API requests, not third-party (e.g., Sentry)
+  if (url.origin === self.location.origin && url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(event.request));
     event.stopImmediatePropagation();
   }

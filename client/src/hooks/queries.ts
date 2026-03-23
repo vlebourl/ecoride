@@ -192,6 +192,46 @@ export function useAdminStats() {
   });
 }
 
+export interface AdminNotificationLog {
+  id: string;
+  adminName: string;
+  title: string;
+  body: string;
+  url: string | null;
+  targetUserIds: string[] | null;
+  sentCount: number;
+  failedCount: number;
+  createdAt: string;
+}
+
+export function useAdminNotifications() {
+  return useQuery({
+    queryKey: ["admin", "notifications"],
+    queryFn: () =>
+      apiFetch<{
+        ok: boolean;
+        data: { notifications: AdminNotificationLog[] };
+      }>("/admin/notifications").then((r) => r.data.notifications),
+  });
+}
+
+export function useSendAdminNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { title: string; body: string; url?: string; userIds?: string[] }) =>
+      apiFetch<{
+        ok: boolean;
+        data: { sent: number; failed: number; notificationId: string };
+      }>("/admin/notifications", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "notifications"] });
+    },
+  });
+}
+
 // ---- Mutations ----
 
 export function useCreateTrip() {

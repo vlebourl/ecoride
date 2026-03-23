@@ -1,8 +1,14 @@
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import { eq, count, gte, sum, sql, desc } from "drizzle-orm";
 import { db } from "../db";
-import { user, trips } from "../db/schema";
+import { user, trips, notificationLogs } from "../db/schema";
 import { adminMiddleware } from "../auth/admin";
+import { validationHook } from "../lib/validation";
+import { rateLimit } from "../lib/rate-limit";
+import { sendPushBroadcast } from "../lib/push";
+import { logAudit } from "../lib/audit";
 import type { AuthEnv } from "../types/context";
 
 const appVersion = (() => {
@@ -151,6 +157,88 @@ adminRouter.get("/stats", async (c) => {
         startedAt: t.startedAt.toISOString(),
       })),
       dailyTripCounts,
+    },
+  });
+});
+
+// POST /api/admin/notifications — Send push notification to users
+const sendNotificationSchema = z.object({
+  title: z.string().min(1).max(100),
+  body: z.string().min(1).max(500),
+  url: z.string().url().optional(),
+  userIds: z.array(z.string().min(1)).optional(),
+});
+
+adminRouter.post(
+  "/notifications",
+  rateLimit({ maxRequests: 5, windowMs: 60_000, prefix: "admin-broadcast" }),
+  zValidator("json", sendNotificationSchema, validationHook),
+  async (c) => {
+    const data = c.req.valid("json");
+    const currentUser = c.get("user");
+
+    const payload = {
+      title: data.title,
+      body: data.body,
+      url: data.url,
+    };
+
+    const targetUserIds = data.userIds && data.userIds.length > 0 ? data.userIds : undefined;
+
+    const { sent, failed } = await sendPushBroadcast(payload, targetUserIds);
+
+    const [log] = await db
+      .insert(notificationLogs)
+      .values({
+        adminId: currentUser.id,
+        title: data.title,
+        body: data.body,
+        url: data.url ?? null,
+        targetUserIds: targetUserIds ?? null,
+        sentCount: sent,
+        failedCount: failed,
+      })
+      .returning({ id: notificationLogs.id });
+
+    logAudit(currentUser.id, "admin_notification_sent", data.title, {
+      sent,
+      failed,
+      broadcast: !targetUserIds,
+    });
+
+    return c.json({
+      ok: true,
+      data: { sent, failed, notificationId: log?.id },
+    });
+  },
+);
+
+// GET /api/admin/notifications — Notification history
+adminRouter.get("/notifications", async (c) => {
+  const logs = await db
+    .select({
+      id: notificationLogs.id,
+      adminName: user.name,
+      title: notificationLogs.title,
+      body: notificationLogs.body,
+      url: notificationLogs.url,
+      targetUserIds: notificationLogs.targetUserIds,
+      sentCount: notificationLogs.sentCount,
+      failedCount: notificationLogs.failedCount,
+      createdAt: notificationLogs.createdAt,
+    })
+    .from(notificationLogs)
+    .innerJoin(user, eq(notificationLogs.adminId, user.id))
+    .orderBy(desc(notificationLogs.createdAt))
+    .limit(50);
+
+  return c.json({
+    ok: true,
+    data: {
+      notifications: logs.map((l) => ({
+        ...l,
+        createdAt: l.createdAt.toISOString(),
+      })),
     },
   });
 });

@@ -18,10 +18,11 @@ jobs:
 
       - name: Determine bump type from commit message
         id: bump
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          MSG="${{ github.event.head_commit.message }}"
-          # Extract type from conventional commit (first line)
-          TYPE=$(echo "$MSG" | head -1 | grep -oP '^(feat|fix|perf|refactor)' || echo "")
+          # Extract type from conventional commit (first line only)
+          TYPE=$(echo "$COMMIT_MSG" | head -1 | grep -oP '^(feat|fix|perf|refactor)' || echo "")
 
           if [ "$TYPE" = "feat" ]; then
             echo "type=minor" >> $GITHUB_OUTPUT

@@ -21,17 +21,22 @@ jobs:
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          # Extract type from conventional commit (first line only)
-          TYPE=$(echo "$COMMIT_MSG" | head -1 | grep -oP '^(feat|fix|perf|refactor)' || echo "")
-
-          if [ "$TYPE" = "feat" ]; then
-            echo "type=minor" >> $GITHUB_OUTPUT
-          elif [ "$TYPE" = "fix" ] || [ "$TYPE" = "perf" ]; then
-            echo "type=patch" >> $GITHUB_OUTPUT
+          # Check for BREAKING CHANGE in commit body or footer (major bump)
+          if echo "$COMMIT_MSG" | grep -qP '(BREAKING CHANGE|BREAKING-CHANGE)'; then
+            echo "type=major" >> $GITHUB_OUTPUT
           else
-            echo "type=none" >> $GITHUB_OUTPUT
+            # Extract type from conventional commit (first line only)
+            TYPE=$(echo "$COMMIT_MSG" | head -1 | grep -oP '^(feat|fix|perf|refactor)' || echo "")
+
+            if [ "$TYPE" = "feat" ]; then
+              echo "type=minor" >> $GITHUB_OUTPUT
+            elif [ "$TYPE" = "fix" ] || [ "$TYPE" = "perf" ]; then
+              echo "type=patch" >> $GITHUB_OUTPUT
+            else
+              echo "type=none" >> $GITHUB_OUTPUT
+            fi
           fi
-          echo "Commit type: $TYPE → bump: $(cat $GITHUB_OUTPUT | grep type= | cut -d= -f2)"
+          echo "Commit type: $(cat $GITHUB_OUTPUT | grep type= | cut -d= -f2)"
 
       - name: Bump package.json version
         if: steps.bump.outputs.type != 'none'
@@ -41,7 +46,11 @@ jobs:
 
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 
-          if [ "$BUMP" = "minor" ]; then
+          if [ "$BUMP" = "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ "$BUMP" = "minor" ]; then
             MINOR=$((MINOR + 1))
             PATCH=0
           elif [ "$BUMP" = "patch" ]; then

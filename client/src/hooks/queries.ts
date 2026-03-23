@@ -48,24 +48,33 @@ export function useTrips(page = 1, limit = 50) {
   });
 }
 
-export function useWeeklyTrips() {
+export function useChartTrips(period: "week" | "month" | "year") {
   const now = new Date();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  monday.setHours(0, 0, 0, 0);
-  const from = monday.toISOString();
-  const to = now.toISOString();
+  let from: Date;
+
+  if (period === "week") {
+    from = new Date(now);
+    from.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    from.setHours(0, 0, 0, 0);
+  } else if (period === "month") {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else {
+    from = new Date(now.getFullYear(), 0, 1);
+  }
+
+  const fromStr = from.toISOString();
+  const toStr = now.toISOString();
 
   return useQuery({
-    queryKey: ["trips", "weekly", from],
+    queryKey: ["trips", "chart", period, fromStr],
     queryFn: () =>
       apiFetch<{
         ok: boolean;
         data: { trips: Trip[] };
         pagination: { page: number; limit: number; total: number; totalPages: number };
-      }>(`/trips?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=100`).then(
-        (r) => r.data.trips,
-      ),
+      }>(
+        `/trips?from=${encodeURIComponent(fromStr)}&to=${encodeURIComponent(toStr)}&limit=500`,
+      ).then((r) => r.data.trips),
   });
 }
 

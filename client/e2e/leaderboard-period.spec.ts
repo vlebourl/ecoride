@@ -1,12 +1,14 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Regression test for the leaderboard period filter feature.
+ * Regression test for the leaderboard period filter and category switcher.
  *
  * Verifies that:
  * 1. The leaderboard page loads without crashing
  * 2. The period switcher buttons (Semaine, Mois, Tout) are visible
  * 3. Clicking a period button updates the active state
+ * 4. The category switcher buttons (CO₂, Série, Trajets, Vitesse) are visible
+ * 5. Clicking a category button updates the active state
  */
 
 test.describe("Leaderboard period filter", () => {
@@ -94,5 +96,41 @@ test.describe("Leaderboard period filter", () => {
 
     // "Tout" should no longer have the active style
     await expect(toutBtn).toHaveClass(/bg-surface-high/);
+  });
+
+  test("shows category switcher buttons", async ({ page }) => {
+    await page.goto("/leaderboard", { waitUntil: "networkidle" });
+
+    // Page should NOT show the error boundary
+    const errorBoundary = page.getByText("Une erreur est survenue");
+    await expect(errorBoundary).not.toBeVisible({ timeout: 3000 });
+
+    // Category switcher should be visible with all 4 buttons
+    const catSwitcher = page.getByTestId("category-switcher");
+    await expect(catSwitcher).toBeVisible();
+
+    await expect(catSwitcher.getByText("CO₂")).toBeVisible();
+    await expect(catSwitcher.getByText("Série")).toBeVisible();
+    await expect(catSwitcher.getByText("Trajets")).toBeVisible();
+    await expect(catSwitcher.getByText("Vitesse")).toBeVisible();
+  });
+
+  test("clicking a category button updates active state", async ({ page }) => {
+    await page.goto("/leaderboard", { waitUntil: "networkidle" });
+
+    const catSwitcher = page.getByTestId("category-switcher");
+    await expect(catSwitcher).toBeVisible();
+
+    // "CO₂" should be active by default
+    const co2Btn = catSwitcher.getByText("CO₂");
+    await expect(co2Btn).toHaveClass(/bg-primary/);
+
+    // Click "Série" and verify it becomes active
+    const serieBtn = catSwitcher.getByText("Série");
+    await serieBtn.click();
+    await expect(serieBtn).toHaveClass(/bg-primary/);
+
+    // "CO₂" should no longer have the active style
+    await expect(co2Btn).toHaveClass(/bg-surface-high/);
   });
 });

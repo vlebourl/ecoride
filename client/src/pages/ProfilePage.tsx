@@ -14,6 +14,7 @@ import {
   Download,
   Trash2,
   Shield,
+  MessageSquarePlus,
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
@@ -24,6 +25,7 @@ import {
   useFuelPrice,
   useDeleteAccount,
   useExportData,
+  useSubmitFeedback,
 } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
@@ -39,6 +41,7 @@ export function ProfilePage() {
   const push = usePushNotifications();
   const deleteAccount = useDeleteAccount();
   const exportData = useExportData();
+  const submitFeedback = useSubmitFeedback();
 
   const userFuelType = profileData?.user?.fuelType ?? "sp95";
   const { data: fuelPrice, isPending: fuelPriceLoading } = useFuelPrice(userFuelType);
@@ -49,6 +52,11 @@ export function ProfilePage() {
   const [fuelType, setFuelType] = useState<FuelType>("sp95");
   const [consumption, setConsumption] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<"bug" | "feature">("bug");
+  const [feedbackTitle, setFeedbackTitle] = useState("");
+  const [feedbackDesc, setFeedbackDesc] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
 
   const user = profileData?.user;
   const stats = profileData?.stats;
@@ -436,6 +444,109 @@ export function ProfilePage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Feedback form */}
+          <div className="overflow-hidden rounded-lg bg-surface-low">
+            <button
+              onClick={() => {
+                setShowFeedback(!showFeedback);
+                setFeedbackSent(false);
+              }}
+              className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high"
+            >
+              <div className="flex items-center gap-4">
+                <MessageSquarePlus size={20} className="text-text-muted" />
+                <span className="text-sm font-medium">Signaler un problème</span>
+              </div>
+              {showFeedback ? (
+                <ChevronDown size={18} className="text-text-dim" />
+              ) : (
+                <ChevronRight size={18} className="text-text-dim" />
+              )}
+            </button>
+            {showFeedback && (
+              <div className="space-y-3 px-4 pb-4">
+                {feedbackSent ? (
+                  <div className="flex items-center gap-3 rounded-lg bg-primary/10 p-4">
+                    <Check size={18} className="text-primary-light" />
+                    <span className="text-sm font-medium text-primary-light">
+                      Merci pour votre retour !
+                    </span>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      submitFeedback.mutate(
+                        {
+                          type: feedbackType,
+                          title: feedbackTitle,
+                          description: feedbackDesc,
+                        },
+                        {
+                          onSuccess: () => {
+                            setFeedbackSent(true);
+                            setFeedbackTitle("");
+                            setFeedbackDesc("");
+                          },
+                        },
+                      );
+                    }}
+                    className="space-y-3"
+                  >
+                    <div className="flex gap-2">
+                      {(["bug", "feature"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setFeedbackType(t)}
+                          className={`flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+                            feedbackType === t
+                              ? "bg-primary/20 text-primary-light"
+                              : "bg-surface-high text-text-muted"
+                          }`}
+                        >
+                          {t === "bug" ? "Bug" : "Idée"}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={feedbackTitle}
+                      onChange={(e) => setFeedbackTitle(e.target.value)}
+                      placeholder="Titre"
+                      required
+                      minLength={3}
+                      maxLength={200}
+                      className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <textarea
+                      value={feedbackDesc}
+                      onChange={(e) => setFeedbackDesc(e.target.value)}
+                      placeholder="Décrivez le problème ou votre idée..."
+                      required
+                      minLength={10}
+                      maxLength={2000}
+                      rows={4}
+                      className="w-full resize-none rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <button
+                      type="submit"
+                      disabled={submitFeedback.isPending}
+                      className="w-full rounded-lg bg-primary py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
+                    >
+                      {submitFeedback.isPending ? "Envoi..." : "Envoyer"}
+                    </button>
+                    {submitFeedback.isError && (
+                      <p className="text-center text-xs text-danger">
+                        Erreur lors de l&apos;envoi. Réessayez.
+                      </p>
+                    )}
+                  </form>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Admin link (only visible for admins) */}

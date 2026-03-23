@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   Shield,
@@ -10,8 +10,17 @@ import {
   Clock,
   ArrowLeft,
   Bike,
+  Send,
+  Bell,
+  Check,
 } from "lucide-react";
-import { useAdminHealth, useAdminStats, useProfile } from "@/hooks/queries";
+import {
+  useAdminHealth,
+  useAdminStats,
+  useAdminNotifications,
+  useSendAdminNotification,
+  useProfile,
+} from "@/hooks/queries";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 function formatUptime(seconds: number): string {
@@ -293,8 +302,169 @@ export function AdminPage() {
             <p className="py-4 text-center text-sm text-text-muted">Aucun trajet</p>
           )}
         </section>
+        {/* Push Notifications */}
+        <NotificationSection users={stats?.users} />
       </div>
     </>
+  );
+}
+
+function NotificationSection({ users }: { users?: { id: string; name: string; email: string }[] }) {
+  const { data: history, isPending: historyPending } = useAdminNotifications();
+  const sendNotification = useSendAdminNotification();
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [url, setUrl] = useState("");
+  const [sendAll, setSendAll] = useState(true);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendNotification.mutate(
+      {
+        title,
+        body,
+        url: url || undefined,
+        userIds: sendAll ? undefined : selectedUserIds,
+      },
+      {
+        onSuccess: (data) => {
+          setSent(true);
+          setTitle("");
+          setBody("");
+          setUrl("");
+          setTimeout(() => setSent(false), 3000);
+        },
+      },
+    );
+  };
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Bell size={18} className="text-primary-light" />
+        <h3 className="text-sm font-bold uppercase tracking-widest text-text-dim">
+          Notifications push
+        </h3>
+      </div>
+
+      {/* Compose form */}
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-xl bg-surface-low p-5">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Titre"
+          required
+          maxLength={100}
+          className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Message..."
+          required
+          maxLength={500}
+          rows={3}
+          className="w-full resize-none rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Lien (optionnel)"
+          className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+
+        {/* Target selection */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={sendAll}
+              onChange={(e) => setSendAll(e.target.checked)}
+              className="accent-primary"
+            />
+            <span className="text-sm font-medium text-text">Tous les utilisateurs</span>
+          </label>
+
+          {!sendAll && users && (
+            <div className="max-h-40 overflow-y-auto rounded-lg bg-surface-high p-2">
+              {users.map((u) => (
+                <label key={u.id} className="flex items-center gap-2 px-2 py-1.5">
+                  <input
+                    type="checkbox"
+                    checked={selectedUserIds.includes(u.id)}
+                    onChange={(e) =>
+                      setSelectedUserIds((prev) =>
+                        e.target.checked ? [...prev, u.id] : prev.filter((id) => id !== u.id),
+                      )
+                    }
+                    className="accent-primary"
+                  />
+                  <span className="text-xs text-text">{u.name ?? u.email}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={sendNotification.isPending || (!sendAll && selectedUserIds.length === 0)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
+        >
+          {sent ? (
+            <>
+              <Check size={16} />
+              Envoy\u00e9 !
+            </>
+          ) : sendNotification.isPending ? (
+            "Envoi..."
+          ) : (
+            <>
+              <Send size={16} />
+              Envoyer
+            </>
+          )}
+        </button>
+
+        {sendNotification.isError && (
+          <p className="text-center text-xs text-danger">Erreur lors de l&apos;envoi.</p>
+        )}
+      </form>
+
+      {/* History */}
+      {!historyPending && history && history.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-text-dim">Historique</h4>
+          {history.map((n) => (
+            <div key={n.id} className="rounded-lg bg-surface-low p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-bold text-text">{n.title}</p>
+                  <p className="text-xs text-text-muted">{n.body}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-primary-light">
+                    {n.sentCount} envoy\u00e9s
+                  </span>
+                  {n.failedCount > 0 && (
+                    <span className="ml-1 text-xs text-danger">{n.failedCount} \u00e9checs</span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-text-dim">
+                <span>{n.targetUserIds ? `${n.targetUserIds.length} utilisateurs` : "Tous"}</span>
+                <span>\u00b7</span>
+                <span>{formatDate(n.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

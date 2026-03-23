@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { pushSubscriptions } from "../db/schema";
 import { env } from "../env";
@@ -75,4 +75,26 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     if (ok) sent++;
   }
   return sent;
+}
+
+/**
+ * Broadcast a push notification to all subscriptions, or a subset by user IDs.
+ */
+export async function sendPushBroadcast(
+  payload: PushPayload,
+  userIds?: string[],
+): Promise<{ sent: number; failed: number }> {
+  const subs =
+    userIds && userIds.length > 0
+      ? await db.select().from(pushSubscriptions).where(inArray(pushSubscriptions.userId, userIds))
+      : await db.select().from(pushSubscriptions);
+
+  let sent = 0;
+  let failed = 0;
+  for (const sub of subs) {
+    const ok = await sendPushNotification(sub, payload);
+    if (ok) sent++;
+    else failed++;
+  }
+  return { sent, failed };
 }

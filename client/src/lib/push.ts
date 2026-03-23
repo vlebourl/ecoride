@@ -41,10 +41,21 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
   const registration = await navigator.serviceWorker.ready;
   const vapidPublicKey = await getVapidPublicKey();
 
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer,
-  });
+  if (!vapidPublicKey || vapidPublicKey.length < 20) {
+    console.warn("[push] VAPID public key is empty or invalid — push disabled");
+    return null;
+  }
+
+  let subscription: PushSubscription;
+  try {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer,
+    });
+  } catch (err) {
+    console.error("[push] Failed to subscribe:", err);
+    return null;
+  }
 
   // Send subscription to server
   const keys = subscription.toJSON().keys!;

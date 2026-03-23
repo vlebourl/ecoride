@@ -1,10 +1,57 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router";
-import { Bike, Leaf, MapPin, ChevronRight, Car, X, CloudOff } from "lucide-react";
+import { Bike, Leaf, MapPin, ChevronRight, Car, X, CloudOff, Euro, Route } from "lucide-react";
 import { ImpactMeter } from "@/components/ui/ImpactMeter";
 import { useDashboardSummary, useProfile } from "@/hooks/queries";
 import { getPendingTrips } from "@/lib/offline-queue";
 import appLogo from "/pwa-192x192.png?url";
+
+interface Milestone {
+  value: number;
+  label: string;
+}
+
+const MONEY_MILESTONES: Milestone[] = [
+  { value: 5, label: "Un café offert" },
+  { value: 10, label: "Une place de ciné" },
+  { value: 20, label: "Un resto" },
+  { value: 50, label: "Un plein gratuit" },
+  { value: 100, label: "Un weekend" },
+  { value: 200, label: "Un vélo neuf" },
+  { value: 500, label: "Des vacances" },
+  { value: 1000, label: "Millionnaire vert" },
+];
+
+const KM_MILESTONES: Milestone[] = [
+  { value: 10, label: "Première vraie balade" },
+  { value: 50, label: "Paris \u2192 Versailles" },
+  { value: 100, label: "Paris \u2192 Chartres" },
+  { value: 500, label: "Paris \u2192 Lyon" },
+  { value: 1000, label: "Paris \u2192 Barcelone" },
+  { value: 5000, label: "Paris \u2192 Moscou" },
+  { value: 10000, label: "Tour de France" },
+];
+
+const CO2_MILESTONES: Milestone[] = [
+  { value: 1, label: "Un aller-retour CDG" },
+  { value: 10, label: "1h d\u2019avion \u00e9vit\u00e9e" },
+  { value: 50, label: "Paris \u2192 Bordeaux" },
+  { value: 100, label: "Paris \u2192 Marseille" },
+  { value: 500, label: "Un vol transatlantique" },
+  { value: 1000, label: "1 tonne de CO\u2082 !" },
+];
+
+function getNextMilestone(current: number, milestones: Milestone[]) {
+  const next = milestones.find((m) => m.value > current);
+  if (!next) {
+    const last = milestones[milestones.length - 1]!;
+    return { target: last.value, label: last.label, progress: 1 };
+  }
+  const prev = milestones.filter((m) => m.value <= current).pop();
+  const base = prev?.value ?? 0;
+  const progress = (current - base) / (next.value - base);
+  return { target: next.value, label: next.label, progress: Math.min(progress, 1) };
+}
 
 export function DashboardPage() {
   const { data: today, isPending: todayPending } = useDashboardSummary("day");
@@ -14,6 +61,37 @@ export function DashboardPage() {
   const pendingTrips = getPendingTrips();
 
   const isPending = todayPending || allTimePending;
+
+  // MUST be before any early return to respect Rules of Hooks
+  const milestones = useMemo(
+    () =>
+      allTime
+        ? [
+            {
+              key: "eur",
+              icon: <Euro size={16} className="text-primary-light" />,
+              current: allTime.totalMoneySavedEur,
+              unit: "€",
+              ...getNextMilestone(allTime.totalMoneySavedEur, MONEY_MILESTONES),
+            },
+            {
+              key: "km",
+              icon: <Route size={16} className="text-primary-light" />,
+              current: allTime.totalDistanceKm,
+              unit: "km",
+              ...getNextMilestone(allTime.totalDistanceKm, KM_MILESTONES),
+            },
+            {
+              key: "co2",
+              icon: <Leaf size={16} className="text-primary-light" />,
+              current: allTime.totalCo2SavedKg,
+              unit: "kg",
+              ...getNextMilestone(allTime.totalCo2SavedKg, CO2_MILESTONES),
+            },
+          ]
+        : [],
+    [allTime],
+  );
 
   if (isPending || !today || !allTime) {
     return (
@@ -169,6 +247,34 @@ export function DashboardPage() {
                 : "Commencez votre série !"}
             </span>
           </div>
+
+          {/* Progressive Milestones */}
+          <section className="space-y-3" data-testid="milestones">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-text-muted">
+              Prochains objectifs
+            </h3>
+            {milestones.map((m) => (
+              <div key={m.key} className="rounded-xl bg-surface-container p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {m.icon}
+                    <span className="text-xs font-bold text-text-muted">{m.label}</span>
+                  </div>
+                  <span className="text-xs font-bold text-primary-light">
+                    {m.current < m.target
+                      ? `${Math.round(m.current)} / ${m.target} ${m.unit}`
+                      : `${m.target} ${m.unit}`}
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-surface-high">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${Math.max(m.progress * 100, 2)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </section>
 
           {/* Impact Meter (all-time) */}
           <ImpactMeter co2TotalKg={allTime.totalCo2SavedKg} />

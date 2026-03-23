@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trophy, Leaf, Flame, MapPin, Zap } from "lucide-react";
+import { Trophy, Leaf, Flame, MapPin, Zap, Euro } from "lucide-react";
 import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
 import type { StatsPeriod, LeaderboardCategory } from "@ecoride/shared/api-contracts";
@@ -15,6 +15,7 @@ const categoryOptions: { label: string; value: LeaderboardCategory; icon: typeof
   { label: "Série", value: "streak", icon: Flame },
   { label: "Trajets", value: "trips", icon: MapPin },
   { label: "Vitesse", value: "speed", icon: Zap },
+  { label: "€", value: "money", icon: Euro },
 ];
 
 const categorySubtitles: Record<LeaderboardCategory, string> = {
@@ -22,6 +23,7 @@ const categorySubtitles: Record<LeaderboardCategory, string> = {
   streak: "La régularité",
   trips: "L'activité",
   speed: "La performance",
+  money: "Les économies",
 };
 
 const categoryUnits: Record<LeaderboardCategory, string> = {
@@ -29,6 +31,7 @@ const categoryUnits: Record<LeaderboardCategory, string> = {
   streak: "JOURS",
   trips: "TRAJETS",
   speed: "KM/H",
+  money: "€",
 };
 
 const periodSuffixes: Record<StatsPeriod, string> = {

@@ -30,6 +30,8 @@ export function TripPage() {
   const [saveError, setSaveError] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
   const [initialPos, setInitialPos] = useState<[number, number]>(DEFAULT_CENTER);
+  const [gpsStatus, setGpsStatus] = useState<"waiting" | "active" | "denied" | "unavailable">("waiting");
+  const [idleAccuracy, setIdleAccuracy] = useState<number | null>(null);
   const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
   const sessionRef = useRef<TrackingSession | null>(null);
   const createTrip = useCreateTrip();
@@ -57,13 +59,27 @@ export function TripPage() {
   // Fix 1.7: Navigation guard — in-app navigation uses beforeunload above
   // useBlocker removed (not available in react-router v7.13+)
 
-  // Get user's real position on page load (one-shot)
+  // Get user's real position on page load + keep watching for idle GPS status
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => setInitialPos([pos.coords.latitude, pos.coords.longitude]),
-      () => {}, // silent fail — keep DEFAULT_CENTER
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+    if (!navigator.geolocation) {
+      setGpsStatus("unavailable");
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setInitialPos([pos.coords.latitude, pos.coords.longitude]);
+        setIdleAccuracy(pos.coords.accuracy);
+        setGpsStatus("active");
+      },
+      (err) => {
+        if (err.code === 1) setGpsStatus("denied");
+        else setGpsStatus("unavailable");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
     );
+
+    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   // Derive map data from GPS state
@@ -153,11 +169,58 @@ export function TripPage() {
 
   return (
     <div className="relative flex h-full flex-col">
-      {/* Header */}
+      {/* Header with persistent GPS indicator */}
       <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
         <span className="text-lg font-bold tracking-tight">
           <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
         </span>
+        {(() => {
+          // During tracking, use GPS hook state; otherwise use idle watcher
+          const accuracy = uiState === "tracking" ? gps.state.lastAccuracy : idleAccuracy;
+          const isActive = uiState === "tracking" ? gps.state.isTracking : gpsStatus === "active";
+          const isDenied = gpsStatus === "denied";
+          const isUnavailable = gpsStatus === "unavailable";
+          const isWaiting = gpsStatus === "waiting" && uiState !== "tracking";
+
+          const color = isDenied || isUnavailable
+            ? "#FF4D4D"
+            : isWaiting
+              ? "#9ca3af"
+              : !isActive || accuracy == null
+                ? "#9ca3af"
+                : accuracy < 10
+                  ? "#2ecc71"
+                  : accuracy < 30
+                    ? "#FFB800"
+                    : "#FF4D4D";
+
+          const label = isDenied
+            ? "GPS refusé"
+            : isUnavailable
+              ? "GPS indisponible"
+              : isWaiting
+                ? "GPS..."
+                : accuracy == null
+                  ? "GPS..."
+                  : accuracy < 10
+                    ? "Précis"
+                    : accuracy < 30
+                      ? "Moyen"
+                      : "Faible";
+
+          return (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-xs font-bold text-text-muted">
+                {label}
+                {isActive && accuracy != null && ` · ${Math.round(accuracy)}m`}
+              </span>
+            </div>
+          );
+        })()}
       </header>
 
       {/* Fix 1.3: Recovery banner for interrupted trip */}
@@ -224,34 +287,6 @@ export function TripPage() {
                 {formatTime(elapsed)}
               </span>
               <span className="text-xs font-bold uppercase text-text-dim">temps</span>
-            </div>
-          </div>
-
-          {/* GPS accuracy chip */}
-          <div className="flex justify-center pb-3">
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-surface-container px-3 py-1.5">
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{
-                  backgroundColor: gps.state.lastAccuracy == null
-                    ? "#9ca3af"
-                    : gps.state.lastAccuracy < 10
-                      ? "#2ecc71"
-                      : gps.state.lastAccuracy < 30
-                        ? "#FFB800"
-                        : "#FF4D4D",
-                }}
-              />
-              <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
-                {gps.state.lastAccuracy == null
-                  ? "GPS..."
-                  : gps.state.lastAccuracy < 10
-                    ? "Précis"
-                    : gps.state.lastAccuracy < 30
-                      ? "Moyen"
-                      : "Faible"}
-                {gps.state.lastAccuracy != null && ` · ${Math.round(gps.state.lastAccuracy)}m`}
-              </span>
             </div>
           </div>
 
@@ -356,13 +391,32 @@ export function TripPage() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => handleSaveTrip(distance, elapsed, sessionRef.current)}
-              disabled={createTrip.isPending}
-              className="mt-6 w-full rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
-            >
-              {createTrip.isPending ? "Enregistrement..." : "Enregistrer"}
-            </button>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => {
+                  if (window.confirm("Abandonner ce trajet ? Les données seront perdues.")) {
+                    setUiState("idle");
+                    sessionRef.current = null;
+                    gps.reset();
+                  }
+                }}
+                disabled={createTrip.isPending}
+                className="flex-1 rounded-xl bg-surface-high py-4 text-sm font-bold text-text-muted active:scale-95"
+              >
+                Abandonner
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm("Enregistrer ce trajet ?")) {
+                    handleSaveTrip(distance, elapsed, sessionRef.current);
+                  }
+                }}
+                disabled={createTrip.isPending}
+                className="flex-1 rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
+              >
+                {createTrip.isPending ? "..." : "Enregistrer"}
+              </button>
+            </div>
             {saveError && (
               <div className="mt-4 rounded-xl bg-primary/10 p-4">
                 <div className="flex items-center gap-3">

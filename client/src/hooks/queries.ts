@@ -128,6 +128,61 @@ export function useFuelPrice(fuelType: string) {
   });
 }
 
+// ---- Admin queries ----
+
+export interface AdminHealthData {
+  version: string;
+  uptime: number;
+  userCount: number;
+  tripCount: number;
+  tripsToday: number;
+  tripsThisWeek: number;
+  dbConnected: boolean;
+}
+
+export interface AdminStatsUser {
+  id: string;
+  name: string;
+  email: string;
+  tripCount: number;
+  totalCo2: number;
+  createdAt: string;
+  isAdmin: boolean;
+}
+
+export interface AdminStatsTrip {
+  id: string;
+  userId: string;
+  userName: string;
+  distanceKm: number;
+  durationSec: number;
+  co2SavedKg: number;
+  startedAt: string;
+}
+
+export interface AdminStatsData {
+  users: AdminStatsUser[];
+  recentTrips: AdminStatsTrip[];
+  dailyTripCounts: { date: string; count: number }[];
+}
+
+export function useAdminHealth() {
+  return useQuery({
+    queryKey: ["admin", "health"],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: AdminHealthData }>("/admin/health").then((r) => r.data),
+    refetchInterval: 30_000, // refresh every 30s
+  });
+}
+
+export function useAdminStats() {
+  return useQuery({
+    queryKey: ["admin", "stats"],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: AdminStatsData }>("/admin/stats").then((r) => r.data),
+  });
+}
+
 // ---- Mutations ----
 
 export function useCreateTrip() {

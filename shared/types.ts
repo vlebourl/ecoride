@@ -13,6 +13,7 @@ export interface User {
   reminderEnabled: boolean;
   reminderTime: string | null;
   reminderDays: WeekDay[] | null;
+  isAdmin: boolean;
   createdAt: string;
 }
 

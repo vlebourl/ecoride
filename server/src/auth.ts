@@ -50,6 +50,7 @@ export const auth = betterAuth({
       reminderEnabled: { type: "boolean", required: false, defaultValue: false },
       reminderTime: { type: "string", required: false },
       reminderDays: { type: "string[]", required: false },
+      isAdmin: { type: "boolean", required: false, defaultValue: false },
     },
   },
 });

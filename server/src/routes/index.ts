@@ -6,6 +6,7 @@ import { statsRouter } from "./stats.routes";
 import { achievementsRouter } from "./achievements.routes";
 import { fuelPriceRouter } from "./fuel-price.routes";
 import { pushRouter } from "./push.routes";
+import { adminRouter } from "./admin.routes";
 import type { AuthEnv } from "../types/context";
 
 const apiRouter = new Hono<AuthEnv>();
@@ -17,5 +18,6 @@ apiRouter.route("/stats", statsRouter);
 apiRouter.route("/achievements", achievementsRouter);
 apiRouter.route("/fuel-price", fuelPriceRouter);
 apiRouter.route("/push", pushRouter);
+apiRouter.route("/admin", adminRouter);
 
 export { apiRouter };

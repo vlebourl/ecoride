@@ -63,3 +63,28 @@ jobs:
           git add package.json
           git commit -m "chore: bump version to $NEW"
           git push
+
+  deploy:
+    name: Deploy to Coolify
+    needs: bump
+    if: needs.bump.result == 'success'
+    runs-on: homelab-runner
+    steps:
+      - name: Trigger Coolify deploy
+        run: |
+          RESPONSE=$(curl -s -f -X GET \
+            "http://localhost:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_APP_UUID }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
+          echo "$RESPONSE"
+          DEPLOY_UUID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['deployments'][0]['deployment_uuid'])")
+          echo "deploy_uuid=$DEPLOY_UUID" >> $GITHUB_ENV
+
+      - name: Wait and verify
+        run: |
+          sleep 90
+          STATUS=$(curl -s \
+            "http://localhost:8000/api/v1/deployments/${{ env.deploy_uuid }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('status'))")
+          echo "Status: $STATUS"
+          [ "$STATUS" = "finished" ] || exit 1

@@ -13,19 +13,21 @@ import "./app.css";
 // ---------------------------------------------------------------------------
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN || "",
-  environment: import.meta.env.MODE, // "development" or "production"
+  environment: import.meta.env.MODE,
   release: __APP_VERSION__,
-  // Only send errors when a DSN is explicitly provided
   enabled: !!import.meta.env.VITE_SENTRY_DSN,
-  // Sample 100 % of errors, 10 % of performance transactions
+  sendDefaultPii: true,
+  integrations: [Sentry.replayIntegration()],
   tracesSampleRate: 0.1,
-  // Strip PII from breadcrumbs before sending
-  beforeSend(event) {
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+  beforeSend(event: Sentry.ErrorEvent) {
     if (event.breadcrumbs) {
-      event.breadcrumbs = event.breadcrumbs.map((b) => {
-        if (b.data?.email) b.data.email = "[redacted]";
-        return b;
-      });
+      for (const b of event.breadcrumbs) {
+        if (b.data && "email" in b.data) {
+          (b.data as Record<string, unknown>).email = "[redacted]";
+        }
+      }
     }
     return event;
   },

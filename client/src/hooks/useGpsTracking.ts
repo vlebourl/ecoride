@@ -17,6 +17,7 @@ export interface TrackingState {
   gpsPoints: GpsPoint[];
   error: string | null;
   lastAccuracy: number | null;
+  speedKmh: number | null;
 }
 
 export interface TrackingSession {
@@ -37,7 +38,7 @@ export interface TrackingBackup {
 type Action =
   | { type: "START" }
   | { type: "STOP" }
-  | { type: "GPS_POINT"; point: GpsPoint; accuracy: number }
+  | { type: "GPS_POINT"; point: GpsPoint; accuracy: number; speed: number | null }
   | { type: "TICK" }
   | { type: "ERROR"; message: string }
   | { type: "RESTORE"; backup: TrackingBackup };
@@ -49,12 +50,13 @@ const initial: TrackingState = {
   gpsPoints: [],
   error: null,
   lastAccuracy: null,
+  speedKmh: null,
 };
 
 function reducer(state: TrackingState, action: Action): TrackingState {
   switch (action.type) {
     case "START":
-      return { ...initial, isTracking: true, lastAccuracy: null };
+      return { ...initial, isTracking: true, lastAccuracy: null, speedKmh: null };
     case "STOP":
       return { ...state, isTracking: false };
     case "GPS_POINT": {
@@ -65,7 +67,8 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         const d = haversineDistance(prev.lat, prev.lng, action.point.lat, action.point.lng);
         if (d >= MIN_DISTANCE_KM) added = d;
       }
-      return { ...state, gpsPoints: points, distanceKm: state.distanceKm + added, error: null, lastAccuracy: action.accuracy };
+      const speedKmh = action.speed != null ? action.speed * 3.6 : state.speedKmh;
+      return { ...state, gpsPoints: points, distanceKm: state.distanceKm + added, error: null, lastAccuracy: action.accuracy, speedKmh };
     }
     case "TICK":
       return { ...state, durationSec: state.durationSec + 1 };
@@ -79,6 +82,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         durationSec: action.backup.durationSec,
         error: null,
         lastAccuracy: null,
+        speedKmh: null,
       };
   }
 }
@@ -171,6 +175,7 @@ export function useGpsTracking() {
           type: "GPS_POINT",
           point: { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: pos.timestamp },
           accuracy: pos.coords.accuracy,
+          speed: pos.coords.speed,
         });
       },
       (err) => {

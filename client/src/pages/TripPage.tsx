@@ -194,51 +194,42 @@ export function TripPage() {
         </div>
       )}
 
-      {/* Map */}
-      <div className="relative" style={{ height: "50vh", minHeight: "250px" }}>
-        <MapContainer
-          center={currentPos as LatLngExpression}
-          zoom={15}
-          zoomControl={false}
-          attributionControl={false}
-          className="h-full w-full"
-          style={{ background: "#232d35" }}
-        >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          />
-          {positions.length > 1 && (
-            <Polyline
-              positions={positions as LatLngExpression[]}
-              pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
-            />
-          )}
-          <CircleMarker
-            center={currentPos as LatLngExpression}
-            radius={8}
-            pathOptions={{
-              fillColor: "#2ecc71",
-              fillOpacity: 1,
-              color: "#ffffff",
-              weight: 2,
-            }}
-          />
-          <RecenterMap position={currentPos} />
-        </MapContainer>
+      {/* === TRACKING MODE: dashboard first, map below === */}
+      {uiState === "tracking" && (
+        <>
+          {/* Speed — hero central */}
+          <div className="flex flex-col items-center py-6">
+            <span className="text-7xl font-black tracking-tighter text-text">
+              {gps.state.speedKmh != null ? gps.state.speedKmh.toFixed(0) : "—"}
+            </span>
+            <span className="text-sm font-bold uppercase tracking-widest text-text-dim">km/h</span>
+          </div>
 
-        {/* Floating CO2 chip + GPS accuracy indicator */}
-        {uiState === "tracking" && (
-          <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 flex flex-col items-center gap-2">
-            <div className="flex items-center gap-3 rounded-full border border-primary/30 bg-primary/20 px-5 py-2.5 backdrop-blur-md">
-              <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                CO₂ Saved
+          {/* Distance / CO₂ / Temps — row */}
+          <div className="grid grid-cols-3 gap-3 px-6 pb-4">
+            <div className="rounded-xl bg-surface-low/80 p-3 text-center backdrop-blur-2xl">
+              <span className="block text-2xl font-extrabold tracking-tighter text-text">
+                {distance.toFixed(1)}
               </span>
-              <span className="text-xl font-extrabold text-primary-light">
-                {co2Saved.toFixed(1)} kg
-              </span>
+              <span className="text-xs font-bold uppercase text-text-dim">km</span>
             </div>
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 backdrop-blur-md">
+            <div className="rounded-xl bg-surface-low/80 p-3 text-center backdrop-blur-2xl">
+              <span className="block text-2xl font-extrabold tracking-tighter text-primary-light">
+                {co2Saved.toFixed(1)}
+              </span>
+              <span className="text-xs font-bold uppercase text-text-dim">kg CO₂</span>
+            </div>
+            <div className="rounded-xl bg-surface-low/80 p-3 text-center backdrop-blur-2xl">
+              <span className="block text-2xl font-extrabold tracking-tighter text-text">
+                {formatTime(elapsed)}
+              </span>
+              <span className="text-xs font-bold uppercase text-text-dim">temps</span>
+            </div>
+          </div>
+
+          {/* GPS accuracy chip */}
+          <div className="flex justify-center pb-3">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-surface-container px-3 py-1.5">
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{
@@ -251,51 +242,88 @@ export function TripPage() {
                         : "#FF4D4D",
                 }}
               />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+              <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
                 {gps.state.lastAccuracy == null
                   ? "GPS..."
                   : gps.state.lastAccuracy < 10
-                    ? "GPS précis"
+                    ? "Précis"
                     : gps.state.lastAccuracy < 30
-                      ? "GPS moyen"
-                      : "GPS faible"}
+                      ? "Moyen"
+                      : "Faible"}
+                {gps.state.lastAccuracy != null && ` · ${Math.round(gps.state.lastAccuracy)}m`}
               </span>
-              {gps.state.lastAccuracy != null && (
-                <span className="text-[10px] text-text-dim">
-                  {Math.round(gps.state.lastAccuracy)}m
-                </span>
-              )}
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Stats overlay */}
-      {uiState === "tracking" && (
-        <div className="space-y-4 px-6 pb-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-low/80 p-6 backdrop-blur-2xl">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-text-dim">
-                Distance
-              </p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold tracking-tighter text-text">
-                  {distance.toFixed(1)}
-                </span>
-                <span className="text-sm font-medium text-text-dim">km</span>
-              </div>
-            </div>
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-low/80 p-6 backdrop-blur-2xl">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-text-dim">
-                Temps
-              </p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold tracking-tighter text-primary-light">
-                  {formatTime(elapsed)}
-                </span>
-              </div>
-            </div>
+          {/* Mini map */}
+          <div className="relative flex-1" style={{ minHeight: "150px" }}>
+            <MapContainer
+              center={currentPos as LatLngExpression}
+              zoom={15}
+              zoomControl={false}
+              attributionControl={false}
+              className="h-full w-full"
+              style={{ background: "#232d35" }}
+            >
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+              />
+              {positions.length > 1 && (
+                <Polyline
+                  positions={positions as LatLngExpression[]}
+                  pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
+                />
+              )}
+              <CircleMarker
+                center={currentPos as LatLngExpression}
+                radius={8}
+                pathOptions={{
+                  fillColor: "#2ecc71",
+                  fillOpacity: 1,
+                  color: "#ffffff",
+                  weight: 2,
+                }}
+              />
+              <RecenterMap position={currentPos} />
+            </MapContainer>
           </div>
+        </>
+      )}
+
+      {/* === IDLE / STOPPED / MANUAL: full map === */}
+      {uiState !== "tracking" && (
+        <div className="relative" style={{ height: "50vh", minHeight: "250px" }}>
+          <MapContainer
+            center={currentPos as LatLngExpression}
+            zoom={15}
+            zoomControl={false}
+            attributionControl={false}
+            className="h-full w-full"
+            style={{ background: "#232d35" }}
+          >
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+            />
+            {positions.length > 1 && (
+              <Polyline
+                positions={positions as LatLngExpression[]}
+                pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
+              />
+            )}
+            <CircleMarker
+              center={currentPos as LatLngExpression}
+              radius={8}
+              pathOptions={{
+                fillColor: "#2ecc71",
+                fillOpacity: 1,
+                color: "#ffffff",
+                weight: 2,
+              }}
+            />
+            <RecenterMap position={currentPos} />
+          </MapContainer>
         </div>
       )}
 

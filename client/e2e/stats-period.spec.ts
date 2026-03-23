@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
  * the selected period. After the fix, useChartTrips(period) fetches the
  * correct date range and the chart data is re-aggregated accordingly.
  *
- * Strategy: intercept /api/trips chart calls (limit=500) and verify that
+ * Strategy: intercept /api/trips chart calls (limit=100) and verify that
  * switching period triggers new requests with progressively earlier `from` dates.
  */
 test.describe("Stats evolution period filter (#86)", () => {
@@ -29,8 +29,8 @@ test.describe("Stats evolution period filter (#86)", () => {
     await page.route("**/api/**", (route) => {
       const url = route.request().url();
 
-      // Track chart requests (limit=500 distinguishes them from list requests)
-      if (url.includes("/trips") && url.includes("limit=500")) {
+      // Track chart requests (limit=100 distinguishes them from list requests)
+      if (url.includes("/trips") && url.includes("limit=100")) {
         const fromMatch = url.match(/from=([^&]+)/);
         if (fromMatch) chartFromDates.push(decodeURIComponent(fromMatch[1]));
       }

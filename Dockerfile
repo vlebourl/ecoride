@@ -1,7 +1,7 @@
 # ---- Stage 1: Build client ----
 FROM oven/bun:1-alpine AS build
 
-ARG GIT_HASH=unknown
+ARG GIT_HASH=
 
 WORKDIR /app
 

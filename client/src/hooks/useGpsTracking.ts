@@ -219,15 +219,67 @@ export function useGpsTracking() {
     dispatch({ type: "START" });
     startRef.current = new Date().toISOString();
     retryCountRef.current = 0;
+  }, []);
+
+  // Start/stop GPS watch, timer, wake lock, and backup based on isTracking state.
+  // Only depends on state.isTracking — other refs are stable across renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!state.isTracking) return;
+
     wakeLock.request();
 
-    startWatch();
+    // GPS watch
+    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (pos.coords.accuracy > MAX_ACCURACY_M) return;
+        retryCountRef.current = 0;
+        dispatch({
+          type: "GPS_POINT",
+          point: { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: pos.timestamp },
+          accuracy: pos.coords.accuracy,
+          speed: pos.coords.speed,
+        });
+      },
+      (err) => {
+        const msgs: Record<number, string> = {
+          1: "Permission GPS refusée",
+          2: "Position non disponible",
+          3: "Timeout GPS",
+        };
+        dispatch({ type: "ERROR", message: msgs[err.code] ?? "Erreur GPS" });
+        if (err.code === 1 || err.code === 2) wakeLock.release();
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
 
-    timerRef.current = setInterval(() => dispatch({ type: "TICK" }), 1000);
+    // Timer
+    const timer = setInterval(() => dispatch({ type: "TICK" }), 1000);
 
-    // Fix 1.3: Periodic GPS backup to localStorage
-    backupTimerRef.current = setInterval(saveBackup, BACKUP_INTERVAL_MS);
-  }, [wakeLock, startWatch, saveBackup]);
+    // Backup
+    const backupTimer = setInterval(() => {
+      const s = stateRef.current;
+      if (!s.isTracking || s.gpsPoints.length === 0) return;
+      const backup: TrackingBackup = {
+        gpsPoints: s.gpsPoints,
+        distanceKm: s.distanceKm,
+        durationSec: s.durationSec,
+        startedAt: startRef.current ?? new Date().toISOString(),
+      };
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(backup));
+    }, BACKUP_INTERVAL_MS);
+
+    return () => {
+      if (watchRef.current !== null) {
+        navigator.geolocation.clearWatch(watchRef.current);
+        watchRef.current = null;
+      }
+      clearInterval(timer);
+      clearInterval(backupTimer);
+      wakeLock.release();
+    };
+  }, [state.isTracking]);
 
   /** Restore tracking from a backup (called externally by TripPage). */
   const restore = useCallback(
@@ -276,13 +328,7 @@ export function useGpsTracking() {
     clearTrackingBackup();
   }, [cleanup, wakeLock]);
 
-  // Fix 1.4: Release wake lock on component unmount
-  useEffect(() => {
-    return () => {
-      cleanup();
-      wakeLock.release();
-    };
-  }, [cleanup, wakeLock]);
+  // Cleanup is now handled by the isTracking effect above
 
   return { state, start, stop, reset, restore };
 }

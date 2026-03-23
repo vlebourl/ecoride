@@ -95,7 +95,7 @@ export function LeaderboardPage() {
               <button
                 key={opt.value}
                 onClick={() => setPeriod(opt.value)}
-                className={`rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                className={`flex-1 rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                   opt.value === period
                     ? "bg-primary/20 text-primary-light"
                     : "bg-surface-high text-text-muted"
@@ -106,25 +106,30 @@ export function LeaderboardPage() {
             ))}
           </div>
 
-          {/* Category switcher */}
-          <div className="mt-3 flex gap-2" data-testid="category-switcher">
-            {categoryOptions.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => setCategory(opt.value)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                    opt.value === category
-                      ? "bg-primary/20 text-primary-light"
-                      : "bg-surface-high text-text-muted"
-                  }`}
-                >
-                  <Icon size={14} />
-                  {opt.label}
-                </button>
-              );
-            })}
+          {/* Category switcher — icons only, label below */}
+          <div className="mt-3 flex flex-col items-start gap-2">
+            <div className="flex gap-2" data-testid="category-switcher">
+              {categoryOptions.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setCategory(opt.value)}
+                    className={`flex h-10 flex-1 items-center justify-center rounded-lg transition-colors ${
+                      opt.value === category
+                        ? "bg-primary/20 text-primary-light"
+                        : "bg-surface-high text-text-muted"
+                    }`}
+                    aria-label={opt.label}
+                  >
+                    <Icon size={18} />
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-primary-light">
+              {categoryOptions.find((o) => o.value === category)?.label}
+            </span>
           </div>
         </section>
 

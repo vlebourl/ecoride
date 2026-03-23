@@ -105,14 +105,15 @@ test.describe("Leaderboard period filter", () => {
     const errorBoundary = page.getByText("Une erreur est survenue");
     await expect(errorBoundary).not.toBeVisible({ timeout: 3000 });
 
-    // Category switcher should be visible with all 4 buttons
+    // Category switcher should be visible with all 5 icon buttons
     const catSwitcher = page.getByTestId("category-switcher");
     await expect(catSwitcher).toBeVisible();
 
-    await expect(catSwitcher.getByText("CO₂")).toBeVisible();
-    await expect(catSwitcher.getByText("Série")).toBeVisible();
-    await expect(catSwitcher.getByText("Trajets")).toBeVisible();
-    await expect(catSwitcher.getByText("Vitesse")).toBeVisible();
+    await expect(catSwitcher.getByLabel("CO₂")).toBeVisible();
+    await expect(catSwitcher.getByLabel("Série")).toBeVisible();
+    await expect(catSwitcher.getByLabel("Trajets")).toBeVisible();
+    await expect(catSwitcher.getByLabel("Vitesse")).toBeVisible();
+    await expect(catSwitcher.getByLabel("€")).toBeVisible();
   });
 
   test("clicking a category button updates active state", async ({ page }) => {
@@ -122,11 +123,11 @@ test.describe("Leaderboard period filter", () => {
     await expect(catSwitcher).toBeVisible();
 
     // "CO₂" should be active by default
-    const co2Btn = catSwitcher.getByText("CO₂");
+    const co2Btn = catSwitcher.getByLabel("CO₂");
     await expect(co2Btn).toHaveClass(/bg-primary/);
 
     // Click "Série" and verify it becomes active
-    const serieBtn = catSwitcher.getByText("Série");
+    const serieBtn = catSwitcher.getByLabel("Série");
     await serieBtn.click();
     await expect(serieBtn).toHaveClass(/bg-primary/);
 

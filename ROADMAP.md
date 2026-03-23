@@ -2,74 +2,62 @@
 
 ---
 
-## v1.0–v1.3 — Livrés le 2026-03-22/23
+## v1.0–v1.6 — Livrés
 
-GPS tracking, badges, leaderboard, push notifications, offline queue, privacy policy,
-RGPD (export/suppression), accessibilité, rate limiting, lazy loading, pull-to-refresh,
-auto-bump CI/CD, Playwright smoke tests, palette Luminous Carbon.
-
-Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
+GPS tracking, badges, leaderboard (5 catégories + périodes), push notifications,
+offline queue, privacy policy, RGPD, accessibilité, rate limiting, lazy loading,
+pull-to-refresh, auto-bump CI/CD, Playwright smoke tests, palette Luminous Carbon.
 
 ---
 
-## v1.4 — Classement enrichi
+## v2.0 — Qualité & consolidation (en cours)
 
-### Filtres période (backend prêt, UI à ajouter)
-- [ ] Switcher Semaine / Mois / Tout temps sur la page Classement
-  → Permet à un nouveau venu de gagner la semaine même s'il est loin au cumul
+Focus : nettoyer le code, tester, linter, monitorer. Pas de nouvelles features.
 
-### Catégories de classement
-- [ ] **Meilleure série (streak)** — classement par jours consécutifs
-  → Récompense la régularité, pas le volume
-- [ ] **Plus de trajets** — classement par nombre de trips
-  → Récompense la fréquence (10 petits trajets > 1 gros)
-- [ ] **Vitesse moyenne** — classement par km/h moyen
-  → Récompense la performance (nécessite calcul distance/durée)
-  → Un petit rouleur rapide peut battre un gros rouleur lent
+### Tests serveur
+- [ ] vitest pour les routes API (trips CRUD, stats, leaderboard, achievements)
+- [ ] Tests badge unlock/revocation avec données réelles
+- [ ] Tests calculs CO₂/argent/fuel
+- [ ] Tests streak computation edge cases
+- [ ] Tests leaderboard catégories (co2/streak/trips/speed/money)
+- [ ] Tests rate limiting
+- [ ] Tests validation Zod (trips, users, push)
+- [ ] Objectif : coverage > 80% sur server/src/
 
-### UI
-- [ ] Onglets ou dropdown pour changer de catégorie (CO₂ / Streak / Trajets / Vitesse)
-- [ ] Icône distincte par catégorie
+### ESLint + Prettier
+- [ ] Config ESLint (flat config) pour client + server + shared
+- [ ] Config Prettier
+- [ ] Pre-commit hook (husky + lint-staged)
+- [ ] Fix toutes les erreurs de linting existantes
+- [ ] Ajouter le lint à la CI
 
----
+### Monitoring
+- [ ] Intégrer Sentry (ou alternative) côté client
+- [ ] Capturer les erreurs non catchées + les rejections de promesses
+- [ ] Source maps uploadées pour stack traces lisibles
+- [ ] Alertes sur les erreurs critiques
 
-## v1.5 — Social & engagement
+### Précision des calculs
+- [ ] Migrer les colonnes real → numeric(10,3) pour CO₂ et fuel
+- [ ] Migrer moneySavedEur → numeric(10,2)
+- [ ] Migration Drizzle + script de migration des données existantes
+- [ ] Tests de précision sur les agrégations (SUM de numeric vs real)
 
-- [ ] **Défis entre amis** — "Je te défie de faire 50 km cette semaine"
-- [ ] **Réactions sur les trajets** — emoji/like sur les trajets des autres
-- [ ] **Fil d'activité** — voir les derniers trajets de tous les utilisateurs
-- [ ] **Partager son impact** — bouton Web Share API pour envoyer ses stats CO₂
-
----
-
-## v1.6 — UX avancée
-
-- [ ] **Animation de félicitation** — confettis quand un badge est débloqué
-- [ ] **Objectif mensuel configurable** — l'objectif 100 km est fixe, le rendre modifiable
-- [ ] **Haptic feedback** — vibration sur les actions principales
-- [ ] **prefers-reduced-motion** — respecter les préférences d'accessibilité
-- [ ] **Thème clair** — option light mode
-
----
-
-## v2.0 — Technique & qualité
-
-- [ ] **Tests serveur** — vitest pour les routes API, badges, leaderboard, calculs
-- [ ] **ESLint + Prettier** — config + pre-commit hooks
-- [ ] **Float precision** — migrer real → numeric pour CO₂ et €
-- [ ] **Timezone persistée** — stocker le timezone dans le profil utilisateur
-- [ ] **Dockerfile optimisé** — production-only node_modules (sans casser drizzle-kit)
-- [ ] **Monitoring** — Sentry pour le tracking d'erreurs
+### Nettoyage
+- [ ] Supprimer le code mort (imports inutilisés, fonctions orphelines)
+- [ ] Vérifier que tous les TODO/FIXME sont résolus
+- [ ] Mettre à jour les screenshots README
+- [ ] Mettre à jour DECISIONS.md avec les choix architecturaux récents
 
 ---
 
-## Audit résiduel (P3 non corrigés)
+## v2.1+ — Features (après consolidation)
 
-Voir AUDIT-v1.2.md pour le contexte complet.
-
-- Haptic feedback (prévu v1.6)
-- prefers-reduced-motion (prévu v1.6)
-- Float precision real → numeric (prévu v2.0)
-- Timezone persistée dans le profil (prévu v2.0)
-- Tests serveur (prévu v2.0)
-- ESLint/Prettier (prévu v2.0)
+- Défis entre amis
+- Fil d'activité
+- Partager son impact (Web Share API)
+- Objectif mensuel configurable
+- Thème clair
+- Haptic feedback + confettis badges
+- Carte de tous les trajets
+- i18n

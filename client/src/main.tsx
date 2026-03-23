@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
@@ -5,6 +6,35 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { App } from "./App";
 import "./app.css";
+
+// ---------------------------------------------------------------------------
+// Sentry — client-side error tracking
+// Disabled by default; set VITE_SENTRY_DSN to enable.
+// ---------------------------------------------------------------------------
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN || "",
+  environment: import.meta.env.MODE, // "development" or "production"
+  release: __APP_VERSION__,
+  // Only send errors when a DSN is explicitly provided
+  enabled: !!import.meta.env.VITE_SENTRY_DSN,
+  // Sample 100 % of errors, 10 % of performance transactions
+  tracesSampleRate: 0.1,
+  // Strip PII from breadcrumbs before sending
+  beforeSend(event) {
+    if (event.breadcrumbs) {
+      event.breadcrumbs = event.breadcrumbs.map((b) => {
+        if (b.data?.email) b.data.email = "[redacted]";
+        return b;
+      });
+    }
+    return event;
+  },
+});
+
+// Capture unhandled promise rejections
+window.addEventListener("unhandledrejection", (event) => {
+  Sentry.captureException(event.reason);
+});
 
 // Purge all SW caches when app version changes
 async function purgeAndReload() {

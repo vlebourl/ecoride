@@ -21,6 +21,11 @@ const gitHash = (() => {
 
 const appVersion = gitHash ? `${pkgVersion}-${gitHash}` : pkgVersion;
 
+// To upload source maps to Sentry for readable production stack traces,
+// install @sentry/vite-plugin and add to the plugins array:
+//   import { sentryVitePlugin } from "@sentry/vite-plugin";
+//   sentryVitePlugin({ org: "your-org", project: "ecoride-client" })
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),

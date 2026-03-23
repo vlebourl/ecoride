@@ -76,13 +76,13 @@ export const mockWeeklyData = [
 
 export const mockLeaderboard: LeaderboardResponse = {
   entries: [
-    { userId: "u-1", name: "Thomas D.", image: null, totalCo2SavedKg: 42.5, rank: 1 },
-    { userId: "u-2", name: "Sarah L.", image: null, totalCo2SavedKg: 38.2, rank: 2 },
-    { userId: "u-3", name: "Julien R.", image: null, totalCo2SavedKg: 31.8, rank: 3 },
-    { userId: "user-1", name: "Alex Chen", image: null, totalCo2SavedKg: 28.4, rank: 4 },
-    { userId: "u-5", name: "Léa Martin", image: null, totalCo2SavedKg: 25.1, rank: 5 },
-    { userId: "u-6", name: "Marc Antoine", image: null, totalCo2SavedKg: 22.9, rank: 6 },
-    { userId: "u-7", name: "Chloé Petit", image: null, totalCo2SavedKg: 19.4, rank: 7 },
+    { userId: "u-1", name: "Thomas D.", image: null, totalCo2SavedKg: 42.5, value: 42.5, rank: 1 },
+    { userId: "u-2", name: "Sarah L.", image: null, totalCo2SavedKg: 38.2, value: 38.2, rank: 2 },
+    { userId: "u-3", name: "Julien R.", image: null, totalCo2SavedKg: 31.8, value: 31.8, rank: 3 },
+    { userId: "user-1", name: "Alex Chen", image: null, totalCo2SavedKg: 28.4, value: 28.4, rank: 4 },
+    { userId: "u-5", name: "Léa Martin", image: null, totalCo2SavedKg: 25.1, value: 25.1, rank: 5 },
+    { userId: "u-6", name: "Marc Antoine", image: null, totalCo2SavedKg: 22.9, value: 22.9, rank: 6 },
+    { userId: "u-7", name: "Chloé Petit", image: null, totalCo2SavedKg: 19.4, value: 19.4, rank: 7 },
   ],
   userRank: 4,
 };

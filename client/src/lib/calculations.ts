@@ -38,3 +38,13 @@ export function computeSavings(
     fuelSavedL: fuel,
   }
 }
+
+/**
+ * Compute average speed in km/h from total distance (km) and total duration (seconds).
+ * Returns 0 if duration is 0 or negative. Result is rounded to 1 decimal place.
+ */
+export function computeAvgSpeedKmh(totalDistanceKm: number, totalDurationSec: number): number {
+  if (totalDurationSec <= 0) return 0
+  const hours = totalDurationSec / 3600
+  return Math.round((totalDistanceKm / hours) * 10) / 10
+}

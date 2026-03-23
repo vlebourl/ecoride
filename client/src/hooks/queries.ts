@@ -7,6 +7,7 @@ import type {
   CreateTripRequest,
   UpdateUserRequest,
   StatsPeriod,
+  LeaderboardCategory,
 } from "@ecoride/shared/api-contracts";
 
 // ---- Queries ----
@@ -70,14 +71,14 @@ export function useWeeklyTrips() {
   });
 }
 
-export function useLeaderboard(period: StatsPeriod = "all") {
+export function useLeaderboard(period: StatsPeriod = "all", category: LeaderboardCategory = "co2") {
   return useQuery({
-    queryKey: ["leaderboard", period],
+    queryKey: ["leaderboard", period, category],
     queryFn: () =>
       apiFetch<{
         ok: boolean;
         data: { entries: LeaderboardEntry[]; userRank: number | null };
-      }>(`/stats/leaderboard?period=${period}`).then((r) => r.data),
+      }>(`/stats/leaderboard?period=${period}&category=${category}`).then((r) => r.data),
   });
 }
 

@@ -71,6 +71,8 @@ export interface FuelPriceQuery {
 
 export type StatsPeriod = "day" | "week" | "month" | "year" | "all";
 
+export type LeaderboardCategory = "co2" | "streak" | "trips" | "speed";
+
 // ---- Response payloads ----
 
 export interface TripListResponse {
@@ -97,6 +99,7 @@ export interface LeaderboardEntry {
   name: string;
   image: string | null;
   totalCo2SavedKg: number;
+  value: number;
   rank: number;
 }
 

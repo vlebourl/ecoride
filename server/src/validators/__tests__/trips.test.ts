@@ -31,9 +31,7 @@ describe("createTripSchema", () => {
     });
 
     it("accepts trip with null gpsPoints", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ gpsPoints: null }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ gpsPoints: null }));
       expect(result.success).toBe(true);
     });
 
@@ -50,76 +48,56 @@ describe("createTripSchema", () => {
     });
 
     it("accepts distanceKm exactly 500 (max boundary)", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ distanceKm: 500 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ distanceKm: 500 }));
       expect(result.success).toBe(true);
     });
 
     it("accepts durationSec exactly 1 (min boundary)", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ durationSec: 1 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ durationSec: 1 }));
       expect(result.success).toBe(true);
     });
 
     it("accepts durationSec exactly 86400 (max boundary)", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ durationSec: 86400 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ durationSec: 86400 }));
       expect(result.success).toBe(true);
     });
   });
 
   describe("distanceKm validation", () => {
     it("rejects distanceKm > 500", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ distanceKm: 501 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ distanceKm: 501 }));
       expect(result.success).toBe(false);
     });
 
     it("rejects distanceKm = 0", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ distanceKm: 0 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ distanceKm: 0 }));
       expect(result.success).toBe(false);
     });
 
     it("rejects negative distanceKm", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ distanceKm: -1 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ distanceKm: -1 }));
       expect(result.success).toBe(false);
     });
   });
 
   describe("durationSec validation", () => {
     it("rejects durationSec < 1", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ durationSec: 0 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ durationSec: 0 }));
       expect(result.success).toBe(false);
     });
 
     it("rejects negative durationSec", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ durationSec: -5 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ durationSec: -5 }));
       expect(result.success).toBe(false);
     });
 
     it("rejects durationSec > 86400", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ durationSec: 86401 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ durationSec: 86401 }));
       expect(result.success).toBe(false);
     });
 
     it("rejects non-integer durationSec", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ durationSec: 1800.5 }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ durationSec: 1800.5 }));
       expect(result.success).toBe(false);
     });
   });
@@ -150,9 +128,7 @@ describe("createTripSchema", () => {
     });
 
     it("rejects invalid datetime strings", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ startedAt: "not-a-date" }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ startedAt: "not-a-date" }));
       expect(result.success).toBe(false);
     });
   });
@@ -164,9 +140,7 @@ describe("createTripSchema", () => {
         lng: 2.3522,
         ts: 1718438400000 + i,
       }));
-      const result = createTripSchema.safeParse(
-        validTrip({ gpsPoints: points }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ gpsPoints: points }));
       expect(result.success).toBe(false);
     });
 
@@ -176,9 +150,7 @@ describe("createTripSchema", () => {
         lng: 2.3522,
         ts: 1718438400000 + i,
       }));
-      const result = createTripSchema.safeParse(
-        validTrip({ gpsPoints: points }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ gpsPoints: points }));
       expect(result.success).toBe(true);
     });
 
@@ -221,9 +193,7 @@ describe("createTripSchema", () => {
 
   describe("idempotencyKey validation", () => {
     it("rejects non-UUID idempotencyKey", () => {
-      const result = createTripSchema.safeParse(
-        validTrip({ idempotencyKey: "not-a-uuid" }),
-      );
+      const result = createTripSchema.safeParse(validTrip({ idempotencyKey: "not-a-uuid" }));
       expect(result.success).toBe(false);
     });
 

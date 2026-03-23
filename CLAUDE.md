@@ -40,21 +40,25 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 ## Development Rules
 
 ### Branching
+
 - NEVER commit directly to main
 - Always create a feature/fix branch and open a PR
 - Wait for CI (typecheck + tests + smoke) before merging
 
 ### Bug Fixes
+
 - Every bug fix MUST include a regression test (Playwright e2e or vitest unit)
 - The test must fail before the fix and pass after
 
 ### Conventional Commits
+
 - `feat:` for new features (triggers minor bump)
 - `fix:` for bug fixes (triggers patch bump)
 - `chore:` / `docs:` for non-functional changes (no bump, no deploy)
 - Multi-line commit messages are OK (the auto-bump uses env var, not direct interpolation)
 
 ### Agents
+
 - When delegating to agents, always specify: read files first, run typecheck, run tests, include regression test for bug fixes
 - Agents work in isolated worktrees — clean up with `git worktree prune` after
 - Watch for React hooks order violations (useMemo/useCallback before early returns)
@@ -82,6 +86,7 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 ## Current State (v1.6+)
 
 ### What works
+
 - Full GPS tracking with speed display, accuracy indicator, backup/recovery
 - 12 badges with auto-unlock and revocation
 - Leaderboard with 5 categories and 3 period filters
@@ -93,9 +98,11 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 - Playwright smoke tests (9 pages) + tracking test + leaderboard test + notifications test
 
 ### What's in progress (v2.0)
+
 - Server-side unit tests (vitest)
 - ESLint + Prettier + husky pre-commit
 - See ROADMAP.md for full v2.0 plan
 
 ### Audit
+
 - See AUDIT-v1.2.md for the comprehensive audit (31/35 items fixed)

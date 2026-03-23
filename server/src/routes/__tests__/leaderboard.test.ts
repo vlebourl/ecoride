@@ -53,9 +53,7 @@ describe("denseRank", () => {
   });
 
   it("preserves original entry properties", () => {
-    const entries = [
-      { id: "1", name: "Alice", score: 100, extra: "data" },
-    ];
+    const entries = [{ id: "1", name: "Alice", score: 100, extra: "data" }];
     const ranked = denseRank(entries, (e) => e.score);
     expect(ranked[0]).toEqual({
       id: "1",

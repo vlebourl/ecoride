@@ -31,10 +31,9 @@ pushRouter.post(
     const [existing] = await db
       .select()
       .from(pushSubscriptions)
-      .where(and(
-        eq(pushSubscriptions.userId, currentUser.id),
-        eq(pushSubscriptions.endpoint, endpoint),
-      ));
+      .where(
+        and(eq(pushSubscriptions.userId, currentUser.id), eq(pushSubscriptions.endpoint, endpoint)),
+      );
 
     if (existing) {
       // Update keys if changed
@@ -46,12 +45,15 @@ pushRouter.post(
       return c.json({ ok: true, data: { subscriptionId: existing.id } });
     }
 
-    const [sub] = await db.insert(pushSubscriptions).values({
-      userId: currentUser.id,
-      endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth,
-    }).returning();
+    const [sub] = await db
+      .insert(pushSubscriptions)
+      .values({
+        userId: currentUser.id,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      })
+      .returning();
 
     return c.json({ ok: true, data: { subscriptionId: sub!.id } }, 201);
   },
@@ -67,10 +69,9 @@ pushRouter.delete(
 
     await db
       .delete(pushSubscriptions)
-      .where(and(
-        eq(pushSubscriptions.userId, currentUser.id),
-        eq(pushSubscriptions.endpoint, endpoint),
-      ));
+      .where(
+        and(eq(pushSubscriptions.userId, currentUser.id), eq(pushSubscriptions.endpoint, endpoint)),
+      );
 
     return c.json({ ok: true, data: null });
   },

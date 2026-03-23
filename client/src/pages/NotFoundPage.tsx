@@ -8,13 +8,9 @@ export function NotFoundPage() {
         <Bike size={40} className="text-primary-light" />
       </div>
 
-      <p className="mt-8 text-8xl font-black tracking-tighter text-text-muted">
-        404
-      </p>
+      <p className="mt-8 text-8xl font-black tracking-tighter text-text-muted">404</p>
 
-      <h1 className="mt-4 text-2xl font-bold text-text">
-        Page introuvable
-      </h1>
+      <h1 className="mt-4 text-2xl font-bold text-text">Page introuvable</h1>
 
       <p className="mt-2 text-sm text-text-muted">
         La page que vous recherchez n'existe pas ou a été déplacée.
@@ -24,8 +20,7 @@ export function NotFoundPage() {
         to="/"
         className="mt-8 rounded-xl bg-primary px-8 py-3 font-bold text-black active:scale-95"
       >
-        Retour à{" "}
-        <span className="text-black/70">eco</span>
+        Retour à <span className="text-black/70">eco</span>
         <span className="text-black/90">Ride</span>
       </Link>
     </div>

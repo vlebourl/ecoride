@@ -3,7 +3,8 @@ import { urlBase64ToUint8Array } from "../push";
 
 describe("urlBase64ToUint8Array", () => {
   it("converts a valid VAPID key to Uint8Array", () => {
-    const key = "BNGNvPNmn6BuBQG3_nvuAO-wngOKDhXHsZ2Eieav73pAY2h6ko_mNPzolDDJK3iItk9Pb5eOBmc5Z9L2ZLghk7g";
+    const key =
+      "BNGNvPNmn6BuBQG3_nvuAO-wngOKDhXHsZ2Eieav73pAY2h6ko_mNPzolDDJK3iItk9Pb5eOBmc5Z9L2ZLghk7g";
     const result = urlBase64ToUint8Array(key);
     expect(result).toBeInstanceOf(Uint8Array);
     expect(result.length).toBe(65); // P-256 public key = 65 bytes

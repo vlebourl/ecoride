@@ -18,7 +18,7 @@
   --color-surface-highest: #3e4851;
 
   /* Text */
-  --color-text: #FFFFFF;
+  --color-text: #ffffff;
   --color-text-muted: #8a9ba8;
   --color-text-dim: #7a8e9e;
   --color-on-surface-variant: #a3b1ba;
@@ -28,15 +28,17 @@
   --color-outline-variant: #3d4a3e;
 
   /* Semantic */
-  --color-danger: #FF4D4D;
-  --color-warning: #FFB800;
+  --color-danger: #ff4d4d;
+  --color-warning: #ffb800;
   --color-error: #ff716c;
 
   /* Font */
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
 }
@@ -59,6 +61,10 @@ body {
 
 /* Bottom sheet slide up */
 @keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }

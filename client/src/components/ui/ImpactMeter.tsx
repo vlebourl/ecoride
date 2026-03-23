@@ -10,23 +10,14 @@ export function ImpactMeter({ co2TotalKg }: ImpactMeterProps) {
   const target = current ?? IMPACT_REFERENCES[IMPACT_REFERENCES.length - 1]!;
   const prevIdx = IMPACT_REFERENCES.indexOf(target) - 1;
   const prevCo2 = prevIdx >= 0 ? IMPACT_REFERENCES[prevIdx]!.co2Kg : 0;
-  const progress = Math.min(
-    ((co2TotalKg - prevCo2) / (target.co2Kg - prevCo2)) * 100,
-    100,
-  );
+  const progress = Math.min(((co2TotalKg - prevCo2) / (target.co2Kg - prevCo2)) * 100, 100);
 
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (progress / 100) * circumference;
 
   const emoji =
-    target.co2Kg <= 21
-      ? "🌳"
-      : target.co2Kg <= 45
-        ? "🚗"
-        : target.co2Kg <= 115
-          ? "⛽"
-          : "✈️";
+    target.co2Kg <= 21 ? "🌳" : target.co2Kg <= 45 ? "🚗" : target.co2Kg <= 115 ? "⛽" : "✈️";
 
   return (
     <div className="flex flex-col items-center gap-6 rounded-xl bg-surface-container p-8">

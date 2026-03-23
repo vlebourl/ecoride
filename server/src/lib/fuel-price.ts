@@ -54,7 +54,10 @@ export async function getFuelPrice(
     });
 
     if (lat !== undefined && lng !== undefined) {
-      params.set("where", `${params.get("where")} AND within_distance(geom, GEOM'POINT(${lng} ${lat})', 20km)`);
+      params.set(
+        "where",
+        `${params.get("where")} AND within_distance(geom, GEOM'POINT(${lng} ${lat})', 20km)`,
+      );
       params.set("order_by", `distance(geom, GEOM'POINT(${lng} ${lat})')`);
     }
 
@@ -65,7 +68,7 @@ export async function getFuelPrice(
       throw new Error(`API responded ${response.status}`);
     }
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       results: Array<{
         nom_ev?: string;
         prix_valeur?: number;
@@ -86,7 +89,10 @@ export async function getFuelPrice(
       return result;
     }
   } catch (err) {
-    console.warn("[fuel-price] API fetch failed, using fallback:", err instanceof Error ? err.message : err);
+    console.warn(
+      "[fuel-price] API fetch failed, using fallback:",
+      err instanceof Error ? err.message : err,
+    );
   }
 
   // Fallback to national average

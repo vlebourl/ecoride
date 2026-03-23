@@ -22,9 +22,7 @@ export function isPushSupported(): boolean {
 
 /** Fetch the VAPID public key from the server. */
 async function getVapidPublicKey(): Promise<string> {
-  const res = await apiFetch<{ ok: boolean; data: { publicKey: string } }>(
-    "/push/vapid-key",
-  );
+  const res = await apiFetch<{ ok: boolean; data: { publicKey: string } }>("/push/vapid-key");
   return res.data.publicKey;
 }
 

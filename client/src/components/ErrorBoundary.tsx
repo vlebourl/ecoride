@@ -32,9 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <Bike size={40} className="text-primary-light" />
           </div>
 
-          <h1 className="mt-8 text-2xl font-bold text-text">
-            Une erreur est survenue
-          </h1>
+          <h1 className="mt-8 text-2xl font-bold text-text">Une erreur est survenue</h1>
 
           <p className="mt-2 text-sm text-text-muted">
             Quelque chose s'est mal passé. Essayez de recharger la page.

@@ -4,8 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
 const pkgVersion = (() => {
-  try { return require("../package.json").version; }
-  catch { return "0.0.0"; }
+  try {
+    return require("../package.json").version;
+  } catch {
+    return "0.0.0";
+  }
 })();
 
 const gitHash = (() => {
@@ -40,11 +43,26 @@ export default defineConfig({
         icons: [
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
           { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
-          { src: "pwa-maskable-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          {
+            src: "pwa-maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
         ],
         shortcuts: [
-          { name: "Démarrer un trajet", short_name: "Trajet", url: "/trip", icons: [{ src: "pwa-192x192.png", sizes: "192x192" }] },
-          { name: "Voir les stats", short_name: "Stats", url: "/stats", icons: [{ src: "pwa-192x192.png", sizes: "192x192" }] },
+          {
+            name: "Démarrer un trajet",
+            short_name: "Trajet",
+            url: "/trip",
+            icons: [{ src: "pwa-192x192.png", sizes: "192x192" }],
+          },
+          {
+            name: "Voir les stats",
+            short_name: "Stats",
+            url: "/stats",
+            icons: [{ src: "pwa-192x192.png", sizes: "192x192" }],
+          },
         ],
       },
       workbox: {

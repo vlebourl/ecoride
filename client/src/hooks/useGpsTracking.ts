@@ -68,7 +68,14 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         if (d >= MIN_DISTANCE_KM) added = d;
       }
       const speedKmh = action.speed != null ? action.speed * 3.6 : state.speedKmh;
-      return { ...state, gpsPoints: points, distanceKm: state.distanceKm + added, error: null, lastAccuracy: action.accuracy, speedKmh };
+      return {
+        ...state,
+        gpsPoints: points,
+        distanceKm: state.distanceKm + added,
+        error: null,
+        lastAccuracy: action.accuracy,
+        speedKmh,
+      };
     }
     case "TICK":
       return { ...state, durationSec: state.durationSec + 1 };
@@ -223,7 +230,7 @@ export function useGpsTracking() {
 
   // Start/stop GPS watch, timer, wake lock, and backup based on isTracking state.
   // Only depends on state.isTracking — other refs are stable across renders.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!state.isTracking) return;
 

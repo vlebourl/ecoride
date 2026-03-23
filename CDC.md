@@ -3,7 +3,7 @@
 **Date :** 2026-03-21  
 **Statut :** Validé — prêt pour développement  
 **Dossier projet :** `~/Documents/Obsidian/Lyra/Projets/velo-tracker/`  
-**URL de production :** *(configurable via variables d'environnement)*
+**URL de production :** _(configurable via variables d'environnement)_
 
 ---
 
@@ -18,13 +18,16 @@ L'angle principal est **l'impact environnemental** (CO2 économisé), pas la per
 ## 2. Fonctionnalités v1
 
 ### 2.1 Enregistrement de trajet
+
 - Bouton "Démarrer un trajet" → active le GPS (Wake Lock API pour garder l'écran allumé)
 - Tracking GPS en temps réel → calcul de la distance à l'arrêt
 - Bouton "Terminer" → affichage du résumé immédiat
 - Possibilité de saisie manuelle de distance (si GPS non souhaité)
 
 ### 2.2 Calcul des économies (par trajet et cumulatif)
+
 À chaque trajet, calcul automatique basé sur le profil véhicule de l'utilisateur :
+
 - 🌱 **CO2 économisé** (kg) = distance × conso × 2.31 kg CO2/litre (facteur ADEME)
 - 💶 **Argent économisé** (€) = distance × conso × prix_essence_local / 100
 - 💧 **Litres économisés** (L) = distance × conso / 100
@@ -34,9 +37,11 @@ L'angle principal est **l'impact environnemental** (CO2 économisé), pas la per
 Géolocalisé (stations les plus proches). Fallback : prix moyen national.
 
 ### 2.3 Dashboard principal
+
 Écrans principaux (navigation bottom bar) :
 
 **🏠 Dashboard**
+
 - Résumé du jour / de la semaine / du mois (switcher)
 - Compteurs : km, CO2 (kg), € économisés
 - Comparatif mois N vs mois N-1
@@ -44,28 +49,34 @@ Géolocalisé (stations les plus proches). Fallback : prix moyen national.
 - Streak actuel + objectif mensuel
 
 **🚴 Trajet actif**
+
 - Carte GPS en temps réel
 - Distance + durée + économies en cours
 
 **📊 Stats**
+
 - Graphiques semaine / mois / année
 - Évolution CO2, €, km
 - Badges / achievements débloqués
 
 **🏆 Classement**
+
 - Leaderboard CO2 économisé (opt-out, actif par défaut)
 - Peut être désactivé dans les paramètres
 
 **👤 Profil / Paramètres**
+
 - Véhicule de référence (modèle, carburant, conso mixte, kilométrage)
 - Rappels push (heure + jours de semaine)
 - Préférences classement (opt-out)
 - Compte Google (déconnexion)
 
 ### 2.4 Impact Meter (composant visuel clé)
+
 Pièce maîtresse du dashboard — **distinct du système de gamification**.
 
 Jauge/cercle dynamique qui compare le CO2 économisé cumulatif à des références parlantes :
+
 - 🌳 X arbres plantés (~21 kg CO2/arbre/an)
 - 🚗 Trajet Paris–Lyon en voiture (~45 kg CO2)
 - ✈️ Vol Paris–New York (aller, ~400 kg CO2/passager)
@@ -74,6 +85,7 @@ Jauge/cercle dynamique qui compare le CO2 économisé cumulatif à des référen
 Le visuel se remplit progressivement vers la prochaine référence. Une fois atteint, il se vide et passe à l'étape suivante (progression continue).
 
 ### 2.5 Gamification
+
 - **Streaks** : jours consécutifs avec un trajet (reset si jour manqué)
 - **Badges paliers** (débloqués une seule fois) :
   - Premier trajet, 10 trajets, 50 trajets, 100 trajets
@@ -83,11 +95,13 @@ Le visuel se remplit progressivement vers la prochaine référence. Une fois att
 - **Objectif mensuel** : km ou CO2, configurable, barre de progression sur le dashboard
 
 ### 2.6 Multi-utilisateurs
+
 - Authentification via **Google OAuth** (Better Auth)
 - Chaque utilisateur a son propre profil véhicule et ses propres stats
 - Classement partagé entre tous les utilisateurs (opt-out)
 
 ### 2.7 Rappels
+
 - Push notifications PWA (Web Push API)
 - Configurables : heure + jours de la semaine
 - Message type : "Tu n'as pas encore enregistré de trajet aujourd'hui 🚴"
@@ -96,17 +110,18 @@ Le visuel se remplit progressivement vers la prochaine référence. Une fois att
 
 ## 3. Stack technique
 
-| Couche | Technologie |
-|--------|-------------|
-| Frontend | React + Vite + vite-plugin-pwa |
-| Styles | TailwindCSS |
-| Auth | Better Auth + Google OAuth |
-| Backend | Bun + Hono (ou Fastify) — API REST |
-| Base de données | PostgreSQL |
-| ORM | Drizzle ORM |
-| Déploiement | Docker (auto-hébergé) |
+| Couche          | Technologie                        |
+| --------------- | ---------------------------------- |
+| Frontend        | React + Vite + vite-plugin-pwa     |
+| Styles          | TailwindCSS                        |
+| Auth            | Better Auth + Google OAuth         |
+| Backend         | Bun + Hono (ou Fastify) — API REST |
+| Base de données | PostgreSQL                         |
+| ORM             | Drizzle ORM                        |
+| Déploiement     | Docker (auto-hébergé)              |
 
 ### API externes
+
 - **Prix carburants FR** : `data.economie.gouv.fr` (open data, pas de clé API)
 - **GPS** : Web Geolocation API (navigateur natif)
 - **Push** : Web Push API + VAPID keys (self-hosted)
@@ -126,6 +141,7 @@ Le visuel se remplit progressivement vers la prochaine référence. Une fois att
 - **Mobile-first** — responsive desktop secondaire
 
 ### Génération UI
+
 Utiliser **Google Stitch MCP** pour générer les maquettes de chaque écran, puis exporter HTML/CSS comme base de travail pour Claude Code.
 
 ---
@@ -213,4 +229,4 @@ Si un vrai blocage externe se présente (credentials manquants, accès impossibl
 
 ---
 
-*CDC finalisé le 2026-03-21 avec Vincent. Prêt pour lancement du dev.*
+_CDC finalisé le 2026-03-21 avec Vincent. Prêt pour lancement du dev._

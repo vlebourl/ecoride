@@ -30,7 +30,9 @@ export function TripPage() {
   const [saveError, setSaveError] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
   const [initialPos, setInitialPos] = useState<[number, number]>(DEFAULT_CENTER);
-  const [gpsStatus, setGpsStatus] = useState<"waiting" | "active" | "denied" | "unavailable">("waiting");
+  const [gpsStatus, setGpsStatus] = useState<"waiting" | "active" | "denied" | "unavailable">(
+    "waiting",
+  );
   const [idleAccuracy, setIdleAccuracy] = useState<number | null>(null);
   const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
   const sessionRef = useRef<TrackingSession | null>(null);
@@ -87,12 +89,14 @@ export function TripPage() {
   const lastPos = positions.length > 0 ? positions[positions.length - 1] : undefined;
   const currentPos: [number, number] = lastPos ?? initialPos;
 
-  const distance = uiState === "stopped" && sessionRef.current
-    ? sessionRef.current.distanceKm
-    : gps.state.distanceKm;
-  const elapsed = uiState === "stopped" && sessionRef.current
-    ? sessionRef.current.durationSec
-    : gps.state.durationSec;
+  const distance =
+    uiState === "stopped" && sessionRef.current
+      ? sessionRef.current.distanceKm
+      : gps.state.distanceKm;
+  const elapsed =
+    uiState === "stopped" && sessionRef.current
+      ? sessionRef.current.durationSec
+      : gps.state.durationSec;
 
   const startTracking = () => {
     sessionRef.current = null;
@@ -131,7 +135,9 @@ export function TripPage() {
   const handleSaveTrip = (km: number, durationSec: number, session?: TrackingSession | null) => {
     setSaveError("");
     const endedAt = session?.endedAt ?? new Date().toISOString();
-    const startedAt = session?.startedAt ?? new Date(new Date(endedAt).getTime() - durationSec * 1000).toISOString();
+    const startedAt =
+      session?.startedAt ??
+      new Date(new Date(endedAt).getTime() - durationSec * 1000).toISOString();
     const tripData = {
       distanceKm: Math.round(km * 100) / 100,
       durationSec,
@@ -139,40 +145,41 @@ export function TripPage() {
       endedAt,
       gpsPoints: session?.gpsPoints?.length ? session.gpsPoints : null,
     };
-    createTrip.mutate(
-      tripData,
-      {
-        onSuccess: () => {
-          setSaveError("");
+    createTrip.mutate(tripData, {
+      onSuccess: () => {
+        setSaveError("");
+        setUiState("idle");
+        setManualKm("");
+        setManualMinutes("");
+        sessionRef.current = null;
+        gps.reset();
+      },
+      onError: () => {
+        queueTrip(tripData);
+        setSaveError("Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement.");
+        // Reset UI to idle after a short delay so the user sees the message
+        setTimeout(() => {
           setUiState("idle");
           setManualKm("");
           setManualMinutes("");
           sessionRef.current = null;
           gps.reset();
-        },
-        onError: () => {
-          queueTrip(tripData);
-          setSaveError("Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement.");
-          // Reset UI to idle after a short delay so the user sees the message
-          setTimeout(() => {
-            setUiState("idle");
-            setManualKm("");
-            setManualMinutes("");
-            sessionRef.current = null;
-            gps.reset();
-            setSaveError("");
-          }, 3000);
-        },
+          setSaveError("");
+        }, 3000);
       },
-    );
+    });
   };
 
   return (
     <div className="relative flex h-full flex-col">
       {/* Header with persistent GPS indicator */}
-      <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
+      <header
+        role="banner"
+        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
+      >
         <span className="text-lg font-bold tracking-tight">
-          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
+          <span className="text-text">eco</span>
+          <span className="text-primary-light">Ride</span>
         </span>
         {(() => {
           // During tracking, use GPS hook state; otherwise use idle watcher
@@ -182,17 +189,18 @@ export function TripPage() {
           const isUnavailable = gpsStatus === "unavailable";
           const isWaiting = gpsStatus === "waiting" && uiState !== "tracking";
 
-          const color = isDenied || isUnavailable
-            ? "#FF4D4D"
-            : isWaiting
-              ? "#9ca3af"
-              : !isActive || accuracy == null
+          const color =
+            isDenied || isUnavailable
+              ? "#FF4D4D"
+              : isWaiting
                 ? "#9ca3af"
-                : accuracy < 10
-                  ? "#2ecc71"
-                  : accuracy < 30
-                    ? "#FFB800"
-                    : "#FF4D4D";
+                : !isActive || accuracy == null
+                  ? "#9ca3af"
+                  : accuracy < 10
+                    ? "#2ecc71"
+                    : accuracy < 30
+                      ? "#FFB800"
+                      : "#FF4D4D";
 
           const label = isDenied
             ? "GPS refusé"
@@ -229,8 +237,8 @@ export function TripPage() {
           <RotateCcw size={16} className="shrink-0 text-primary-light" />
           <div className="flex-1">
             <span className="text-sm font-medium text-primary-light">
-              Un trajet en cours a été interrompu.{" "}
-              {pendingBackup.distanceKm.toFixed(1)} km — {formatTime(pendingBackup.durationSec)}
+              Un trajet en cours a été interrompu. {pendingBackup.distanceKm.toFixed(1)} km —{" "}
+              {formatTime(pendingBackup.durationSec)}
             </span>
           </div>
           <button
@@ -369,26 +377,16 @@ export function TripPage() {
             <h2 className="mb-4 text-lg font-bold">Trajet terminé</h2>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-black text-primary-light">
-                  {distance.toFixed(1)}
-                </div>
+                <div className="text-2xl font-black text-primary-light">{distance.toFixed(1)}</div>
                 <div className="text-xs font-bold uppercase text-text-muted">km</div>
               </div>
               <div>
-                <div className="text-2xl font-black text-primary-light">
-                  {co2Saved.toFixed(1)}
-                </div>
-                <div className="text-xs font-bold uppercase text-text-muted">
-                  kg CO₂
-                </div>
+                <div className="text-2xl font-black text-primary-light">{co2Saved.toFixed(1)}</div>
+                <div className="text-xs font-bold uppercase text-text-muted">kg CO₂</div>
               </div>
               <div>
-                <div className="text-2xl font-black text-primary-light">
-                  {formatTime(elapsed)}
-                </div>
-                <div className="text-xs font-bold uppercase text-text-muted">
-                  durée
-                </div>
+                <div className="text-2xl font-black text-primary-light">{formatTime(elapsed)}</div>
+                <div className="text-xs font-bold uppercase text-text-muted">durée</div>
               </div>
             </div>
             <div className="mt-6 flex gap-3">
@@ -504,18 +502,14 @@ export function TripPage() {
             className="flex w-full items-center justify-center gap-4 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 disabled:opacity-50"
           >
             <Play size={28} className="text-bg" fill="currentColor" />
-            <span className="text-xl font-black uppercase tracking-widest text-bg">
-              Démarrer
-            </span>
+            <span className="text-xl font-black uppercase tracking-widest text-bg">Démarrer</span>
           </button>
           <button
             onClick={() => setUiState("manual")}
             className="flex w-full items-center justify-center gap-3 rounded-xl bg-surface-container py-4 active:scale-95"
           >
             <Keyboard size={18} className="text-text-muted" />
-            <span className="text-sm font-bold text-text-muted">
-              Saisie manuelle
-            </span>
+            <span className="text-sm font-bold text-text-muted">Saisie manuelle</span>
           </button>
         </div>
       )}
@@ -527,9 +521,7 @@ export function TripPage() {
             className="flex w-full items-center justify-center gap-4 rounded-xl bg-danger py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"
           >
             <Square size={28} className="text-text" fill="currentColor" />
-            <span className="text-xl font-black uppercase tracking-widest text-text">
-              Terminer
-            </span>
+            <span className="text-xl font-black uppercase tracking-widest text-text">Terminer</span>
           </button>
         </div>
       )}

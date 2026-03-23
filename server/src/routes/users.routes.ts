@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { eq, sum, count, sql } from "drizzle-orm";
+import { eq, sum, count } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips, achievements } from "../db/schema";
@@ -42,38 +42,31 @@ usersRouter.get("/profile", async (c) => {
 });
 
 // PATCH /api/user/profile — Update vehicle/preferences
-usersRouter.patch(
-  "/profile",
-  zValidator("json", updateUserSchema, validationHook),
-  async (c) => {
-    const data = c.req.valid("json");
-    const currentUser = c.get("user");
+usersRouter.patch("/profile", zValidator("json", updateUserSchema, validationHook), async (c) => {
+  const data = c.req.valid("json");
+  const currentUser = c.get("user");
 
-    if (Object.keys(data).length === 0) {
-      return c.json({ ok: true, data: { user: currentUser } });
-    }
+  if (Object.keys(data).length === 0) {
+    return c.json({ ok: true, data: { user: currentUser } });
+  }
 
-    const [updated] = await db
-      .update(user)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(user.id, currentUser.id))
-      .returning();
+  const [updated] = await db
+    .update(user)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(user.id, currentUser.id))
+    .returning();
 
-    return c.json({ ok: true, data: { user: updated } });
-  },
-);
+  return c.json({ ok: true, data: { user: updated } });
+});
 
 // GET /api/user/export — GDPR data export
 usersRouter.get("/export", async (c) => {
   const currentUser = c.get("user");
 
-  const userTrips = await db
-    .select()
-    .from(trips)
-    .where(eq(trips.userId, currentUser.id));
+  const userTrips = await db.select().from(trips).where(eq(trips.userId, currentUser.id));
 
   const userAchievements = await db
     .select()

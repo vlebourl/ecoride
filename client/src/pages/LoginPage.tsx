@@ -58,7 +58,8 @@ export function LoginPage() {
       <div className="mb-12 flex flex-col items-center gap-4">
         <img src={appLogo} alt="ecoRide" className="h-20 w-20 rounded-2xl" />
         <h1 className="text-4xl font-black tracking-tighter">
-          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
+          <span className="text-text">eco</span>
+          <span className="text-primary-light">Ride</span>
         </h1>
         <p className="text-center text-sm text-text-muted">
           Suivez vos trajets vélo et vos économies CO₂
@@ -143,7 +144,9 @@ export function LoginPage() {
           </label>
 
           {error && (
-            <p role="alert" className="text-sm text-red-400">{error}</p>
+            <p role="alert" className="text-sm text-red-400">
+              {error}
+            </p>
           )}
 
           <button
@@ -151,11 +154,7 @@ export function LoginPage() {
             disabled={loading}
             className="mt-1 rounded-xl bg-primary py-3 font-bold text-black active:scale-95 disabled:opacity-50"
           >
-            {loading
-              ? "Chargement..."
-              : isRegister
-                ? "Créer un compte"
-                : "Se connecter"}
+            {loading ? "Chargement..." : isRegister ? "Créer un compte" : "Se connecter"}
           </button>
         </form>
 

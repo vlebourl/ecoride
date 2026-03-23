@@ -14,28 +14,28 @@ Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
 
 ## v2.0 — Tests & linting (en cours)
 
-### Tests serveur
+### Tests serveur — PR #72
 
-- [ ] Config vitest pour server/ + script `bun run test` + job CI
-- [ ] Tests `calculateSavings()` (CO₂, money, fuel avec différents inputs, rounding)
-- [ ] Tests `computeStreak()` / `computeStreakFromDates()` (jours consécutifs, gaps, vide, DST)
-- [ ] Tests BADGE_THRESHOLDS (valeurs limites, exact threshold, juste en dessous)
-- [ ] Tests createTripSchema (valid, distanceKm > 500, durationSec < 1, dates inversées, gpsPoints > 10000, UUID idempotencyKey)
-- [ ] Tests `denseRank()` (égalités, single entry, tous identiques)
-- [ ] Objectif : coverage > 80% sur server/src/lib/
+- [x] Config vitest pour server/ + script `bun run test` + job CI
+- [x] Tests `calculateSavings()` (8 tests)
+- [x] Tests `computeStreak()` / `computeStreakFromDates()` (12 tests)
+- [x] Tests BADGE_THRESHOLDS (27 tests — exact threshold + juste en dessous pour chaque badge)
+- [x] Tests createTripSchema (18 tests — validation Zod complète)
+- [x] Tests `denseRank()` (8 tests)
+- [ ] Objectif : coverage > 80% sur server/src/lib/ (à mesurer)
 
-### ESLint + Prettier
+### ESLint + Prettier — PR #71
 
-- [ ] Config ESLint flat (client + server + shared)
-- [ ] Config Prettier
-- [ ] Husky + lint-staged pre-commit hook
-- [ ] Fix erreurs de linting existantes
-- [ ] Job CI `lint` + `format:check`
+- [x] Config ESLint flat (client + server + shared)
+- [x] Config Prettier
+- [x] Husky + lint-staged pre-commit hook
+- [x] Fix erreurs de linting existantes (0 errors, 15 warnings)
+- [x] Job CI `lint` + `format:check`
 
-### Commit lint
+### Commit lint — en cours
 
 - [ ] commitlint config (conventional commits)
-- [ ] Hook pre-commit qui valide le format du message
+- [ ] Hook commit-msg qui valide le format du message
 - [ ] Empêche les "wip", "fix stuff" et les messages qui cassent l'auto-bump
 
 ### CLAUDE.md projet

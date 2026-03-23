@@ -73,7 +73,7 @@ export function useChartTrips(period: "week" | "month" | "year") {
         data: { trips: Trip[] };
         pagination: { page: number; limit: number; total: number; totalPages: number };
       }>(
-        `/trips?from=${encodeURIComponent(fromStr)}&to=${encodeURIComponent(toStr)}&limit=500`,
+        `/trips?from=${encodeURIComponent(fromStr)}&to=${encodeURIComponent(toStr)}&limit=100`,
       ).then((r) => r.data.trips),
   });
 }

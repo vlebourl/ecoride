@@ -1,11 +1,5 @@
 import { NavLink } from "react-router";
-import {
-  LayoutDashboard,
-  Bike,
-  BarChart3,
-  Trophy,
-  User,
-} from "lucide-react";
+import { LayoutDashboard, Bike, BarChart3, Trophy, User } from "lucide-react";
 
 const tabs = [
   { to: "/", icon: LayoutDashboard, label: "Accueil" },
@@ -17,7 +11,10 @@ const tabs = [
 
 export function BottomNav() {
   return (
-    <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-surface/90 px-2 sm:px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom,0.5rem))] pt-2 backdrop-blur-2xl border-t border-outline-variant/10">
+    <nav
+      aria-label="Navigation principale"
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-surface/90 px-2 sm:px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom,0.5rem))] pt-2 backdrop-blur-2xl border-t border-outline-variant/10"
+    >
       {tabs.map(({ to, icon: Icon, label }) => (
         <NavLink
           key={to}
@@ -33,7 +30,12 @@ export function BottomNav() {
         >
           {({ isActive }) => (
             <>
-              <Icon size={20} className="sm:w-6 sm:h-6" strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
+              <Icon
+                size={20}
+                className="sm:w-6 sm:h-6"
+                strokeWidth={isActive ? 2.2 : 1.8}
+                aria-hidden="true"
+              />
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest truncate max-w-[56px] sm:max-w-none text-center">
                 {label}
               </span>

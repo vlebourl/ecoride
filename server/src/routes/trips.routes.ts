@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { eq, and, desc, gte, lte, lt, gt, count, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, lt, gt, count } from "drizzle-orm";
 import { db } from "../db";
 import { trips } from "../db/schema";
 import { user } from "../db/schema/auth";
@@ -35,10 +35,7 @@ tripsRouter.post(
       const [existing] = await db
         .select({ id: trips.id })
         .from(trips)
-        .where(and(
-          eq(trips.userId, currentUser.id),
-          eq(trips.idempotencyKey, data.idempotencyKey),
-        ))
+        .where(and(eq(trips.userId, currentUser.id), eq(trips.idempotencyKey, data.idempotencyKey)))
         .limit(1);
       if (existing) {
         return c.json({ ok: true, data: { trip: existing } }, 200);
@@ -54,15 +51,18 @@ tripsRouter.post(
           eq(trips.userId, currentUser.id),
           lt(trips.startedAt, new Date(data.endedAt)),
           gt(trips.endedAt, new Date(data.startedAt)),
-        )
+        ),
       )
       .limit(1);
 
     if (overlap) {
-      return c.json({
-        ok: false,
-        error: { code: "VALIDATION_ERROR", message: "Ce trajet chevauche un trajet existant." }
-      }, 409);
+      return c.json(
+        {
+          ok: false,
+          error: { code: "VALIDATION_ERROR", message: "Ce trajet chevauche un trajet existant." },
+        },
+        409,
+      );
     }
 
     // Get user's vehicle profile for savings calculation
@@ -82,7 +82,13 @@ tripsRouter.post(
       fuelPriceEur = fuelPriceData.priceEur;
     } catch {
       // On any failure, use hardcoded fallback so trip creation is never blocked
-      const FALLBACK: Record<string, number> = { sp95: 1.75, sp98: 1.85, diesel: 1.65, e85: 0.85, gpl: 0.95 };
+      const FALLBACK: Record<string, number> = {
+        sp95: 1.75,
+        sp98: 1.85,
+        diesel: 1.65,
+        e85: 0.85,
+        gpl: 0.95,
+      };
       fuelPriceEur = FALLBACK[fuelType] ?? 1.75;
     }
 
@@ -92,19 +98,22 @@ tripsRouter.post(
       fuelPriceEur,
     });
 
-    const [trip] = await db.insert(trips).values({
-      userId: currentUser.id,
-      distanceKm: data.distanceKm,
-      durationSec: data.durationSec,
-      co2SavedKg: savings.co2SavedKg,
-      moneySavedEur: savings.moneySavedEur,
-      fuelSavedL: savings.fuelSavedL,
-      fuelPriceEur,
-      startedAt: new Date(data.startedAt),
-      endedAt: new Date(data.endedAt),
-      gpsPoints: data.gpsPoints ?? null,
-      idempotencyKey: data.idempotencyKey ?? null,
-    }).returning();
+    const [trip] = await db
+      .insert(trips)
+      .values({
+        userId: currentUser.id,
+        distanceKm: data.distanceKm,
+        durationSec: data.durationSec,
+        co2SavedKg: savings.co2SavedKg,
+        moneySavedEur: savings.moneySavedEur,
+        fuelSavedL: savings.fuelSavedL,
+        fuelPriceEur,
+        startedAt: new Date(data.startedAt),
+        endedAt: new Date(data.endedAt),
+        gpsPoints: data.gpsPoints ?? null,
+        idempotencyKey: data.idempotencyKey ?? null,
+      })
+      .returning();
 
     // Evaluate badge thresholds and unlock any newly earned achievements
     const newBadges = await evaluateAndUnlockBadges(currentUser.id);
@@ -126,76 +135,60 @@ tripsRouter.post(
 );
 
 // GET /api/trips — Paginated list (own trips)
-tripsRouter.get(
-  "/",
-  zValidator("query", tripsListQuery, validationHook),
-  async (c) => {
-    const { page, limit, from, to } = c.req.valid("query");
-    const currentUser = c.get("user");
-    const { offset } = paginationToOffset(page, limit);
+tripsRouter.get("/", zValidator("query", tripsListQuery, validationHook), async (c) => {
+  const { page, limit, from, to } = c.req.valid("query");
+  const currentUser = c.get("user");
+  const { offset } = paginationToOffset(page, limit);
 
-    const conditions = [eq(trips.userId, currentUser.id)];
-    if (from) conditions.push(gte(trips.startedAt, new Date(from)));
-    if (to) conditions.push(lte(trips.startedAt, new Date(to)));
+  const conditions = [eq(trips.userId, currentUser.id)];
+  if (from) conditions.push(gte(trips.startedAt, new Date(from)));
+  if (to) conditions.push(lte(trips.startedAt, new Date(to)));
 
-    const where = and(...conditions);
+  const where = and(...conditions);
 
-    const [data, [countResult]] = await Promise.all([
-      db.select().from(trips)
-        .where(where)
-        .orderBy(desc(trips.startedAt))
-        .limit(limit)
-        .offset(offset),
-      db.select({ count: count() }).from(trips).where(where),
-    ]);
+  const [data, [countResult]] = await Promise.all([
+    db.select().from(trips).where(where).orderBy(desc(trips.startedAt)).limit(limit).offset(offset),
+    db.select({ count: count() }).from(trips).where(where),
+  ]);
 
-    const total = countResult?.count ?? 0;
+  const total = countResult?.count ?? 0;
 
-    return c.json({
-      ok: true,
-      data: { trips: data },
-      pagination: buildPagination(page, limit, total),
-    });
-  },
-);
+  return c.json({
+    ok: true,
+    data: { trips: data },
+    pagination: buildPagination(page, limit, total),
+  });
+});
 
 // GET /api/trips/:id — Single trip
-tripsRouter.get(
-  "/:id",
-  zValidator("param", uuidParam, validationHook),
-  async (c) => {
-    const { id } = c.req.valid("param");
-    const currentUser = c.get("user");
+tripsRouter.get("/:id", zValidator("param", uuidParam, validationHook), async (c) => {
+  const { id } = c.req.valid("param");
+  const currentUser = c.get("user");
 
-    const [trip] = await db.select().from(trips).where(eq(trips.id, id));
+  const [trip] = await db.select().from(trips).where(eq(trips.id, id));
 
-    if (!trip) throw notFound(`Trip ${id} not found`);
-    if (trip.userId !== currentUser.id) throw forbidden();
+  if (!trip) throw notFound(`Trip ${id} not found`);
+  if (trip.userId !== currentUser.id) throw forbidden();
 
-    return c.json({ ok: true, data: { trip } });
-  },
-);
+  return c.json({ ok: true, data: { trip } });
+});
 
 // DELETE /api/trips/:id — Delete trip
-tripsRouter.delete(
-  "/:id",
-  zValidator("param", uuidParam, validationHook),
-  async (c) => {
-    const { id } = c.req.valid("param");
-    const currentUser = c.get("user");
+tripsRouter.delete("/:id", zValidator("param", uuidParam, validationHook), async (c) => {
+  const { id } = c.req.valid("param");
+  const currentUser = c.get("user");
 
-    const [trip] = await db.select().from(trips).where(eq(trips.id, id));
+  const [trip] = await db.select().from(trips).where(eq(trips.id, id));
 
-    if (!trip) throw notFound(`Trip ${id} not found`);
-    if (trip.userId !== currentUser.id) throw forbidden();
+  if (!trip) throw notFound(`Trip ${id} not found`);
+  if (trip.userId !== currentUser.id) throw forbidden();
 
-    await db.delete(trips).where(eq(trips.id, id));
+  await db.delete(trips).where(eq(trips.id, id));
 
-    // Re-evaluate badges — revoke any that are no longer earned
-    const revokedBadges = await reevaluateBadges(currentUser.id);
+  // Re-evaluate badges — revoke any that are no longer earned
+  const revokedBadges = await reevaluateBadges(currentUser.id);
 
-    return c.json({ ok: true, data: { revokedBadges } });
-  },
-);
+  return c.json({ ok: true, data: { revokedBadges } });
+});
 
 export { tripsRouter };

@@ -39,5 +39,5 @@ test("clicking Démarrer starts tracking with counters", async ({ page, context 
   // Timer should have ticked (not 00:00)
   const timeValues = await page.locator("text=/\\d{2}:\\d{2}/").allTextContents();
   console.log("Time values found:", timeValues);
-  expect(timeValues.some(t => t !== "00:00")).toBeTruthy();
+  expect(timeValues.some((t) => t !== "00:00")).toBeTruthy();
 });

@@ -28,9 +28,7 @@ export function useTrip(tripId: string | null) {
   return useQuery({
     queryKey: ["trip", tripId],
     queryFn: () =>
-      apiFetch<{ ok: boolean; data: { trip: Trip } }>(
-        `/trips/${tripId}`,
-      ).then((r) => r.data.trip),
+      apiFetch<{ ok: boolean; data: { trip: Trip } }>(`/trips/${tripId}`).then((r) => r.data.trip),
     enabled: !!tripId,
   });
 }
@@ -183,8 +181,7 @@ export function useUpdateProfile() {
 
 export function useDeleteAccount() {
   return useMutation({
-    mutationFn: () =>
-      apiFetch<{ ok: boolean }>("/user/profile", { method: "DELETE" }),
+    mutationFn: () => apiFetch<{ ok: boolean }>("/user/profile", { method: "DELETE" }),
   });
 }
 

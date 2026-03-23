@@ -19,15 +19,18 @@ function getPeriodStart(period: StatsPeriod): Date | null {
   if (period === "all") return null;
   const now = new Date();
   switch (period) {
-    case "day": return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    case "day":
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
     case "week": {
       const d = new Date(now);
       d.setDate(d.getDate() - d.getDay() + 1); // Monday
       d.setHours(0, 0, 0, 0);
       return d;
     }
-    case "month": return new Date(now.getFullYear(), now.getMonth(), 1);
-    case "year": return new Date(now.getFullYear(), 0, 1);
+    case "month":
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case "year":
+      return new Date(now.getFullYear(), 0, 1);
   }
 }
 
@@ -83,199 +86,198 @@ export function computeAvgSpeedKmh(totalDistanceKm: number, totalDurationSec: nu
 const leaderboardRouter = new Hono<AuthEnv>();
 
 // GET /api/stats/leaderboard
-leaderboardRouter.get(
-  "/",
-  zValidator("query", leaderboardQuery, validationHook),
-  async (c) => {
-    const { period, limit, category } = c.req.valid("query");
-    const currentUser = c.get("user");
+leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook), async (c) => {
+  const { period, limit, category } = c.req.valid("query");
+  const currentUser = c.get("user");
 
-    const periodStart = getPeriodStart(period);
+  const periodStart = getPeriodStart(period);
 
-    const conditions = [eq(user.leaderboardOptOut, false)];
+  const conditions = [eq(user.leaderboardOptOut, false)];
 
-    const joinCondition = periodStart
-      ? and(eq(user.id, trips.userId), gte(trips.startedAt, periodStart))
-      : eq(user.id, trips.userId);
+  const joinCondition = periodStart
+    ? and(eq(user.id, trips.userId), gte(trips.startedAt, periodStart))
+    : eq(user.id, trips.userId);
 
-    if (category === "co2") {
-      const entries = await db
-        .select({
-          userId: user.id,
-          name: user.name,
-          image: user.image,
-          totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
-        })
-        .from(user)
-        .leftJoin(trips, joinCondition)
-        .where(and(...conditions))
-        .groupBy(user.id, user.name, user.image)
-        .orderBy(desc(sql`coalesce(${sum(trips.co2SavedKg)}, 0)`), asc(user.name))
-        .limit(limit);
-
-      const ranked = denseRank(entries, (e) => e.totalCo2SavedKg ?? 0);
-      const mapped = ranked.map((e) => ({ ...e, value: e.totalCo2SavedKg }));
-
-      const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-      return c.json({ ok: true, data: { entries: mapped, userRank } });
-    }
-
-    if (category === "money") {
-      const entries = await db
-        .select({
-          userId: user.id,
-          name: user.name,
-          image: user.image,
-          totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
-          totalMoneySaved: sql<number>`coalesce(${sum(trips.moneySavedEur)}, 0)`.mapWith(Number),
-        })
-        .from(user)
-        .leftJoin(trips, joinCondition)
-        .where(and(...conditions))
-        .groupBy(user.id, user.name, user.image)
-        .orderBy(desc(sql`coalesce(${sum(trips.moneySavedEur)}, 0)`), asc(user.name))
-        .limit(limit);
-
-      const ranked = denseRank(entries, (e) => e.totalMoneySaved ?? 0);
-      const mapped = ranked.map((e) => ({ ...e, value: Math.round((e.totalMoneySaved ?? 0) * 100) / 100 }));
-
-      const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-      return c.json({ ok: true, data: { entries: mapped, userRank } });
-    }
-
-    if (category === "trips") {
-      const entries = await db
-        .select({
-          userId: user.id,
-          name: user.name,
-          image: user.image,
-          totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
-          tripCount: count(trips.id).mapWith(Number),
-        })
-        .from(user)
-        .leftJoin(trips, joinCondition)
-        .where(and(...conditions))
-        .groupBy(user.id, user.name, user.image)
-        .orderBy(desc(count(trips.id)), asc(user.name))
-        .limit(limit);
-
-      const ranked = denseRank(entries, (e) => e.tripCount);
-      const mapped = ranked.map((e) => ({ ...e, value: e.tripCount }));
-
-      const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-      return c.json({ ok: true, data: { entries: mapped, userRank } });
-    }
-
-    if (category === "speed") {
-      const entries = await db
-        .select({
-          userId: user.id,
-          name: user.name,
-          image: user.image,
-          totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
-          totalDistanceKm: sql<number>`coalesce(${sum(trips.distanceKm)}, 0)`.mapWith(Number),
-          totalDurationSec: sql<number>`coalesce(${sum(trips.durationSec)}, 0)`.mapWith(Number),
-          tripCount: count(trips.id).mapWith(Number),
-        })
-        .from(user)
-        .leftJoin(trips, joinCondition)
-        .where(and(...conditions))
-        .groupBy(user.id, user.name, user.image)
-        .limit(limit * 2); // fetch extra since we filter
-
-      // Filter users with at least 1 trip, compute avg speed
-      const withSpeed = entries
-        .filter((e) => e.tripCount > 0)
-        .map((e) => ({
-          userId: e.userId,
-          name: e.name,
-          image: e.image,
-          totalCo2SavedKg: e.totalCo2SavedKg,
-          avgSpeedKmh: computeAvgSpeedKmh(e.totalDistanceKm, e.totalDurationSec),
-        }))
-        .sort((a, b) => b.avgSpeedKmh - a.avgSpeedKmh || a.name.localeCompare(b.name))
-        .slice(0, limit);
-
-      const ranked = denseRank(withSpeed, (e) => e.avgSpeedKmh);
-      const mapped = ranked.map((e) => ({ ...e, value: e.avgSpeedKmh }));
-
-      const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-      return c.json({ ok: true, data: { entries: mapped, userRank } });
-    }
-
-    // category === "streak"
-    // Fetch all opted-in users
-    const optedInUsers = await db
+  if (category === "co2") {
+    const entries = await db
       .select({
         userId: user.id,
         name: user.name,
         image: user.image,
-      })
-      .from(user)
-      .where(and(...conditions));
-
-    if (optedInUsers.length === 0) {
-      return c.json({ ok: true, data: { entries: [], userRank: null } });
-    }
-
-    // Fetch all trip dates for opted-in users in a single query
-    const userIds = optedInUsers.map((u) => u.userId);
-    const tripDateConditions = periodStart
-      ? and(sql`${trips.userId} IN ${userIds}`, gte(trips.startedAt, periodStart))
-      : sql`${trips.userId} IN ${userIds}`;
-
-    const tripRows = await db
-      .select({
-        userId: trips.userId,
-        startedAt: trips.startedAt,
-      })
-      .from(trips)
-      .where(tripDateConditions);
-
-    // Also get co2 totals for opted-in users
-    const co2Rows = await db
-      .select({
-        userId: user.id,
         totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
       })
       .from(user)
       .leftJoin(trips, joinCondition)
       .where(and(...conditions))
-      .groupBy(user.id);
+      .groupBy(user.id, user.name, user.image)
+      .orderBy(desc(sql`coalesce(${sum(trips.co2SavedKg)}, 0)`), asc(user.name))
+      .limit(limit);
 
-    const co2Map = new Map(co2Rows.map((r) => [r.userId, r.totalCo2SavedKg]));
-
-    // Group trip dates by user
-    const userTripDates = new Map<string, string[]>();
-    for (const row of tripRows) {
-      const day = dateToDay(row.startedAt);
-      const existing = userTripDates.get(row.userId);
-      if (existing) {
-        existing.push(day);
-      } else {
-        userTripDates.set(row.userId, [day]);
-      }
-    }
-
-    // Compute streaks for each user
-    const withStreak = optedInUsers
-      .map((u) => ({
-        userId: u.userId,
-        name: u.name,
-        image: u.image,
-        totalCo2SavedKg: co2Map.get(u.userId) ?? 0,
-        streak: computeStreakFromDates(userTripDates.get(u.userId) ?? []),
-      }))
-      .sort((a, b) => b.streak - a.streak || a.name.localeCompare(b.name))
-      .slice(0, limit);
-
-    const ranked = denseRank(withStreak, (e) => e.streak);
-    const mapped = ranked.map((e) => ({ ...e, value: e.streak }));
+    const ranked = denseRank(entries, (e) => e.totalCo2SavedKg ?? 0);
+    const mapped = ranked.map((e) => ({ ...e, value: e.totalCo2SavedKg }));
 
     const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
     return c.json({ ok: true, data: { entries: mapped, userRank } });
-  },
-);
+  }
+
+  if (category === "money") {
+    const entries = await db
+      .select({
+        userId: user.id,
+        name: user.name,
+        image: user.image,
+        totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
+        totalMoneySaved: sql<number>`coalesce(${sum(trips.moneySavedEur)}, 0)`.mapWith(Number),
+      })
+      .from(user)
+      .leftJoin(trips, joinCondition)
+      .where(and(...conditions))
+      .groupBy(user.id, user.name, user.image)
+      .orderBy(desc(sql`coalesce(${sum(trips.moneySavedEur)}, 0)`), asc(user.name))
+      .limit(limit);
+
+    const ranked = denseRank(entries, (e) => e.totalMoneySaved ?? 0);
+    const mapped = ranked.map((e) => ({
+      ...e,
+      value: Math.round((e.totalMoneySaved ?? 0) * 100) / 100,
+    }));
+
+    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
+    return c.json({ ok: true, data: { entries: mapped, userRank } });
+  }
+
+  if (category === "trips") {
+    const entries = await db
+      .select({
+        userId: user.id,
+        name: user.name,
+        image: user.image,
+        totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
+        tripCount: count(trips.id).mapWith(Number),
+      })
+      .from(user)
+      .leftJoin(trips, joinCondition)
+      .where(and(...conditions))
+      .groupBy(user.id, user.name, user.image)
+      .orderBy(desc(count(trips.id)), asc(user.name))
+      .limit(limit);
+
+    const ranked = denseRank(entries, (e) => e.tripCount);
+    const mapped = ranked.map((e) => ({ ...e, value: e.tripCount }));
+
+    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
+    return c.json({ ok: true, data: { entries: mapped, userRank } });
+  }
+
+  if (category === "speed") {
+    const entries = await db
+      .select({
+        userId: user.id,
+        name: user.name,
+        image: user.image,
+        totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
+        totalDistanceKm: sql<number>`coalesce(${sum(trips.distanceKm)}, 0)`.mapWith(Number),
+        totalDurationSec: sql<number>`coalesce(${sum(trips.durationSec)}, 0)`.mapWith(Number),
+        tripCount: count(trips.id).mapWith(Number),
+      })
+      .from(user)
+      .leftJoin(trips, joinCondition)
+      .where(and(...conditions))
+      .groupBy(user.id, user.name, user.image)
+      .limit(limit * 2); // fetch extra since we filter
+
+    // Filter users with at least 1 trip, compute avg speed
+    const withSpeed = entries
+      .filter((e) => e.tripCount > 0)
+      .map((e) => ({
+        userId: e.userId,
+        name: e.name,
+        image: e.image,
+        totalCo2SavedKg: e.totalCo2SavedKg,
+        avgSpeedKmh: computeAvgSpeedKmh(e.totalDistanceKm, e.totalDurationSec),
+      }))
+      .sort((a, b) => b.avgSpeedKmh - a.avgSpeedKmh || a.name.localeCompare(b.name))
+      .slice(0, limit);
+
+    const ranked = denseRank(withSpeed, (e) => e.avgSpeedKmh);
+    const mapped = ranked.map((e) => ({ ...e, value: e.avgSpeedKmh }));
+
+    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
+    return c.json({ ok: true, data: { entries: mapped, userRank } });
+  }
+
+  // category === "streak"
+  // Fetch all opted-in users
+  const optedInUsers = await db
+    .select({
+      userId: user.id,
+      name: user.name,
+      image: user.image,
+    })
+    .from(user)
+    .where(and(...conditions));
+
+  if (optedInUsers.length === 0) {
+    return c.json({ ok: true, data: { entries: [], userRank: null } });
+  }
+
+  // Fetch all trip dates for opted-in users in a single query
+  const userIds = optedInUsers.map((u) => u.userId);
+  const tripDateConditions = periodStart
+    ? and(sql`${trips.userId} IN ${userIds}`, gte(trips.startedAt, periodStart))
+    : sql`${trips.userId} IN ${userIds}`;
+
+  const tripRows = await db
+    .select({
+      userId: trips.userId,
+      startedAt: trips.startedAt,
+    })
+    .from(trips)
+    .where(tripDateConditions);
+
+  // Also get co2 totals for opted-in users
+  const co2Rows = await db
+    .select({
+      userId: user.id,
+      totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
+    })
+    .from(user)
+    .leftJoin(trips, joinCondition)
+    .where(and(...conditions))
+    .groupBy(user.id);
+
+  const co2Map = new Map(co2Rows.map((r) => [r.userId, r.totalCo2SavedKg]));
+
+  // Group trip dates by user
+  const userTripDates = new Map<string, string[]>();
+  for (const row of tripRows) {
+    const day = dateToDay(row.startedAt);
+    const existing = userTripDates.get(row.userId);
+    if (existing) {
+      existing.push(day);
+    } else {
+      userTripDates.set(row.userId, [day]);
+    }
+  }
+
+  // Compute streaks for each user
+  const withStreak = optedInUsers
+    .map((u) => ({
+      userId: u.userId,
+      name: u.name,
+      image: u.image,
+      totalCo2SavedKg: co2Map.get(u.userId) ?? 0,
+      streak: computeStreakFromDates(userTripDates.get(u.userId) ?? []),
+    }))
+    .sort((a, b) => b.streak - a.streak || a.name.localeCompare(b.name))
+    .slice(0, limit);
+
+  const ranked = denseRank(withStreak, (e) => e.streak);
+  const mapped = ranked.map((e) => ({ ...e, value: e.streak }));
+
+  const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
+  return c.json({ ok: true, data: { entries: mapped, userRank } });
+});
 
 /**
  * Assign dense ranks based on a value extractor.

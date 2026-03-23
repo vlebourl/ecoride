@@ -3,7 +3,7 @@ import { processReminders } from "./push-reminders";
 
 export function initCronJobs(): void {
   // Run push reminder check every minute
-  const reminderJob = new Cron("* * * * *", { protect: true }, async () => {
+  const _reminderJob = new Cron("* * * * *", { protect: true }, async () => {
     try {
       await processReminders();
     } catch (err) {

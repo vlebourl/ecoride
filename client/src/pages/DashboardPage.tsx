@@ -17,7 +17,11 @@ export function DashboardPage() {
 
   if (isPending || !today || !allTime) {
     return (
-      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Chargement">
+      <div
+        className="flex flex-1 items-center justify-center"
+        role="status"
+        aria-label="Chargement"
+      >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -28,7 +32,10 @@ export function DashboardPage() {
   return (
     <>
       {/* Header */}
-      <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
+      <header
+        role="banner"
+        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
+      >
         <span className="text-2xl font-black tracking-tighter">
           <span className="text-text">eco</span>
           <span className="text-primary-light">Ride</span>
@@ -40,7 +47,8 @@ export function DashboardPage() {
         <div className="mx-6 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3">
           <CloudOff size={18} className="shrink-0 text-primary-light" />
           <span className="flex-1 text-xs font-medium text-text">
-            {pendingTrips.length} trajet{pendingTrips.length > 1 ? "s" : ""} en attente de synchronisation
+            {pendingTrips.length} trajet{pendingTrips.length > 1 ? "s" : ""} en attente de
+            synchronisation
           </span>
         </div>
       )}
@@ -51,13 +59,11 @@ export function DashboardPage() {
           <img src={appLogo} alt="ecoRide" className="h-20 w-20 rounded-2xl" />
           <div className="flex flex-col items-center gap-2 text-center">
             <h2 className="text-2xl font-bold">
-              Bienvenue sur{" "}
-              <span className="text-text">eco</span>
+              Bienvenue sur <span className="text-text">eco</span>
               <span className="text-primary-light">Ride</span> !
             </h2>
             <p className="max-w-xs text-sm text-text-muted">
-              Enregistrez votre premier trajet vélo pour commencer à suivre vos
-              économies CO₂.
+              Enregistrez votre premier trajet vélo pour commencer à suivre vos économies CO₂.
             </p>
           </div>
           <Link
@@ -81,12 +87,8 @@ export function DashboardPage() {
                 <Bike size={28} className="text-bg" />
               </div>
               <div>
-                <span className="block text-lg font-black text-bg">
-                  Démarrer un trajet
-                </span>
-                <span className="block text-sm font-medium text-bg/70">
-                  GPS ou saisie manuelle
-                </span>
+                <span className="block text-lg font-black text-bg">Démarrer un trajet</span>
+                <span className="block text-sm font-medium text-bg/70">GPS ou saisie manuelle</span>
               </div>
             </div>
             <ChevronRight
@@ -101,12 +103,8 @@ export function DashboardPage() {
             allTime.tripCount > 0 && (
               <div className="flex items-center gap-3 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
                 <Car size={18} className="shrink-0 text-warning" />
-                <Link
-                  to="/profile"
-                  className="flex-1 text-xs font-medium text-text"
-                >
-                  Configurez votre véhicule de référence pour des calculs CO₂
-                  plus précis
+                <Link to="/profile" className="flex-1 text-xs font-medium text-text">
+                  Configurez votre véhicule de référence pour des calculs CO₂ plus précis
                 </Link>
                 <button
                   onClick={() => setVehiclePromptDismissed(true)}
@@ -128,9 +126,7 @@ export function DashboardPage() {
                 <div>
                   <div className="flex items-center justify-center gap-1">
                     <MapPin size={14} className="text-primary-light" />
-                    <span className="text-2xl font-black text-text">
-                      {today.tripCount}
-                    </span>
+                    <span className="text-2xl font-black text-text">{today.tripCount}</span>
                   </div>
                   <span className="text-xs font-bold uppercase text-text-muted">
                     {today.tripCount > 1 ? "trajets" : "trajet"}
@@ -143,9 +139,7 @@ export function DashboardPage() {
                       {today.totalDistanceKm.toFixed(1)}
                     </span>
                   </div>
-                  <span className="text-xs font-bold uppercase text-text-muted">
-                    km
-                  </span>
+                  <span className="text-xs font-bold uppercase text-text-muted">km</span>
                 </div>
                 <div>
                   <div className="flex items-center justify-center gap-1">
@@ -154,9 +148,7 @@ export function DashboardPage() {
                       {today.totalCo2SavedKg.toFixed(1)}
                     </span>
                   </div>
-                  <span className="text-xs font-bold uppercase text-text-muted">
-                    kg CO₂
-                  </span>
+                  <span className="text-xs font-bold uppercase text-text-muted">kg CO₂</span>
                 </div>
               </div>
             ) : (

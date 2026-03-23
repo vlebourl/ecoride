@@ -1,20 +1,20 @@
 import { useState, useMemo, useEffect } from "react";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { MapContainer, TileLayer, Polyline, useMap } from "react-leaflet";
 import type { LatLngTuple, LatLngBoundsExpression } from "leaflet";
 import L from "leaflet";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
-import { useDashboardSummary, useTrips, useTrip, useWeeklyTrips, useAchievements, useDeleteTrip } from "@/hooks/queries";
+import {
+  useDashboardSummary,
+  useTrips,
+  useTrip,
+  useWeeklyTrips,
+  useAchievements,
+  useDeleteTrip,
+} from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
 
 type Period = "week" | "month" | "year";
@@ -132,7 +132,11 @@ export function StatsPage() {
 
   if (isPending || !s) {
     return (
-      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Chargement">
+      <div
+        className="flex flex-1 items-center justify-center"
+        role="status"
+        aria-label="Chargement"
+      >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -141,12 +145,14 @@ export function StatsPage() {
   return (
     <>
       {/* Header */}
-      <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
-        <span className="text-lg font-bold tracking-tight text-primary-light">
-          Stats
-        </span>
+      <header
+        role="banner"
+        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
+      >
+        <span className="text-lg font-bold tracking-tight text-primary-light">Stats</span>
         <span className="text-xl font-bold tracking-tighter">
-          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
+          <span className="text-text">eco</span>
+          <span className="text-primary-light">Ride</span>
         </span>
       </header>
 
@@ -164,193 +170,185 @@ export function StatsPage() {
             </div>
           </div>
         ) : (
-        <>
-        {/* Monthly Totals */}
-        <section className="space-y-6">
-          <div className="flex items-end justify-between">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Ce mois
-              </span>
-              <h2 className="text-3xl font-extrabold tracking-tight">
-                {new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
-              </h2>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Distance highlight */}
-            <div className="col-span-1 flex min-h-[160px] flex-col justify-between rounded-xl border border-outline-variant/10 bg-surface-low p-6 md:col-span-2">
-              <div className="flex items-start justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                  Distance Totale
-                </span>
-                <Bike size={22} className="text-primary-light" />
+          <>
+            {/* Monthly Totals */}
+            <section className="space-y-6">
+              <div className="flex items-end justify-between">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                    Ce mois
+                  </span>
+                  <h2 className="text-3xl font-extrabold tracking-tight">
+                    {new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+                  </h2>
+                </div>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-6xl font-bold tracking-tighter">
-                  {Math.round(s.totalDistanceKm)}
-                </span>
-                <span className="text-xl font-bold text-on-surface-variant">
-                  KM
-                </span>
-              </div>
-            </div>
 
-            {/* CO2 */}
-            <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                CO₂ Économisé
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold tracking-tighter">
-                  {Math.round(s.totalCo2SavedKg)}
-                </span>
-                <span className="text-base font-bold text-primary-light">
-                  KG
-                </span>
-              </div>
-            </div>
-
-            {/* Money */}
-            <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                Économies
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold tracking-tighter">
-                  {Math.round(s.totalMoneySavedEur)}
-                </span>
-                <span className="text-base font-bold text-primary-light">
-                  €
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Chart Section */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-              Évolution
-            </h3>
-          </div>
-
-          {/* Period switcher */}
-          <nav className="flex items-center border-b border-surface-low">
-            {(Object.keys(periodLabels) as Period[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                  p === period
-                    ? "border-b-2 border-primary-light font-bold text-primary-light"
-                    : "text-text-muted hover:text-text"
-                }`}
-              >
-                {periodLabels[p]}
-              </button>
-            ))}
-          </nav>
-
-          {/* Metric switcher */}
-          <div className="flex gap-2">
-            {(Object.keys(metricLabels) as Metric[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMetric(m)}
-                className={`rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                  m === metric
-                    ? "bg-primary/20 text-primary-light"
-                    : "bg-surface-high text-text-muted"
-                }`}
-              >
-                {m === "km" ? "KM" : m === "co2" ? "CO₂" : "€"}
-              </button>
-            ))}
-          </div>
-
-          {/* Line Chart */}
-          <div className="rounded-xl border border-outline-variant/10 bg-surface-low p-4">
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={weeklyData}>
-                <CartesianGrid stroke="#2e3842" strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="day"
-                  tick={{ fill: "#8a9ba8", fontSize: 11, fontWeight: 600 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#283240",
-                    border: "1px solid #333e47",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: "#8a9ba8", fontWeight: 600 }}
-                  itemStyle={{ color: "#2ecc71" }}
-                  formatter={(value) => [
-                    `${Number(value).toFixed(1)} ${metric === "km" ? "km" : metric === "co2" ? "kg" : "€"}`,
-                    metricLabels[metric],
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey={metric}
-                  stroke="#2ecc71"
-                  strokeWidth={2.5}
-                  dot={{ fill: "#2ecc71", r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: "#54e98a", strokeWidth: 0 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        {/* Recent Activity */}
-        <section className="space-y-6">
-          <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-            Activité récente
-          </h3>
-          <div className="space-y-3">
-            {trips.length === 0 && (
-              <p className="text-center text-sm text-text-muted">Aucun trajet enregistré</p>
-            )}
-            {trips.map((trip) => (
-              <button
-                key={trip.id}
-                onClick={() => setSelectedTrip(trip)}
-                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/5 bg-surface-low p-4 text-left active:scale-[0.98] transition-transform"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-high">
-                    <Bike size={20} className="text-primary-light" />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {/* Distance highlight */}
+                <div className="col-span-1 flex min-h-[160px] flex-col justify-between rounded-xl border border-outline-variant/10 bg-surface-low p-6 md:col-span-2">
+                  <div className="flex items-start justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+                      Distance Totale
+                    </span>
+                    <Bike size={22} className="text-primary-light" />
                   </div>
-                  <div>
-                    <p className="text-sm font-bold">{tripLabel(trip.startedAt)}</p>
-                    <p className="text-xs font-medium text-on-surface-variant">
-                      {new Date(trip.startedAt).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-6xl font-bold tracking-tighter">
+                      {Math.round(s.totalDistanceKm)}
+                    </span>
+                    <span className="text-xl font-bold text-on-surface-variant">KM</span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-primary-light">
-                    +{trip.distanceKm} KM
-                  </p>
-                  <p className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
-                    {trip.co2SavedKg.toFixed(1)} KG CO₂
-                  </p>
+
+                {/* CO2 */}
+                <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+                    CO₂ Économisé
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tracking-tighter">
+                      {Math.round(s.totalCo2SavedKg)}
+                    </span>
+                    <span className="text-base font-bold text-primary-light">KG</span>
+                  </div>
                 </div>
-              </button>
-            ))}
-          </div>
-        </section>
-        </>
+
+                {/* Money */}
+                <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+                    Économies
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tracking-tighter">
+                      {Math.round(s.totalMoneySavedEur)}
+                    </span>
+                    <span className="text-base font-bold text-primary-light">€</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Chart Section */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
+                  Évolution
+                </h3>
+              </div>
+
+              {/* Period switcher */}
+              <nav className="flex items-center border-b border-surface-low">
+                {(Object.keys(periodLabels) as Period[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                      p === period
+                        ? "border-b-2 border-primary-light font-bold text-primary-light"
+                        : "text-text-muted hover:text-text"
+                    }`}
+                  >
+                    {periodLabels[p]}
+                  </button>
+                ))}
+              </nav>
+
+              {/* Metric switcher */}
+              <div className="flex gap-2">
+                {(Object.keys(metricLabels) as Metric[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMetric(m)}
+                    className={`rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                      m === metric
+                        ? "bg-primary/20 text-primary-light"
+                        : "bg-surface-high text-text-muted"
+                    }`}
+                  >
+                    {m === "km" ? "KM" : m === "co2" ? "CO₂" : "€"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Line Chart */}
+              <div className="rounded-xl border border-outline-variant/10 bg-surface-low p-4">
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={weeklyData}>
+                    <CartesianGrid stroke="#2e3842" strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="day"
+                      tick={{ fill: "#8a9ba8", fontSize: 11, fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#283240",
+                        border: "1px solid #333e47",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                      labelStyle={{ color: "#8a9ba8", fontWeight: 600 }}
+                      itemStyle={{ color: "#2ecc71" }}
+                      formatter={(value) => [
+                        `${Number(value).toFixed(1)} ${metric === "km" ? "km" : metric === "co2" ? "kg" : "€"}`,
+                        metricLabels[metric],
+                      ]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={metric}
+                      stroke="#2ecc71"
+                      strokeWidth={2.5}
+                      dot={{ fill: "#2ecc71", r: 4, strokeWidth: 0 }}
+                      activeDot={{ r: 6, fill: "#54e98a", strokeWidth: 0 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            {/* Recent Activity */}
+            <section className="space-y-6">
+              <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
+                Activité récente
+              </h3>
+              <div className="space-y-3">
+                {trips.length === 0 && (
+                  <p className="text-center text-sm text-text-muted">Aucun trajet enregistré</p>
+                )}
+                {trips.map((trip) => (
+                  <button
+                    key={trip.id}
+                    onClick={() => setSelectedTrip(trip)}
+                    className="flex w-full items-center justify-between rounded-xl border border-outline-variant/5 bg-surface-low p-4 text-left active:scale-[0.98] transition-transform"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-high">
+                        <Bike size={20} className="text-primary-light" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold">{tripLabel(trip.startedAt)}</p>
+                        <p className="text-xs font-medium text-on-surface-variant">
+                          {new Date(trip.startedAt).toLocaleDateString("fr-FR", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-primary-light">+{trip.distanceKm} KM</p>
+                      <p className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
+                        {trip.co2SavedKg.toFixed(1)} KG CO₂
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </>
         )}
 
         {/* Badges */}
@@ -361,15 +359,11 @@ export function StatsPage() {
           <div className="grid grid-cols-4 gap-4">
             {allBadgeIds.map((id) => {
               const badge = BADGES[id];
-              const unlocked = (achievements ?? []).some(
-                (a) => a.badgeId === id,
-              );
+              const unlocked = (achievements ?? []).some((a) => a.badgeId === id);
               return (
                 <div
                   key={id}
-                  className={`flex flex-col items-center gap-2 ${
-                    !unlocked ? "opacity-40" : ""
-                  }`}
+                  className={`flex flex-col items-center gap-2 ${!unlocked ? "opacity-40" : ""}`}
                 >
                   <div
                     className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
@@ -446,11 +440,15 @@ export function StatsPage() {
                 <p className="text-xs font-bold uppercase text-text-muted">km</p>
               </div>
               <div>
-                <p className="text-xl font-bold text-primary-light">{selectedTrip.co2SavedKg.toFixed(1)}</p>
+                <p className="text-xl font-bold text-primary-light">
+                  {selectedTrip.co2SavedKg.toFixed(1)}
+                </p>
                 <p className="text-xs font-bold uppercase text-text-muted">kg CO₂</p>
               </div>
               <div>
-                <p className="text-xl font-bold text-primary-light">{selectedTrip.moneySavedEur.toFixed(2)}</p>
+                <p className="text-xl font-bold text-primary-light">
+                  {selectedTrip.moneySavedEur.toFixed(2)}
+                </p>
                 <p className="text-xs font-bold uppercase text-text-muted">€</p>
               </div>
             </div>

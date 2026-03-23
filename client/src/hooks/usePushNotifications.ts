@@ -8,10 +8,10 @@ import {
 import { useUpdateProfile } from "./queries";
 
 export type PushStatus =
-  | "loading"       // checking current state
-  | "unsupported"   // browser doesn't support push
-  | "denied"        // user denied permission
-  | "subscribed"    // active subscription
+  | "loading" // checking current state
+  | "unsupported" // browser doesn't support push
+  | "denied" // user denied permission
+  | "subscribed" // active subscription
   | "unsubscribed"; // no subscription, can enable
 
 export function usePushNotifications() {

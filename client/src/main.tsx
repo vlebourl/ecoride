@@ -26,17 +26,22 @@ async function purgeAndReload() {
 
 // Poll server for new version every 5 minutes (catches updates while app stays open)
 // Skip reload if a GPS trip is being tracked (backup key present = active tracking)
-setInterval(async () => {
-  try {
-    if (localStorage.getItem("ecoride-tracking-backup")) return; // Don't interrupt active tracking
-    const res = await fetch("/api/health");
-    const data = await res.json();
-    if (data.version && data.version !== __APP_VERSION__) {
-      localStorage.setItem("ecoride-version", data.version);
-      await purgeAndReload();
+setInterval(
+  async () => {
+    try {
+      if (localStorage.getItem("ecoride-tracking-backup")) return; // Don't interrupt active tracking
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      if (data.version && data.version !== __APP_VERSION__) {
+        localStorage.setItem("ecoride-version", data.version);
+        await purgeAndReload();
+      }
+    } catch {
+      /* offline or error — ignore */
     }
-  } catch { /* offline or error — ignore */ }
-}, 5 * 60 * 1000);
+  },
+  5 * 60 * 1000,
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {

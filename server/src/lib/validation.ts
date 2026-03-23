@@ -10,13 +10,16 @@ export function validationHook(
   c: Context,
 ) {
   if (!result.success) {
-    return c.json({
-      ok: false,
-      error: {
-        code: "VALIDATION_ERROR" as const,
-        message: "Validation failed",
+    return c.json(
+      {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR" as const,
+          message: "Validation failed",
+        },
+        details: result.error!.flatten().fieldErrors,
       },
-      details: result.error!.flatten().fieldErrors,
-    }, 400);
+      400,
+    );
   }
 }

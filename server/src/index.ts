@@ -30,18 +30,24 @@ app.use("*", async (c, next) => {
 });
 
 // ---- CORS for auth routes (before handler, with explicit methods) ----
-app.use("/api/auth/*", cors({
-  origin: env.FRONTEND_URL,
-  allowHeaders: ["Content-Type", "Authorization"],
-  allowMethods: ["POST", "GET", "OPTIONS"],
-  credentials: true,
-}));
+app.use(
+  "/api/auth/*",
+  cors({
+    origin: env.FRONTEND_URL,
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["POST", "GET", "OPTIONS"],
+    credentials: true,
+  }),
+);
 
 // ---- CORS for other API routes ----
-app.use("/api/*", cors({
-  origin: [env.FRONTEND_URL],
-  credentials: true,
-}));
+app.use(
+  "/api/*",
+  cors({
+    origin: [env.FRONTEND_URL],
+    credentials: true,
+  }),
+);
 
 // ---- Rate limiting for all API routes (100 req/min per IP) ----
 app.use("/api/*", rateLimit({ maxRequests: 100, prefix: "api" }));
@@ -54,8 +60,11 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => {
 
 // ---- Health check + version (public) ----
 const appVersion = (() => {
-  try { return require("../../package.json").version; }
-  catch { return "unknown"; }
+  try {
+    return require("../../package.json").version;
+  } catch {
+    return "unknown";
+  }
 })();
 app.get("/api/health", (c) => c.json({ ok: true, status: "healthy", version: appVersion }));
 
@@ -68,23 +77,32 @@ app.route("/api", apiRouter);
 // ---- Global error handler ----
 app.onError((err, c) => {
   if (err instanceof AppError) {
-    return c.json({
-      ok: false,
-      error: { code: err.code, message: err.message },
-      ...(err.details ? { details: err.details } : {}),
-    }, err.status);
+    return c.json(
+      {
+        ok: false,
+        error: { code: err.code, message: err.message },
+        ...(err.details ? { details: err.details } : {}),
+      },
+      err.status,
+    );
   }
   if (err instanceof HTTPException) {
-    return c.json({
-      ok: false,
-      error: { code: "INTERNAL_ERROR", message: err.message },
-    }, err.status);
+    return c.json(
+      {
+        ok: false,
+        error: { code: "INTERNAL_ERROR", message: err.message },
+      },
+      err.status,
+    );
   }
   console.error("[UNHANDLED]", err);
-  return c.json({
-    ok: false,
-    error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
-  }, 500);
+  return c.json(
+    {
+      ok: false,
+      error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
+    },
+    500,
+  );
 });
 
 // ---- Static files & SPA fallback (production) ----
@@ -113,10 +131,13 @@ if (env.NODE_ENV === "production") {
 
 // ---- 404 handler ----
 app.notFound((c) => {
-  return c.json({
-    ok: false,
-    error: { code: "NOT_FOUND", message: `Route not found: ${c.req.method} ${c.req.path}` },
-  }, 404);
+  return c.json(
+    {
+      ok: false,
+      error: { code: "NOT_FOUND", message: `Route not found: ${c.req.method} ${c.req.path}` },
+    },
+    404,
+  );
 });
 
 // ---- Cron jobs ----

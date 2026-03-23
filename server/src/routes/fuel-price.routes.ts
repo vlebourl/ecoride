@@ -15,23 +15,19 @@ const fuelPriceQuery = z.object({
 const fuelPriceRouter = new Hono<AuthEnv>();
 
 // GET /api/fuel-price
-fuelPriceRouter.get(
-  "/",
-  zValidator("query", fuelPriceQuery, validationHook),
-  async (c) => {
-    const { type, lat, lng } = c.req.valid("query");
-    const result = await getFuelPrice(type as "sp95" | "sp98" | "diesel" | "e85" | "gpl", lat, lng);
+fuelPriceRouter.get("/", zValidator("query", fuelPriceQuery, validationHook), async (c) => {
+  const { type, lat, lng } = c.req.valid("query");
+  const result = await getFuelPrice(type as "sp95" | "sp98" | "diesel" | "e85" | "gpl", lat, lng);
 
-    return c.json({
-      ok: true,
-      data: {
-        priceEur: result.priceEur,
-        fuelType: result.fuelType,
-        stationName: result.stationName,
-        updatedAt: result.updatedAt,
-      },
-    });
-  },
-);
+  return c.json({
+    ok: true,
+    data: {
+      priceEur: result.priceEur,
+      fuelType: result.fuelType,
+      stationName: result.stationName,
+      updatedAt: result.updatedAt,
+    },
+  });
+});
 
 export { fuelPriceRouter };

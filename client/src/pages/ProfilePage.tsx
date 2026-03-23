@@ -16,7 +16,14 @@ import {
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
-import { useProfile, useAchievements, useUpdateProfile, useFuelPrice, useDeleteAccount, useExportData } from "@/hooks/queries";
+import {
+  useProfile,
+  useAchievements,
+  useUpdateProfile,
+  useFuelPrice,
+  useDeleteAccount,
+  useExportData,
+} from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
 
@@ -56,7 +63,11 @@ export function ProfilePage() {
 
   if (profileLoading || achievementsLoading || !user || !stats) {
     return (
-      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Chargement">
+      <div
+        className="flex flex-1 items-center justify-center"
+        role="status"
+        aria-label="Chargement"
+      >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -103,9 +114,13 @@ export function ProfilePage() {
   return (
     <>
       {/* Header */}
-      <header role="banner" className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl">
+      <header
+        role="banner"
+        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
+      >
         <span className="text-xl font-bold tracking-tighter">
-          <span className="text-text">eco</span><span className="text-primary-light">Ride</span>
+          <span className="text-text">eco</span>
+          <span className="text-primary-light">Ride</span>
         </span>
       </header>
 
@@ -126,9 +141,7 @@ export function ProfilePage() {
             </div>
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-text">
-              {user.name}
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight text-text">{user.name}</h1>
             <div className="mt-1 inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary-light">
               Eco Rider
             </div>
@@ -145,58 +158,40 @@ export function ProfilePage() {
               <span className="text-5xl font-extrabold tracking-tighter text-text">
                 {stats.totalCo2SavedKg.toFixed(1)}
               </span>
-              <span className="text-xl font-bold uppercase text-text-dim">
-                kg
-              </span>
+              <span className="text-xl font-bold uppercase text-text-dim">kg</span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
-              Distance
-            </p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Distance</p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
                 {Math.round(stats.totalDistanceKm)}
               </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
-                km
-              </span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">km</span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
-              Trajets
-            </p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Trajets</p>
             <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-text">
-                {stats.tripCount}
-              </span>
+              <span className="text-3xl font-bold text-text">{stats.tripCount}</span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
-              Carburant
-            </p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Carburant</p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
                 {stats.totalFuelSavedL.toFixed(1)}
               </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
-                L
-              </span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">L</span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
-              Economisé
-            </p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Economisé</p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
                 {stats.totalMoneySavedEur.toFixed(0)}
               </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
-                EUR
-              </span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">EUR</span>
             </div>
           </div>
         </section>
@@ -240,9 +235,7 @@ export function ProfilePage() {
               return (
                 <div
                   key={id}
-                  className={`flex flex-col items-center gap-2 ${
-                    !unlocked ? "opacity-40" : ""
-                  }`}
+                  className={`flex flex-col items-center gap-2 ${!unlocked ? "opacity-40" : ""}`}
                 >
                   <div
                     className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
@@ -265,9 +258,7 @@ export function ProfilePage() {
         {/* Vehicle Form (collapsible) */}
         {showVehicle && (
           <section className="space-y-4 rounded-xl bg-surface-low p-6">
-            <h2 className="text-lg font-bold tracking-tight">
-              Véhicule de référence
-            </h2>
+            <h2 className="text-lg font-bold tracking-tight">Véhicule de référence</h2>
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
@@ -410,7 +401,9 @@ export function ProfilePage() {
                     <span className="text-xs text-text-dim">Non supporté par ce navigateur</span>
                   )}
                   {push.status === "denied" && (
-                    <span className="text-xs text-text-dim">Autorisation refusée dans les paramètres du navigateur</span>
+                    <span className="text-xs text-text-dim">
+                      Autorisation refusée dans les paramètres du navigateur
+                    </span>
                   )}
                   {push.status === "subscribed" && (
                     <span className="text-xs text-primary/70">Activées</span>
@@ -421,7 +414,11 @@ export function ProfilePage() {
                 <button
                   onClick={push.toggle}
                   disabled={push.busy}
-                  aria-label={push.status === "subscribed" ? "Désactiver les notifications" : "Activer les notifications"}
+                  aria-label={
+                    push.status === "subscribed"
+                      ? "Désactiver les notifications"
+                      : "Activer les notifications"
+                  }
                   className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
                     push.status === "subscribed" ? "bg-primary" : "bg-surface-high"
                   }`}
@@ -438,7 +435,6 @@ export function ProfilePage() {
                 </button>
               )}
             </div>
-
           </div>
 
           <button
@@ -473,9 +469,7 @@ export function ProfilePage() {
             </div>
           </button>
 
-          <p className="mt-4 text-center text-xs text-text-dim">
-            v{__APP_VERSION__}
-          </p>
+          <p className="mt-4 text-center text-xs text-text-dim">v{__APP_VERSION__}</p>
         </section>
       </div>
     </>

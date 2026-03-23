@@ -8,7 +8,10 @@ export const updateUserSchema = z.object({
   mileage: z.number().int().nonnegative().optional(),
   leaderboardOptOut: z.boolean().optional(),
   reminderEnabled: z.boolean().optional(),
-  reminderTime: z.string().regex(/^\d{2}:\d{2}$/, "Must be HH:MM format").optional(),
+  reminderTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+    .optional(),
   reminderDays: z.array(z.enum(WEEK_DAYS as unknown as [string, ...string[]])).optional(),
 });
 

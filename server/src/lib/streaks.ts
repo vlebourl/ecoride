@@ -58,9 +58,7 @@ export async function computeStreak(
     const d = dates[i]!;
     if (i === 0) {
       // Streak counts only if the most recent trip was today or yesterday
-      const diffDays = Math.floor(
-        (new Date(today).getTime() - new Date(d).getTime()) / 86400000,
-      );
+      const diffDays = Math.floor((new Date(today).getTime() - new Date(d).getTime()) / 86400000);
       if (diffDays > 1) {
         current = 0;
         streak = 1;

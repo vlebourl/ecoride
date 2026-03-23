@@ -68,17 +68,17 @@ client/     React PWA + Tailwind + Playwright e2e
 
 ## Scripts
 
-| Commande | Description |
-|----------|-------------|
-| `bun run dev` | Lance client + serveur en parallèle |
-| `bun run dev:client` | Client seul (Vite :5173) |
-| `bun run dev:server` | Serveur seul (Hono :3000) |
-| `bun run db:push` | Applique le schéma Drizzle sur la DB |
-| `bun run db:generate` | Génère une migration Drizzle |
-| `bun run db:studio` | Ouvre Drizzle Studio |
-| `bun run typecheck` | Vérifie les types dans tous les workspaces |
-| `cd client && bunx vitest run` | Lance les tests unitaires |
-| `cd client && npx playwright test` | Lance les smoke tests e2e |
+| Commande                           | Description                                |
+| ---------------------------------- | ------------------------------------------ |
+| `bun run dev`                      | Lance client + serveur en parallèle        |
+| `bun run dev:client`               | Client seul (Vite :5173)                   |
+| `bun run dev:server`               | Serveur seul (Hono :3000)                  |
+| `bun run db:push`                  | Applique le schéma Drizzle sur la DB       |
+| `bun run db:generate`              | Génère une migration Drizzle               |
+| `bun run db:studio`                | Ouvre Drizzle Studio                       |
+| `bun run typecheck`                | Vérifie les types dans tous les workspaces |
+| `cd client && bunx vitest run`     | Lance les tests unitaires                  |
+| `cd client && npx playwright test` | Lance les smoke tests e2e                  |
 
 ## CI / CD
 
@@ -107,14 +107,14 @@ docker compose up --build
 
 ### Variables d'environnement (production)
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | Connexion PostgreSQL |
-| `BETTER_AUTH_SECRET` | Secret auth (`openssl rand -hex 32`) |
-| `BETTER_AUTH_URL` | URL publique de l'app (ex: `https://mon-domaine.com`) |
-| `GOOGLE_CLIENT_ID` | Client ID Google OAuth |
-| `GOOGLE_CLIENT_SECRET` | Client Secret Google OAuth |
-| `FRONTEND_URL` | URL publique de l'app (même valeur que `BETTER_AUTH_URL`) |
-| `VAPID_PUBLIC_KEY` | Clé publique push (`bunx web-push generate-vapid-keys`) |
-| `VAPID_PRIVATE_KEY` | Clé privée push |
-| `VAPID_SUBJECT` | `mailto:votre-email@exemple.com` |
+| Variable               | Description                                               |
+| ---------------------- | --------------------------------------------------------- |
+| `DATABASE_URL`         | Connexion PostgreSQL                                      |
+| `BETTER_AUTH_SECRET`   | Secret auth (`openssl rand -hex 32`)                      |
+| `BETTER_AUTH_URL`      | URL publique de l'app (ex: `https://mon-domaine.com`)     |
+| `GOOGLE_CLIENT_ID`     | Client ID Google OAuth                                    |
+| `GOOGLE_CLIENT_SECRET` | Client Secret Google OAuth                                |
+| `FRONTEND_URL`         | URL publique de l'app (même valeur que `BETTER_AUTH_URL`) |
+| `VAPID_PUBLIC_KEY`     | Clé publique push (`bunx web-push generate-vapid-keys`)   |
+| `VAPID_PRIVATE_KEY`    | Clé privée push                                           |
+| `VAPID_SUBJECT`        | `mailto:votre-email@exemple.com`                          |

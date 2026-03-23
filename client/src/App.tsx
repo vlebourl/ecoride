@@ -5,12 +5,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { LoginPage } from "@/pages/LoginPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 
-const TripPage = lazy(() =>
-  import("@/pages/TripPage").then((m) => ({ default: m.TripPage })),
-);
-const StatsPage = lazy(() =>
-  import("@/pages/StatsPage").then((m) => ({ default: m.StatsPage })),
-);
+const TripPage = lazy(() => import("@/pages/TripPage").then((m) => ({ default: m.TripPage })));
+const StatsPage = lazy(() => import("@/pages/StatsPage").then((m) => ({ default: m.StatsPage })));
 const LeaderboardPage = lazy(() =>
   import("@/pages/LeaderboardPage").then((m) => ({
     default: m.LeaderboardPage,

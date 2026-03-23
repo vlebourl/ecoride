@@ -34,6 +34,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - run: cd client && bunx vitest run
+      - run: cd server && bunx vitest run
 
   smoke:
     name: Smoke test (Playwright)

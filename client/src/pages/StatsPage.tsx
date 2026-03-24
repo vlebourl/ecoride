@@ -366,7 +366,7 @@ export function StatsPage() {
               <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
                 Activité récente
               </h3>
-              <div className="space-y-3">
+              <div className="max-h-80 space-y-3 overflow-y-auto">
                 {trips.length === 0 && (
                   <p className="text-center text-sm text-text-muted">Aucun trajet enregistré</p>
                 )}

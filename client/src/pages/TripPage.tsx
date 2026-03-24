@@ -171,9 +171,7 @@ export function TripPage() {
   };
 
   return (
-    <div
-      className={`relative flex flex-col ${uiState === "tracking" ? "h-[calc(100dvh_-_6rem)]" : "h-full"}`}
-    >
+    <div className="relative flex h-[calc(100dvh_-_6rem)] flex-col">
       {/* Header with persistent GPS indicator */}
       <header
         role="banner"
@@ -338,7 +336,7 @@ export function TripPage() {
 
       {/* === IDLE / STOPPED / MANUAL: full map === */}
       {uiState !== "tracking" && (
-        <div className="relative" style={{ height: "50vh", minHeight: "250px" }}>
+        <div className="relative min-h-0 flex-1">
           <MapContainer
             center={currentPos as LatLngExpression}
             zoom={15}

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -438,93 +439,95 @@ export function StatsPage() {
         </section>
       </div>
 
-      {/* Bottom sheet — trip detail / delete */}
-      {selectedTrip && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Détail du trajet"
-          className="fixed inset-0 z-[60] flex items-end justify-center"
-          onClick={() => setSelectedTrip(null)}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50" />
-
-          {/* Sheet */}
+      {/* Bottom sheet — trip detail / delete (portal to escape PullToRefresh transform) */}
+      {selectedTrip &&
+        createPortal(
           <div
-            className="relative w-full max-w-lg overflow-y-auto max-h-[85vh] rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Détail du trajet"
+            className="fixed inset-0 z-[60] flex items-end justify-center"
+            onClick={() => setSelectedTrip(null)}
           >
-            {/* Handle */}
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-highest" />
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50" />
 
-            {/* Header */}
-            <div className="mb-6 flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-bold">{tripLabel(selectedTrip.startedAt)}</h3>
-                <p className="text-sm text-text-muted">
-                  {new Date(selectedTrip.startedAt).toLocaleDateString("fr-FR", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                  })}
-                </p>
+            {/* Sheet */}
+            <div
+              className="relative w-full max-w-lg overflow-y-auto max-h-[85vh] rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Handle */}
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-highest" />
+
+              {/* Header */}
+              <div className="mb-6 flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-bold">{tripLabel(selectedTrip.startedAt)}</h3>
+                  <p className="text-sm text-text-muted">
+                    {new Date(selectedTrip.startedAt).toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedTrip(null)}
+                  aria-label="Fermer"
+                  className="rounded-lg p-2 text-text-muted active:bg-surface-high"
+                >
+                  <X size={20} />
+                </button>
               </div>
+
+              {/* GPS Track Map */}
+              {hasGpsTrack && <TripMiniMap gpsPoints={gpsPoints} />}
+
+              {/* Manual entry label */}
+              {!hasGpsTrack && (
+                <p className="mb-4 text-center text-xs text-text-dim">Saisie manuelle</p>
+              )}
+
+              {/* Stats */}
+              <div className="mb-6 grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-xl font-bold text-primary-light">
+                    {Number(selectedTrip.distanceKm).toFixed(1)}
+                  </p>
+                  <p className="text-xs font-bold uppercase text-text-muted">km</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-primary-light">
+                    {selectedTrip.co2SavedKg.toFixed(1)}
+                  </p>
+                  <p className="text-xs font-bold uppercase text-text-muted">kg CO₂</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-primary-light">
+                    {selectedTrip.moneySavedEur.toFixed(2)}
+                  </p>
+                  <p className="text-xs font-bold uppercase text-text-muted">€</p>
+                </div>
+              </div>
+
+              {/* Delete button */}
               <button
-                onClick={() => setSelectedTrip(null)}
-                aria-label="Fermer"
-                className="rounded-lg p-2 text-text-muted active:bg-surface-high"
+                onClick={() => {
+                  deleteTrip.mutate(selectedTrip.id, {
+                    onSuccess: () => setSelectedTrip(null),
+                  });
+                }}
+                disabled={deleteTrip.isPending}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-danger/10 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
               >
-                <X size={20} />
+                <Trash2 size={16} />
+                {deleteTrip.isPending ? "Suppression..." : "Supprimer ce trajet"}
               </button>
             </div>
-
-            {/* GPS Track Map */}
-            {hasGpsTrack && <TripMiniMap gpsPoints={gpsPoints} />}
-
-            {/* Manual entry label */}
-            {!hasGpsTrack && (
-              <p className="mb-4 text-center text-xs text-text-dim">Saisie manuelle</p>
-            )}
-
-            {/* Stats */}
-            <div className="mb-6 grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-xl font-bold text-primary-light">
-                  {Number(selectedTrip.distanceKm).toFixed(1)}
-                </p>
-                <p className="text-xs font-bold uppercase text-text-muted">km</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-primary-light">
-                  {selectedTrip.co2SavedKg.toFixed(1)}
-                </p>
-                <p className="text-xs font-bold uppercase text-text-muted">kg CO₂</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-primary-light">
-                  {selectedTrip.moneySavedEur.toFixed(2)}
-                </p>
-                <p className="text-xs font-bold uppercase text-text-muted">€</p>
-              </div>
-            </div>
-
-            {/* Delete button */}
-            <button
-              onClick={() => {
-                deleteTrip.mutate(selectedTrip.id, {
-                  onSuccess: () => setSelectedTrip(null),
-                });
-              }}
-              disabled={deleteTrip.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-danger/10 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
-            >
-              <Trash2 size={16} />
-              {deleteTrip.isPending ? "Suppression..." : "Supprimer ce trajet"}
-            </button>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

@@ -44,9 +44,8 @@ self.addEventListener("push", function (event) {
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
-  var targetUrl = event.notification.data && event.notification.data.url
-    ? event.notification.data.url
-    : "/";
+  var targetUrl =
+    event.notification.data && event.notification.data.url ? event.notification.data.url : "/";
 
   event.waitUntil(
     self.clients
@@ -64,6 +63,6 @@ self.addEventListener("notificationclick", function (event) {
         if (self.clients.openWindow) {
           return self.clients.openWindow(targetUrl);
         }
-      })
+      }),
   );
 });

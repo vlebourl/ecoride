@@ -107,8 +107,8 @@ export function LeaderboardPage() {
           </div>
 
           {/* Category switcher — icons only, label below */}
-          <div className="mt-3 flex flex-col items-start gap-2">
-            <div className="flex gap-2" data-testid="category-switcher">
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex w-full gap-2" data-testid="category-switcher">
               {categoryOptions.map((opt) => {
                 const Icon = opt.icon;
                 return (

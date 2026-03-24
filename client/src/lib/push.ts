@@ -96,9 +96,51 @@ export async function unsubscribeFromPush(): Promise<void> {
 export async function getCurrentPushSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
   try {
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return null;
     return await registration.pushManager.getSubscription();
   } catch {
+    return null;
+  }
+}
+
+/**
+ * Silently re-sync the current browser push subscription with the server.
+ * Called on every app load when permission is "granted" to ensure the server
+ * always has the latest FCM endpoint (which changes after SW updates).
+ * If no browser subscription exists but permission is granted, re-subscribes.
+ */
+export async function syncPushSubscription(): Promise<PushSubscription | null> {
+  if (!isPushSupported() || Notification.permission !== "granted") return null;
+
+  try {
+    let subscription = await getCurrentPushSubscription();
+
+    if (!subscription) {
+      // Permission granted but no subscription — re-subscribe silently
+      const registration = await navigator.serviceWorker.ready;
+      const vapidPublicKey = await getVapidPublicKey();
+      if (!vapidPublicKey || vapidPublicKey.length < 20) return null;
+
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer,
+      });
+    }
+
+    // Send current subscription to server (upserts — updates endpoint if changed)
+    const keys = subscription.toJSON().keys!;
+    await apiFetch("/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify({
+        endpoint: subscription.endpoint,
+        keys: { p256dh: keys.p256dh, auth: keys.auth },
+      }),
+    });
+
+    return subscription;
+  } catch (err) {
+    console.warn("[push] sync failed:", err);
     return null;
   }
 }

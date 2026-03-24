@@ -1,7 +1,19 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router";
-import { Bike, Leaf, MapPin, ChevronRight, Car, X, CloudOff, Euro, Route } from "lucide-react";
+import {
+  Bike,
+  Leaf,
+  MapPin,
+  ChevronRight,
+  Car,
+  X,
+  CloudOff,
+  Euro,
+  Route,
+  Bell,
+} from "lucide-react";
 import { useDashboardSummary, useProfile } from "@/hooks/queries";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { getPendingTrips } from "@/lib/offline-queue";
 import appLogo from "/pwa-192x192.png?url";
 
@@ -73,6 +85,10 @@ export function DashboardPage() {
   const { data: allTime, isPending: allTimePending } = useDashboardSummary("all");
   const { data: profileData } = useProfile();
   const [vehiclePromptDismissed, setVehiclePromptDismissed] = useState(false);
+  const [notifPromptDismissed, setNotifPromptDismissed] = useState(
+    () => localStorage.getItem("ecoride:notification-prompt-dismissed") === "true",
+  );
+  const push = usePushNotifications();
   const pendingTrips = getPendingTrips();
 
   const isPending = todayPending || allTimePending;
@@ -208,6 +224,36 @@ export function DashboardPage() {
                 </button>
               </div>
             )}
+
+          {/* Notification prompt */}
+          {!notifPromptDismissed && push.status === "unsubscribed" && allTime.tripCount > 0 && (
+            <div
+              data-testid="notification-prompt"
+              className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3"
+            >
+              <Bell size={18} className="shrink-0 text-primary-light" />
+              <span className="flex-1 text-xs font-medium text-text">
+                Activez les notifications pour ne rien manquer
+              </span>
+              <button
+                onClick={() => push.toggle()}
+                disabled={push.busy}
+                className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-bg"
+              >
+                Activer
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.setItem("ecoride:notification-prompt-dismissed", "true");
+                  setNotifPromptDismissed(true);
+                }}
+                aria-label="Fermer la suggestion de notifications"
+                className="shrink-0 rounded p-1 text-text-muted hover:text-text"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           {/* Today's Summary */}
           <section className="rounded-xl bg-surface-container p-5">

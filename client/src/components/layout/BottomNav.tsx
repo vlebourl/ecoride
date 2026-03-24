@@ -1,13 +1,16 @@
 import { NavLink } from "react-router";
 import { LayoutDashboard, Bike, BarChart3, Trophy, User } from "lucide-react";
+import { NAV_ROUTES } from "@/lib/navTabs";
 
-const tabs = [
-  { to: "/", icon: LayoutDashboard, label: "Accueil" },
-  { to: "/trip", icon: Bike, label: "Trajet" },
-  { to: "/stats", icon: BarChart3, label: "Stats" },
-  { to: "/leaderboard", icon: Trophy, label: "Classement" },
-  { to: "/profile", icon: User, label: "Profil" },
-] as const;
+const icons = {
+  "/": { icon: LayoutDashboard, label: "Accueil" },
+  "/trip": { icon: Bike, label: "Trajet" },
+  "/stats": { icon: BarChart3, label: "Stats" },
+  "/leaderboard": { icon: Trophy, label: "Classement" },
+  "/profile": { icon: User, label: "Profil" },
+} as const;
+
+const tabs = NAV_ROUTES.map((to) => ({ to, ...icons[to] }));
 
 export function BottomNav() {
   return (

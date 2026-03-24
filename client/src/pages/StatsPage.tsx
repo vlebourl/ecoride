@@ -52,7 +52,16 @@ const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
   const map = useMap();
-  map.fitBounds(bounds, { padding: [20, 20] });
+  useEffect(() => {
+    // Delay fitBounds until after the bottom sheet slide-up animation (0.2s)
+    // completes. Without this, Leaflet doesn't know the container's final
+    // dimensions and calculates the wrong center/zoom (#103).
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [map, bounds]);
   return null;
 }
 
@@ -75,7 +84,7 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
         style={{ background: "#232d35" }}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         />
         <Polyline

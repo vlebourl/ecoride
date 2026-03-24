@@ -15,7 +15,7 @@ export function AppShell() {
   }, [queryClient]);
 
   return (
-    <div className="flex h-full flex-col bg-bg">
+    <div className="flex h-full flex-col bg-bg pt-[env(safe-area-inset-top)]">
       <main className="flex-1 overflow-hidden pb-24">
         <PullToRefresh onRefresh={handleRefresh} scrollKey={location.pathname}>
           <Outlet />

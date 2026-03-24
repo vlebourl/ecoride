@@ -52,7 +52,16 @@ const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
   const map = useMap();
-  map.fitBounds(bounds, { padding: [20, 20] });
+  useEffect(() => {
+    // Delay fitBounds until after the bottom sheet slide-up animation (0.2s)
+    // completes. Without this, Leaflet doesn't know the container's final
+    // dimensions and calculates the wrong center/zoom (#103).
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [map, bounds]);
   return null;
 }
 
@@ -335,7 +344,7 @@ export function StatsPage() {
                       labelStyle={{ color: "#8a9ba8", fontWeight: 600 }}
                       itemStyle={{ color: "#2ecc71" }}
                       formatter={(value) => [
-                        `${Number(value).toFixed(1)} ${metric === "km" ? "km" : metric === "co2" ? "kg" : "€"}`,
+                        `${Number(value).toFixed(metric === "eur" ? 2 : 1)} ${metric === "km" ? "km" : metric === "co2" ? "kg" : "€"}`,
                         metricLabels[metric],
                       ]}
                     />
@@ -382,7 +391,9 @@ export function StatsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-primary-light">+{trip.distanceKm} KM</p>
+                      <p className="text-sm font-bold text-primary-light">
+                        +{Number(trip.distanceKm).toFixed(1)} KM
+                      </p>
                       <p className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
                         {trip.co2SavedKg.toFixed(1)} KG CO₂
                       </p>
@@ -479,7 +490,9 @@ export function StatsPage() {
             {/* Stats */}
             <div className="mb-6 grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-xl font-bold text-primary-light">{selectedTrip.distanceKm}</p>
+                <p className="text-xl font-bold text-primary-light">
+                  {Number(selectedTrip.distanceKm).toFixed(1)}
+                </p>
                 <p className="text-xs font-bold uppercase text-text-muted">km</p>
               </div>
               <div>

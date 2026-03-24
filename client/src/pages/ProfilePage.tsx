@@ -198,7 +198,7 @@ export function ProfilePage() {
             <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Economisé</p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
-                {stats.totalMoneySavedEur.toFixed(0)}
+                {stats.totalMoneySavedEur.toFixed(2)}
               </span>
               <span className="text-xs font-bold uppercase tracking-widest text-text-dim">EUR</span>
             </div>

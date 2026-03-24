@@ -50,6 +50,19 @@ export function LeaderboardPage() {
 
   const unit = categoryUnits[category];
 
+  const formatValue = (v: number) => {
+    switch (category) {
+      case "co2":
+        return Number(v).toFixed(1);
+      case "money":
+        return Number(v).toFixed(2);
+      case "speed":
+        return Math.round(v);
+      default:
+        return v;
+    }
+  };
+
   if (isPending || !data) {
     return (
       <div
@@ -166,7 +179,7 @@ export function LeaderboardPage() {
                     {top3[1].name}
                   </span>
                   <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
-                    {top3[1].value} {unit}
+                    {formatValue(top3[1].value)} {unit}
                   </span>
                 </div>
               )}
@@ -186,7 +199,7 @@ export function LeaderboardPage() {
                   </div>
                   <span className="mt-4 text-sm font-bold text-text">{top3[0].name}</span>
                   <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
-                    {top3[0].value} {unit}
+                    {formatValue(top3[0].value)} {unit}
                   </span>
                 </div>
               )}
@@ -208,7 +221,7 @@ export function LeaderboardPage() {
                     {top3[2].name}
                   </span>
                   <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
-                    {top3[2].value} {unit}
+                    {formatValue(top3[2].value)} {unit}
                   </span>
                 </div>
               )}
@@ -251,7 +264,7 @@ export function LeaderboardPage() {
                     </div>
                     <div className="text-right">
                       <span className="block text-sm font-black text-text">
-                        {entry.value} {unit.toLowerCase()}
+                        {formatValue(entry.value)} {unit.toLowerCase()}
                       </span>
                     </div>
                   </div>

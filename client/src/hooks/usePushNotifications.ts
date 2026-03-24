@@ -19,8 +19,10 @@ export function usePushNotifications() {
   const [busy, setBusy] = useState(false);
   const updateProfile = useUpdateProfile();
 
-  // Check initial state
+  // Check initial state — resolves immediately via getRegistration(). See #111.
   useEffect(() => {
+    let ignore = false;
+
     if (!isPushSupported()) {
       setStatus("unsupported");
       return;
@@ -32,8 +34,14 @@ export function usePushNotifications() {
     }
 
     getCurrentPushSubscription().then((sub) => {
-      setStatus(sub ? "subscribed" : "unsubscribed");
+      if (!ignore) {
+        setStatus(sub ? "subscribed" : "unsubscribed");
+      }
     });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const toggle = useCallback(async () => {

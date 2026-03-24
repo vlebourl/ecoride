@@ -277,7 +277,7 @@ export function DashboardPage() {
                   </div>
                   <span className="text-xs font-bold text-primary-light">
                     {m.current < m.target
-                      ? `${Math.round(m.current)} / ${m.target} ${m.unit}`
+                      ? `${m.unit === "€" ? m.current.toFixed(2) : m.unit === "km" || m.unit === "kg" ? m.current.toFixed(1) : Math.round(m.current)} / ${m.target} ${m.unit}`
                       : `${m.target} ${m.unit}`}
                   </span>
                 </div>

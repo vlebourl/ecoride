@@ -92,11 +92,14 @@ export async function unsubscribeFromPush(): Promise<void> {
 
 /**
  * Get the current push subscription, if any.
+ * Uses getRegistration() instead of .ready to avoid hanging when no SW
+ * is active (e.g. during SW updates or after navigation). See #111.
  */
 export async function getCurrentPushSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
   try {
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return null;
     return await registration.pushManager.getSubscription();
   } catch {
     return null;

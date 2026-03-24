@@ -382,7 +382,9 @@ export function StatsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-primary-light">+{trip.distanceKm} KM</p>
+                      <p className="text-sm font-bold text-primary-light">
+                        +{Number(trip.distanceKm).toFixed(1)} KM
+                      </p>
                       <p className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
                         {trip.co2SavedKg.toFixed(1)} KG CO₂
                       </p>

@@ -232,6 +232,65 @@ export function useSendAdminNotification() {
   });
 }
 
+// ---- Announcements ----
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  url: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export function useActiveAnnouncement() {
+  return useQuery({
+    queryKey: ["announcement", "active"],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: { announcement: Announcement | null } }>(
+        "/announcements/active",
+      ).then((r) => r.data.announcement),
+    staleTime: 60_000,
+  });
+}
+
+export function useAdminAnnouncements() {
+  return useQuery({
+    queryKey: ["admin", "announcements"],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: { announcements: Announcement[] } }>(
+        "/admin/announcements",
+      ).then((r) => r.data.announcements),
+  });
+}
+
+export function useCreateAnnouncement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { title: string; body: string; url?: string }) =>
+      apiFetch<{ ok: boolean; data: { announcement: Announcement } }>("/admin/announcements", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data.announcement),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "announcements"] });
+      qc.invalidateQueries({ queryKey: ["announcement", "active"] });
+    },
+  });
+}
+
+export function useDeleteAnnouncement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ ok: boolean }>(`/admin/announcements/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "announcements"] });
+      qc.invalidateQueries({ queryKey: ["announcement", "active"] });
+    },
+  });
+}
+
 // ---- Mutations ----
 
 export function useCreateTrip() {

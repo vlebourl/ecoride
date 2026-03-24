@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router";
 import {
   Bike,
   Leaf,
   MapPin,
+  Megaphone,
   ChevronRight,
   Car,
   X,
@@ -12,7 +13,7 @@ import {
   Route,
   Bell,
 } from "lucide-react";
-import { useDashboardSummary, useProfile } from "@/hooks/queries";
+import { useDashboardSummary, useProfile, useActiveAnnouncement } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { getPendingTrips } from "@/lib/offline-queue";
 import appLogo from "/pwa-192x192.png?url";
@@ -89,6 +90,24 @@ export function DashboardPage() {
     () => localStorage.getItem("ecoride:notification-prompt-dismissed") === "true",
   );
   const push = usePushNotifications();
+  const { data: announcement } = useActiveAnnouncement();
+  const [annDismissed, setAnnDismissed] = useState(
+    () => !!localStorage.getItem("ecoride:ann-dismissed"),
+  );
+  const annSwipeRef = useRef<{ startX: number; currentX: number }>({ startX: 0, currentX: 0 });
+  const annRef = useRef<HTMLDivElement>(null);
+
+  const dismissAnn = useCallback(() => {
+    if (announcement) {
+      localStorage.setItem("ecoride:ann-dismissed", announcement.id);
+      setAnnDismissed(true);
+    }
+  }, [announcement]);
+
+  // Reset dismiss when announcement changes
+  const dismissedId = localStorage.getItem("ecoride:ann-dismissed");
+  const showAnn = announcement && !annDismissed && dismissedId !== announcement.id;
+
   const pendingTrips = getPendingTrips();
 
   const isPending = todayPending || allTimePending;
@@ -150,6 +169,59 @@ export function DashboardPage() {
           <span className="text-primary-light">Ride</span>
         </span>
       </header>
+
+      {/* Admin announcement banner (swipable) */}
+      {showAnn && (
+        <div
+          ref={annRef}
+          data-testid="announcement-banner"
+          className="mx-6 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 transition-all"
+          onTouchStart={(e) => {
+            annSwipeRef.current.startX = e.touches[0]!.clientX;
+            annSwipeRef.current.currentX = e.touches[0]!.clientX;
+          }}
+          onTouchMove={(e) => {
+            annSwipeRef.current.currentX = e.touches[0]!.clientX;
+            const dx = annSwipeRef.current.currentX - annSwipeRef.current.startX;
+            if (annRef.current) {
+              annRef.current.style.transform = `translateX(${dx}px)`;
+              annRef.current.style.opacity = String(1 - Math.abs(dx) / 200);
+            }
+          }}
+          onTouchEnd={() => {
+            const dx = annSwipeRef.current.currentX - annSwipeRef.current.startX;
+            if (Math.abs(dx) > 100) {
+              dismissAnn();
+            } else if (annRef.current) {
+              annRef.current.style.transform = "";
+              annRef.current.style.opacity = "";
+            }
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <Megaphone size={18} className="mt-0.5 shrink-0 text-primary-light" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-text">{announcement.title}</p>
+              <p className="text-xs text-text-muted">{announcement.body}</p>
+            </div>
+            <button
+              onClick={dismissAnn}
+              aria-label="Fermer l'annonce"
+              className="shrink-0 rounded p-1 text-text-muted hover:text-text"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          {announcement.url && (
+            <Link
+              to={announcement.url}
+              className="mt-2 inline-block text-xs font-bold text-primary-light underline"
+            >
+              En savoir plus
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Offline pending trips banner */}
       {pendingTrips.length > 0 && (

@@ -8,9 +8,28 @@ import { fuelPriceRouter } from "./fuel-price.routes";
 import { pushRouter } from "./push.routes";
 import { adminRouter } from "./admin.routes";
 import { feedbackRouter } from "./feedback.routes";
+import { eq } from "drizzle-orm";
+import { db } from "../db";
+import { announcements } from "../db/schema";
 import type { AuthEnv } from "../types/context";
 
 const apiRouter = new Hono<AuthEnv>();
+
+// Public: get the current active announcement (no auth required)
+apiRouter.get("/announcements/active", async (c) => {
+  const [active] = await db
+    .select()
+    .from(announcements)
+    .where(eq(announcements.active, true))
+    .limit(1);
+
+  return c.json({
+    ok: true,
+    data: {
+      announcement: active ? { ...active, createdAt: active.createdAt.toISOString() } : null,
+    },
+  });
+});
 
 apiRouter.route("/trips", tripsRouter);
 apiRouter.route("/user", usersRouter);

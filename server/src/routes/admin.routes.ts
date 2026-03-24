@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { eq, count, gte, sum, sql, desc } from "drizzle-orm";
 import { db } from "../db";
-import { user, trips, notificationLogs } from "../db/schema";
+import { user, trips, notificationLogs, announcements } from "../db/schema";
 import { adminMiddleware } from "../auth/admin";
 import { validationHook } from "../lib/validation";
 import { rateLimit } from "../lib/rate-limit";
@@ -241,6 +241,67 @@ adminRouter.get("/notifications", async (c) => {
       })),
     },
   });
+});
+
+// --- Announcements ---
+
+const createAnnouncementSchema = z.object({
+  title: z.string().min(1).max(100),
+  body: z.string().min(1).max(500),
+  url: z.string().url().optional(),
+});
+
+// POST /api/admin/announcements — Create announcement
+adminRouter.post(
+  "/announcements",
+  zValidator("json", createAnnouncementSchema, validationHook),
+  async (c) => {
+    const data = c.req.valid("json");
+    const currentUser = c.get("user");
+
+    // Deactivate all previous announcements
+    await db.update(announcements).set({ active: false });
+
+    const [ann] = await db
+      .insert(announcements)
+      .values({
+        adminId: currentUser.id,
+        title: data.title,
+        body: data.body,
+        url: data.url ?? null,
+      })
+      .returning();
+
+    logAudit(currentUser.id, "announcement_created", data.title);
+
+    return c.json(
+      { ok: true, data: { announcement: { ...ann, createdAt: ann!.createdAt.toISOString() } } },
+      201,
+    );
+  },
+);
+
+// GET /api/admin/announcements — List all announcements
+adminRouter.get("/announcements", async (c) => {
+  const list = await db
+    .select()
+    .from(announcements)
+    .orderBy(desc(announcements.createdAt))
+    .limit(20);
+
+  return c.json({
+    ok: true,
+    data: {
+      announcements: list.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
+    },
+  });
+});
+
+// DELETE /api/admin/announcements/:id — Delete announcement
+adminRouter.delete("/announcements/:id", async (c) => {
+  const id = c.req.param("id");
+  await db.delete(announcements).where(eq(announcements.id, id));
+  return c.json({ ok: true });
 });
 
 export { adminRouter };

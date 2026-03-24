@@ -165,7 +165,7 @@ adminRouter.get("/stats", async (c) => {
 const sendNotificationSchema = z.object({
   title: z.string().min(1).max(100),
   body: z.string().min(1).max(500),
-  url: z.string().url().optional(),
+  url: z.string().min(1).optional(),
   userIds: z.array(z.string().min(1)).optional(),
 });
 
@@ -248,7 +248,7 @@ adminRouter.get("/notifications", async (c) => {
 const createAnnouncementSchema = z.object({
   title: z.string().min(1).max(100),
   body: z.string().min(1).max(500),
-  url: z.string().url().optional(),
+  url: z.string().min(1).optional(),
 });
 
 // POST /api/admin/announcements — Create announcement

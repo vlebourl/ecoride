@@ -372,7 +372,7 @@ function AnnouncementSection() {
           className="w-full resize-none rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <input
-          type="url"
+          type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Lien (optionnel, ex: /profile)"
@@ -491,7 +491,7 @@ function NotificationSection({ users }: { users?: { id: string; name: string; em
           className="w-full resize-none rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <input
-          type="url"
+          type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Lien notification (optionnel)"

@@ -45,6 +45,9 @@ pushRouter.post(
       return c.json({ ok: true, data: { subscriptionId: existing.id } });
     }
 
+    // New endpoint — remove stale subscriptions for this user (old SW endpoints)
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, currentUser.id));
+
     const [sub] = await db
       .insert(pushSubscriptions)
       .values({

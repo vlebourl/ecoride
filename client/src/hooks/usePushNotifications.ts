@@ -3,7 +3,7 @@ import {
   isPushSupported,
   subscribeToPush,
   unsubscribeFromPush,
-  getCurrentPushSubscription,
+  syncPushSubscription,
 } from "@/lib/push";
 import { useUpdateProfile } from "./queries";
 
@@ -19,8 +19,10 @@ export function usePushNotifications() {
   const [busy, setBusy] = useState(false);
   const updateProfile = useUpdateProfile();
 
-  // Check initial state
+  // Check initial state and silently re-sync subscription with server
   useEffect(() => {
+    let ignore = false;
+
     if (!isPushSupported()) {
       setStatus("unsupported");
       return;
@@ -31,9 +33,15 @@ export function usePushNotifications() {
       return;
     }
 
-    getCurrentPushSubscription().then((sub) => {
-      setStatus(sub ? "subscribed" : "unsubscribed");
+    // If permission is granted, sync subscription with server (handles
+    // stale FCM endpoints after SW updates). If not granted, just check state.
+    syncPushSubscription().then((sub) => {
+      if (!ignore) setStatus(sub ? "subscribed" : "unsubscribed");
     });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const toggle = useCallback(async () => {

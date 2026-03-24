@@ -4,3 +4,4 @@ export { achievements } from "./schema/achievements";
 export { pushSubscriptions } from "./schema/push-subscriptions";
 export { auditLogs } from "./schema/audit-log";
 export { notificationLogs } from "./schema/notification-logs";
+export { announcements } from "./schema/announcements";

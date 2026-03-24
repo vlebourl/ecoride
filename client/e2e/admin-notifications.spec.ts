@@ -93,6 +93,15 @@ test.describe("Admin push notifications (#92)", () => {
         });
       }
 
+      // Announcements
+      if (url.includes("/admin/announcements")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true, data: { announcements: [] } }),
+        });
+      }
+
       // POST notification — capture and return success
       if (url.includes("/admin/notifications") && route.request().method() === "POST") {
         return route.fulfill({
@@ -147,9 +156,11 @@ test.describe("Admin push notifications (#92)", () => {
     await bellSection.scrollIntoViewIfNeeded();
     await expect(bellSection).toBeVisible({ timeout: 5000 });
 
-    // Fill compose form
-    await page.getByPlaceholder("Titre").fill("Nouvelle feature !");
-    await page.getByPlaceholder("Message...").fill("Les milestones sont disponibles.");
+    // Fill notification compose form
+    await page.getByPlaceholder("Titre de la notification").fill("Nouvelle feature !");
+    await page
+      .getByPlaceholder("Contenu de la notification...")
+      .fill("Les milestones sont disponibles.");
 
     // Submit
     await page.getByText("Envoyer").click();

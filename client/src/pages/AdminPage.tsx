@@ -223,7 +223,7 @@ export function AdminPage() {
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : stats?.users && stats.users.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="max-h-80 overflow-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/5 text-xs font-bold uppercase tracking-widest text-text-dim">
@@ -271,7 +271,7 @@ export function AdminPage() {
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : stats?.recentTrips && stats.recentTrips.length > 0 ? (
-            <div className="space-y-3">
+            <div className="max-h-80 space-y-3 overflow-auto">
               {stats.recentTrips.map((trip) => (
                 <div
                   key={trip.id}
@@ -418,7 +418,7 @@ function NotificationSection({ users }: { users?: { id: string; name: string; em
           {sent ? (
             <>
               <Check size={16} />
-              Envoy\u00e9 !
+              {"Envoyé !"}
             </>
           ) : sendNotification.isPending ? (
             "Envoi..."
@@ -439,29 +439,33 @@ function NotificationSection({ users }: { users?: { id: string; name: string; em
       {!historyPending && history && history.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-bold uppercase tracking-widest text-text-dim">Historique</h4>
-          {history.map((n) => (
-            <div key={n.id} className="rounded-lg bg-surface-low p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-bold text-text">{n.title}</p>
-                  <p className="text-xs text-text-muted">{n.body}</p>
+          <div className="max-h-80 space-y-2 overflow-auto">
+            {history.map((n) => (
+              <div key={n.id} className="rounded-lg bg-surface-low p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-text">{n.title}</p>
+                    <p className="text-xs text-text-muted">{n.body}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-primary-light">
+                      {n.sentCount} {"envoyés"}
+                    </span>
+                    {n.failedCount > 0 && (
+                      <span className="ml-1 text-xs text-danger">
+                        {n.failedCount} {"échecs"}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs font-bold text-primary-light">
-                    {n.sentCount} envoy\u00e9s
-                  </span>
-                  {n.failedCount > 0 && (
-                    <span className="ml-1 text-xs text-danger">{n.failedCount} \u00e9checs</span>
-                  )}
+                <div className="mt-2 flex items-center gap-2 text-xs text-text-dim">
+                  <span>{n.targetUserIds ? `${n.targetUserIds.length} utilisateurs` : "Tous"}</span>
+                  <span>{"\u00b7"}</span>
+                  <span>{formatDate(n.createdAt)}</span>
                 </div>
               </div>
-              <div className="mt-2 flex items-center gap-2 text-xs text-text-dim">
-                <span>{n.targetUserIds ? `${n.targetUserIds.length} utilisateurs` : "Tous"}</span>
-                <span>\u00b7</span>
-                <span>{formatDate(n.createdAt)}</span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </section>

@@ -494,7 +494,7 @@ export function TripPage() {
 
       {/* Action buttons */}
       {uiState === "idle" && (
-        <div className="space-y-3 px-6 pb-6">
+        <div className="space-y-3 px-6 py-6">
           {/* Fix 1.6: Disable start button during tracking */}
           <button
             onClick={startTracking}
@@ -515,7 +515,7 @@ export function TripPage() {
       )}
 
       {uiState === "tracking" && (
-        <div className="px-6 pb-6">
+        <div className="px-6 py-6">
           <button
             onClick={stopTracking}
             className="flex w-full items-center justify-center gap-4 rounded-xl bg-danger py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"

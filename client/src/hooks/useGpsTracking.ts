@@ -18,6 +18,7 @@ export interface TrackingState {
   error: string | null;
   lastAccuracy: number | null;
   speedKmh: number | null;
+  heading: number | null;
 }
 
 export interface TrackingSession {
@@ -38,7 +39,13 @@ export interface TrackingBackup {
 type Action =
   | { type: "START" }
   | { type: "STOP" }
-  | { type: "GPS_POINT"; point: GpsPoint; accuracy: number; speed: number | null }
+  | {
+      type: "GPS_POINT";
+      point: GpsPoint;
+      accuracy: number;
+      speed: number | null;
+      heading: number | null;
+    }
   | { type: "TICK" }
   | { type: "ERROR"; message: string }
   | { type: "RESTORE"; backup: TrackingBackup };
@@ -51,12 +58,13 @@ const initial: TrackingState = {
   error: null,
   lastAccuracy: null,
   speedKmh: null,
+  heading: null,
 };
 
 function reducer(state: TrackingState, action: Action): TrackingState {
   switch (action.type) {
     case "START":
-      return { ...initial, isTracking: true, lastAccuracy: null, speedKmh: null };
+      return { ...initial, isTracking: true, lastAccuracy: null, speedKmh: null, heading: null };
     case "STOP":
       return { ...state, isTracking: false };
     case "GPS_POINT": {
@@ -68,6 +76,10 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         if (d >= MIN_DISTANCE_KM) added = d;
       }
       const speedKmh = action.speed != null ? action.speed * 3.6 : state.speedKmh;
+      const heading =
+        action.heading != null && speedKmh != null && speedKmh > 1.8
+          ? action.heading
+          : state.heading;
       return {
         ...state,
         gpsPoints: points,
@@ -75,6 +87,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         error: null,
         lastAccuracy: action.accuracy,
         speedKmh,
+        heading,
       };
     }
     case "TICK":
@@ -90,6 +103,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         error: null,
         lastAccuracy: null,
         speedKmh: null,
+        heading: null,
       };
   }
 }
@@ -183,6 +197,7 @@ export function useGpsTracking() {
           point: { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: pos.timestamp },
           accuracy: pos.coords.accuracy,
           speed: pos.coords.speed,
+          heading: pos.coords.heading,
         });
       },
       (err) => {
@@ -247,6 +262,7 @@ export function useGpsTracking() {
           point: { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: pos.timestamp },
           accuracy: pos.coords.accuracy,
           speed: pos.coords.speed,
+          heading: pos.coords.heading,
         });
       },
       (err) => {

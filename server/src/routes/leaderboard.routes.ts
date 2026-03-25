@@ -12,7 +12,7 @@ import type { StatsPeriod } from "@ecoride/shared/api-contracts";
 const leaderboardQuery = z.object({
   period: z.enum(["day", "week", "month", "year", "all"]).default("all"),
   limit: z.coerce.number().int().positive().max(100).default(50),
-  category: z.enum(["co2", "streak", "trips", "speed", "money"]).default("co2"),
+  category: z.enum(["co2", "streak", "trips", "speed", "money", "distance"]).default("co2"),
 });
 
 function getPeriodStart(period: StatsPeriod): Date | null {
@@ -115,6 +115,32 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
 
     const ranked = denseRank(entries, (e) => e.totalCo2SavedKg ?? 0);
     const mapped = ranked.map((e) => ({ ...e, value: e.totalCo2SavedKg }));
+
+    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
+    return c.json({ ok: true, data: { entries: mapped, userRank } });
+  }
+
+  if (category === "distance") {
+    const entries = await db
+      .select({
+        userId: user.id,
+        name: user.name,
+        image: user.image,
+        totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
+        totalDistanceKm: sql<number>`coalesce(${sum(trips.distanceKm)}, 0)`.mapWith(Number),
+      })
+      .from(user)
+      .leftJoin(trips, joinCondition)
+      .where(and(...conditions))
+      .groupBy(user.id, user.name, user.image)
+      .orderBy(desc(sql`coalesce(${sum(trips.distanceKm)}, 0)`), asc(user.name))
+      .limit(limit);
+
+    const ranked = denseRank(entries, (e) => e.totalDistanceKm ?? 0);
+    const mapped = ranked.map((e) => ({
+      ...e,
+      value: Math.round((e.totalDistanceKm ?? 0) * 10) / 10,
+    }));
 
     const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
     return c.json({ ok: true, data: { entries: mapped, userRank } });

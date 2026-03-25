@@ -71,7 +71,7 @@ export interface FuelPriceQuery {
 
 export type StatsPeriod = "day" | "week" | "month" | "year" | "all";
 
-export type LeaderboardCategory = "co2" | "streak" | "trips" | "speed" | "money";
+export type LeaderboardCategory = "co2" | "streak" | "trips" | "speed" | "money" | "distance";
 
 // ---- Response payloads ----
 

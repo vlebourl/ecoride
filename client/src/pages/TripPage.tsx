@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Play, Square, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
-import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
+import L from "leaflet";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useGpsTracking, getTrackingBackup, clearTrackingBackup } from "@/hooks/useGpsTracking";
@@ -12,16 +13,43 @@ type TripState = "idle" | "tracking" | "stopped" | "manual";
 
 const DEFAULT_CENTER: [number, number] = [48.8566, 2.3522]; // Paris
 
-function RecenterMap({ position }: { position: [number, number] }) {
+function RecenterMap({
+  position,
+  offsetBottom,
+}: {
+  position: [number, number];
+  offsetBottom?: boolean;
+}) {
   const map = useMap();
   const lastUpdateRef = useRef(0);
   useEffect(() => {
     const now = Date.now();
     if (now - lastUpdateRef.current < 500) return;
     lastUpdateRef.current = now;
-    map.setView(position, map.getZoom(), { animate: true });
-  }, [map, position]);
+
+    if (offsetBottom) {
+      // Offset center so rider appears at ~75% from top (25% from bottom)
+      const size = map.getSize();
+      const targetPoint = map.project(position, map.getZoom());
+      targetPoint.y -= size.y * 0.25;
+      const offsetCenter = map.unproject(targetPoint, map.getZoom());
+      map.setView(offsetCenter, map.getZoom(), { animate: true });
+    } else {
+      map.setView(position, map.getZoom(), { animate: true });
+    }
+  }, [map, position, offsetBottom]);
   return null;
+}
+
+function createArrowIcon(heading: number) {
+  return L.divIcon({
+    className: "",
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    html: `<svg width="24" height="24" viewBox="0 0 24 24" style="transform:rotate(${heading}deg)">
+      <path d="M12 2 L18 20 L12 16 L6 20 Z" fill="#2ecc71" stroke="#fff" stroke-width="1.5"/>
+    </svg>`,
+  });
 }
 
 export function TripPage() {
@@ -318,17 +346,24 @@ export function TripPage() {
                   pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
                 />
               )}
-              <CircleMarker
-                center={currentPos as LatLngExpression}
-                radius={8}
-                pathOptions={{
-                  fillColor: "#2ecc71",
-                  fillOpacity: 1,
-                  color: "#ffffff",
-                  weight: 2,
-                }}
-              />
-              <RecenterMap position={currentPos} />
+              {gps.state.heading != null ? (
+                <Marker
+                  position={currentPos as LatLngExpression}
+                  icon={createArrowIcon(gps.state.heading)}
+                />
+              ) : (
+                <CircleMarker
+                  center={currentPos as LatLngExpression}
+                  radius={8}
+                  pathOptions={{
+                    fillColor: "#2ecc71",
+                    fillOpacity: 1,
+                    color: "#ffffff",
+                    weight: 2,
+                  }}
+                />
+              )}
+              <RecenterMap position={currentPos} offsetBottom />
             </MapContainer>
           </div>
         </>

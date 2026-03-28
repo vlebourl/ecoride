@@ -62,8 +62,7 @@ test.describe("trip navigation state persistence", () => {
     // Timer must be visible and non-zero (restored from backup durationSec=120)
     const timeDisplay = page.locator("text=/\\d{2}:\\d{2}/").first();
     await expect(timeDisplay).toBeVisible({ timeout: 3000 });
-    const timeText = await timeDisplay.textContent();
-    expect(timeText).not.toBe("00:00");
+    await expect(timeDisplay).not.toHaveText("00:00");
   });
 
   test("starting a new trip clears stale backup (fix #146)", async ({ page }) => {

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "node:path";
 const pkgVersion = (() => {
   try {
@@ -21,14 +22,27 @@ const gitHash = (() => {
 
 const appVersion = gitHash ? `${pkgVersion}-${gitHash}` : pkgVersion;
 
-// To upload source maps to Sentry for readable production stack traces,
-// install @sentry/vite-plugin and add to the plugins array:
-//   import { sentryVitePlugin } from "@sentry/vite-plugin";
-//   sentryVitePlugin({ org: "your-org", project: "ecoride-client" })
+// Upload source maps to Sentry for readable production stack traces.
+// Set SENTRY_AUTH_TOKEN, SENTRY_ORG, and SENTRY_PROJECT env vars (e.g. as
+// GitHub Actions secrets) to enable. No-op when any of these is absent.
+const sentryPlugin =
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+    ? [
+        sentryVitePlugin({
+          org: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT,
+          authToken: process.env.SENTRY_AUTH_TOKEN,
+          telemetry: false,
+        }),
+      ]
+    : [];
 
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
+  },
+  build: {
+    sourcemap: true,
   },
   plugins: [
     react(),
@@ -76,6 +90,7 @@ export default defineConfig({
         importScripts: ["/sw-api-guard.js"],
       },
     }),
+    ...sentryPlugin,
   ],
   resolve: {
     alias: {

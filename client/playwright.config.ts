@@ -7,6 +7,7 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:4173",
     viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
   },
   webServer: {
     command: "bun run preview --port 4173",

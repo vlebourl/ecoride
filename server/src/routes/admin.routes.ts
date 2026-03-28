@@ -10,6 +10,7 @@ import { rateLimit } from "../lib/rate-limit";
 import { sendPushBroadcast } from "../lib/push";
 import { logAudit } from "../lib/audit";
 import { env } from "../env";
+import { logger } from "../lib/logger";
 import type { AuthEnv } from "../types/context";
 
 const appVersion = (() => {
@@ -367,7 +368,9 @@ adminRouter.post(
 
     if (!deployResponse.ok) {
       const body = await deployResponse.text().catch(() => "");
-      console.error(`[deploy] Coolify webhook HTTP ${deployResponse.status}:`, body);
+      logger
+        .withContext(c.get("requestId") as string | undefined)
+        .error("deploy_webhook_failed", { status: deployResponse.status, body });
       return c.json({ ok: false, error: `Deploy failed: HTTP ${deployResponse.status}` }, 502);
     }
 

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { eq, count, gte, sum, sql, desc } from "drizzle-orm";
+import { eq, count, gte, sum, sql, desc, and } from "drizzle-orm";
 import { db } from "../db";
 import { user, trips, notificationLogs, announcements, auditLogs } from "../db/schema";
 import { adminMiddleware } from "../auth/admin";
@@ -312,9 +312,16 @@ adminRouter.delete("/announcements/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-// GET /api/admin/audit-logs — Recent audit log entries
+// GET /api/admin/audit-logs — Recent audit log entries with optional filtering
 adminRouter.get("/audit-logs", async (c) => {
-  const logs = await db
+  const userId = c.req.query("userId");
+  const action = c.req.query("action");
+
+  const conditions = [];
+  if (userId) conditions.push(eq(auditLogs.userId, userId));
+  if (action) conditions.push(eq(auditLogs.action, action));
+
+  const query = db
     .select({
       id: auditLogs.id,
       userId: auditLogs.userId,
@@ -325,14 +332,19 @@ adminRouter.get("/audit-logs", async (c) => {
       createdAt: auditLogs.createdAt,
     })
     .from(auditLogs)
-    .innerJoin(user, eq(auditLogs.userId, user.id))
-    .orderBy(desc(auditLogs.createdAt))
-    .limit(20);
+    .innerJoin(user, eq(auditLogs.userId, user.id));
+
+  const rows = await (conditions.length > 0
+    ? query
+        .where(and(...conditions))
+        .orderBy(desc(auditLogs.createdAt))
+        .limit(100)
+    : query.orderBy(desc(auditLogs.createdAt)).limit(100));
 
   return c.json({
     ok: true,
     data: {
-      auditLogs: logs.map((l) => ({
+      auditLogs: rows.map((l) => ({
         ...l,
         createdAt: l.createdAt.toISOString(),
       })),

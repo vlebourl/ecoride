@@ -364,7 +364,12 @@ export function AdminPage() {
 }
 
 function AuditLogSection() {
-  const { data: logs, isPending } = useAdminAuditLogs();
+  const [userId, setUserId] = useState("");
+  const [action, setAction] = useState("");
+  const { data: logs, isPending } = useAdminAuditLogs({
+    userId: userId || undefined,
+    action: action || undefined,
+  });
 
   return (
     <section className="rounded-xl bg-surface-low p-5">
@@ -373,6 +378,22 @@ function AuditLogSection() {
         <h2 className="text-xs font-bold uppercase tracking-widest text-text-muted">
           Activité récente
         </h2>
+      </div>
+      <div className="mb-3 flex gap-2">
+        <input
+          type="text"
+          placeholder="Filtrer par user ID"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          className="flex-1 rounded-lg bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <input
+          type="text"
+          placeholder="Filtrer par action"
+          value={action}
+          onChange={(e) => setAction(e.target.value)}
+          className="flex-1 rounded-lg bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
+        />
       </div>
       {isPending ? (
         <div className="flex justify-center py-4">

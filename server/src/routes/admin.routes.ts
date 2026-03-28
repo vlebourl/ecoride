@@ -350,9 +350,17 @@ adminRouter.post(
       return c.json({ ok: false, error: "Deploy not configured" }, 503);
     }
 
+    const fetchHeaders: Record<string, string> = {};
+    if (env.COOLIFY_API_TOKEN) {
+      fetchHeaders["Authorization"] = `Bearer ${env.COOLIFY_API_TOKEN}`;
+    }
+
     let deployResponse: Response;
     try {
-      deployResponse = await fetch(env.COOLIFY_WEBHOOK_URL, { method: "GET" });
+      deployResponse = await fetch(env.COOLIFY_WEBHOOK_URL, {
+        method: "GET",
+        headers: fetchHeaders,
+      });
     } catch {
       return c.json({ ok: false, error: "Deploy failed" }, 502);
     }

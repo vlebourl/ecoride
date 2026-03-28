@@ -63,8 +63,17 @@ test.describe("Admin push notifications (#92)", () => {
               tripsToday: 2,
               tripsThisWeek: 8,
               dbConnected: true,
+              dbSizeMb: 12.5,
             },
           }),
+        });
+      }
+
+      if (url.includes("/admin/audit-logs")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true, data: { auditLogs: [] } }),
         });
       }
 

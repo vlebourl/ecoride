@@ -57,6 +57,24 @@ function createArrowIcon(heading: number) {
   });
 }
 
+function RotateMap({ heading }: { heading: number | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    if (heading != null) {
+      container.style.transform = `rotate(${-heading}deg)`;
+      container.style.transformOrigin = "50% 50%";
+      container.style.transition = "transform 0.4s ease-out";
+    } else {
+      container.style.transform = "";
+      container.style.transition = "";
+    }
+  }, [map, heading]);
+
+  return null;
+}
+
 export function TripPage() {
   const [uiState, setUiState] = useState<TripState>("idle");
   const [manualKm, setManualKm] = useState("");
@@ -342,7 +360,7 @@ export function TripPage() {
           </div>
 
           {/* Mini map */}
-          <div className="relative min-h-0 flex-1" data-testid="tracking-map">
+          <div className="relative min-h-0 flex-1 overflow-hidden" data-testid="tracking-map">
             <MapContainer
               center={currentPos as LatLngExpression}
               zoom={15}
@@ -379,6 +397,7 @@ export function TripPage() {
                 />
               )}
               <RecenterMap position={currentPos} offsetBottom />
+              <RotateMap heading={gps.state.heading} />
             </MapContainer>
           </div>
         </>

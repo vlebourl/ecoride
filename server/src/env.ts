@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logger } from "./lib/logger";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
@@ -22,10 +23,12 @@ export type Env = z.infer<typeof envSchema>;
 function loadEnv(): Env {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
-    console.error("Invalid environment variables:");
-    for (const issue of result.error.issues) {
-      console.error(`  ${issue.path.join(".")}: ${issue.message}`);
-    }
+    logger.error("invalid_env_vars", {
+      issues: result.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
     process.exit(1);
   }
   return result.data;

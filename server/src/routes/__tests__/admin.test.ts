@@ -45,6 +45,20 @@ vi.mock("../../auth/admin", () => ({
   ),
 }));
 
+const mockLoggerError = vi.fn();
+vi.mock("../../lib/logger", () => ({
+  logger: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    withContext: vi.fn(() => ({
+      error: mockLoggerError,
+      info: vi.fn(),
+      warn: vi.fn(),
+    })),
+  },
+}));
+
 vi.mock("../../lib/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("../../lib/push", () => ({
   sendPushBroadcast: vi.fn().mockResolvedValue({ sent: 0, failed: 0 }),
@@ -67,6 +81,7 @@ describe("POST /admin/deploy", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
     mockEnv.COOLIFY_WEBHOOK_URL = "https://coolify.example.com/webhook/test";
+    mockLoggerError.mockClear();
   });
 
   it("returns 502 when webhook returns a non-2xx status (regression: was silently ok:true)", async () => {
@@ -84,6 +99,25 @@ describe("POST /admin/deploy", () => {
 
     expect(res.status).toBe(502);
     expect(body.ok).toBe(false);
+  });
+
+  it("logs structured error via logger.withContext when webhook returns non-2xx (regression: was bare console.error)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: () => Promise.resolve("Service Unavailable"),
+      }),
+    );
+
+    await buildApp().request("/admin/deploy", { method: "POST" });
+
+    expect(mockLoggerError).toHaveBeenCalledOnce();
+    expect(mockLoggerError).toHaveBeenCalledWith("deploy_webhook_failed", {
+      status: 503,
+      body: "Service Unavailable",
+    });
   });
 
   it("returns ok:true when webhook returns 2xx", async () => {

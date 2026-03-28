@@ -5,7 +5,12 @@ import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
-import { useGpsTracking, getTrackingBackup, clearTrackingBackup } from "@/hooks/useGpsTracking";
+import {
+  useGpsTracking,
+  getTrackingBackup,
+  clearTrackingBackup,
+  getTrackingSession,
+} from "@/hooks/useGpsTracking";
 import type { TrackingSession, TrackingBackup } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
 
@@ -68,13 +73,23 @@ export function TripPage() {
   const { data: profileData } = useProfile();
   const gps = useGpsTracking();
 
-  // Fix 1.3: Check for tracking backup on mount
+  // On mount: check for an active trip backup.
+  // If sessionStorage shows this tab had an active trip (user navigated away),
+  // auto-restore without prompting so the trip continues seamlessly.
+  // If there is no session key (app crash / tab close), show the recovery prompt.
   useEffect(() => {
     const backup = getTrackingBackup();
-    if (backup) {
+    if (!backup) return;
+    const sessionStartedAt = getTrackingSession();
+    if (sessionStartedAt && sessionStartedAt === backup.startedAt) {
+      // User navigated away mid-trip — restore silently
+      gps.restore(backup);
+      setUiState("tracking");
+    } else {
+      // Crash recovery — ask the user whether to resume
       setPendingBackup(backup);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fix 1.7: Navigation guard — beforeunload for browser close/refresh
   useEffect(() => {

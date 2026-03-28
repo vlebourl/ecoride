@@ -6,6 +6,7 @@ import type { GpsPoint } from "@ecoride/shared/types";
 const MAX_ACCURACY_M = 50;
 const MIN_DISTANCE_KM = 0.005; // 5m
 const BACKUP_KEY = "ecoride-tracking-backup";
+const SESSION_KEY = "ecoride-trip-session";
 const BACKUP_INTERVAL_MS = 30_000;
 const MAX_TIMEOUT_RETRIES = 3;
 const TIMEOUT_RETRY_DELAY_MS = 3_000;
@@ -124,6 +125,19 @@ export function clearTrackingBackup(): void {
   localStorage.removeItem(BACKUP_KEY);
 }
 
+/**
+ * Read the active trip session key from sessionStorage.
+ * Present when a trip is in progress within this browser tab session.
+ * Cleared on normal stop/reset; absent after tab close or app crash.
+ */
+export function getTrackingSession(): string | null {
+  try {
+    return sessionStorage.getItem(SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export function useGpsTracking() {
   const [state, dispatch] = useReducer(reducer, initial);
   const watchRef = useRef<number | null>(null);
@@ -168,7 +182,7 @@ export function useGpsTracking() {
   /** Save current tracking state to localStorage. */
   const saveBackup = useCallback(() => {
     const s = stateRef.current;
-    if (!s.isTracking || !startRef.current) return;
+    if (!s.isTracking || !startRef.current || s.gpsPoints.length === 0) return;
     try {
       const backup: TrackingBackup = {
         gpsPoints: s.gpsPoints,
@@ -238,9 +252,23 @@ export function useGpsTracking() {
       return;
     }
 
+    // Clear any stale backup from a previous unresolved trip so it cannot be
+    // offered as the "current" trip if the user navigates away before the
+    // next backup interval fires (fixes ECO-19 / GitHub #146).
+    clearTrackingBackup();
+
     dispatch({ type: "START" });
-    startRef.current = new Date().toISOString();
+    const startedAt = new Date().toISOString();
+    startRef.current = startedAt;
     retryCountRef.current = 0;
+
+    // Mark the session as active so TripPage can distinguish "navigated away
+    // while tracking" from "app crashed / tab closed" on remount.
+    try {
+      sessionStorage.setItem(SESSION_KEY, startedAt);
+    } catch {
+      // sessionStorage unavailable — graceful degradation
+    }
   }, []);
 
   // Start/stop GPS watch, timer, wake lock, and backup based on isTracking state.
@@ -281,17 +309,7 @@ export function useGpsTracking() {
     const timer = setInterval(() => dispatch({ type: "TICK" }), 1000);
 
     // Backup
-    const backupTimer = setInterval(() => {
-      const s = stateRef.current;
-      if (!s.isTracking || s.gpsPoints.length === 0) return;
-      const backup: TrackingBackup = {
-        gpsPoints: s.gpsPoints,
-        distanceKm: s.distanceKm,
-        durationSec: s.durationSec,
-        startedAt: startRef.current ?? new Date().toISOString(),
-      };
-      localStorage.setItem(BACKUP_KEY, JSON.stringify(backup));
-    }, BACKUP_INTERVAL_MS);
+    const backupTimer = setInterval(saveBackup, BACKUP_INTERVAL_MS);
 
     return () => {
       if (watchRef.current !== null) {
@@ -305,33 +323,39 @@ export function useGpsTracking() {
   }, [state.isTracking]);
 
   /** Restore tracking from a backup (called externally by TripPage). */
-  const restore = useCallback(
-    (backup: TrackingBackup) => {
-      if (!("geolocation" in navigator)) {
-        dispatch({ type: "ERROR", message: "Geolocation not supported" });
-        return;
-      }
+  const restore = useCallback((backup: TrackingBackup) => {
+    if (!("geolocation" in navigator)) {
+      dispatch({ type: "ERROR", message: "Geolocation not supported" });
+      return;
+    }
 
-      dispatch({ type: "RESTORE", backup });
-      startRef.current = backup.startedAt;
-      retryCountRef.current = 0;
-      wakeLock.request();
+    startRef.current = backup.startedAt;
+    retryCountRef.current = 0;
 
-      startWatch();
+    // Re-mark the session so subsequent navigations still auto-restore.
+    try {
+      sessionStorage.setItem(SESSION_KEY, backup.startedAt);
+    } catch {
+      // sessionStorage unavailable — graceful degradation
+    }
 
-      timerRef.current = setInterval(() => dispatch({ type: "TICK" }), 1000);
-      backupTimerRef.current = setInterval(saveBackup, BACKUP_INTERVAL_MS);
-
-      clearTrackingBackup();
-    },
-    [wakeLock, startWatch, saveBackup],
-  );
+    // Dispatch RESTORE first so isTracking becomes true, then the isTracking
+    // useEffect below handles GPS watch + timer setup (single source of truth).
+    // Previously restore() started its own GPS/timers which caused double-tick.
+    dispatch({ type: "RESTORE", backup });
+    clearTrackingBackup();
+  }, []);
 
   const stop = useCallback((): TrackingSession => {
     cleanup();
     dispatch({ type: "STOP" });
     wakeLock.release();
     clearTrackingBackup(); // Fix 1.3: Clear backup on normal stop
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      // ignore
+    }
 
     return {
       distanceKm: state.distanceKm,
@@ -349,6 +373,11 @@ export function useGpsTracking() {
     dispatch({ type: "STOP" });
     startRef.current = null;
     clearTrackingBackup();
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      // ignore
+    }
   }, [cleanup, wakeLock]);
 
   // Cleanup is now handled by the isTracking effect above

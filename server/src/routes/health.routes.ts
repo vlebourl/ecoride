@@ -7,7 +7,7 @@ import type { AuthEnv } from "../types/context";
 
 const appVersion = (() => {
   try {
-    return require("../../package.json").version;
+    return require("../../../package.json").version;
   } catch {
     return "unknown";
   }

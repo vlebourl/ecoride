@@ -14,7 +14,7 @@ import type { AuthEnv } from "../types/context";
 
 const appVersion = (() => {
   try {
-    return require("../../package.json").version;
+    return require("../../../package.json").version;
   } catch {
     return "unknown";
   }
@@ -350,10 +350,17 @@ adminRouter.post(
       return c.json({ ok: false, error: "Deploy not configured" }, 503);
     }
 
+    let deployResponse: Response;
     try {
-      await fetch(env.COOLIFY_WEBHOOK_URL, { method: "GET" });
+      deployResponse = await fetch(env.COOLIFY_WEBHOOK_URL, { method: "GET" });
     } catch {
       return c.json({ ok: false, error: "Deploy failed" }, 502);
+    }
+
+    if (!deployResponse.ok) {
+      const body = await deployResponse.text().catch(() => "");
+      console.error(`[deploy] Coolify webhook HTTP ${deployResponse.status}:`, body);
+      return c.json({ ok: false, error: `Deploy failed: HTTP ${deployResponse.status}` }, 502);
     }
 
     logAudit(currentUser.id, "deploy_triggered", "coolify");

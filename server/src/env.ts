@@ -12,6 +12,7 @@ const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().default(""),
   VAPID_SUBJECT: z.string().default("mailto:noreply@example.com"),
   FRONTEND_URL: z.string().url().default("http://localhost:5173"),
+  COOLIFY_WEBHOOK_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

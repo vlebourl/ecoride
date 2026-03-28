@@ -147,6 +147,7 @@ export interface AdminHealthData {
   tripsToday: number;
   tripsThisWeek: number;
   dbConnected: boolean;
+  dbSizeMb: number;
 }
 
 export interface AdminStatsUser {
@@ -229,6 +230,33 @@ export function useSendAdminNotification() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "notifications"] });
     },
+  });
+}
+
+export interface AdminAuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  target: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export function useAdminAuditLogs() {
+  return useQuery({
+    queryKey: ["admin", "audit-logs"],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: { auditLogs: AdminAuditLog[] } }>("/admin/audit-logs").then(
+        (r) => r.data.auditLogs,
+      ),
+  });
+}
+
+export function useTriggerDeploy() {
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ ok: boolean; error?: string }>("/admin/deploy", { method: "POST" }),
   });
 }
 

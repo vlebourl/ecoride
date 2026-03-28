@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
@@ -14,6 +15,17 @@ import { logger } from "./lib/logger";
 import { db } from "./db";
 import { trips, user } from "./db/schema";
 import { sql, count, gte, countDistinct } from "drizzle-orm";
+
+// ---------------------------------------------------------------------------
+// Sentry — server-side error tracking
+// Disabled by default; set SENTRY_DSN env var to enable.
+// ---------------------------------------------------------------------------
+if (env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: env.SENTRY_DSN,
+    environment: env.NODE_ENV,
+  });
+}
 
 const app = new Hono();
 
@@ -136,6 +148,9 @@ app.onError((err, c) => {
     error: err instanceof Error ? err.message : String(err),
     stack: err instanceof Error ? err.stack : undefined,
   });
+  if (env.SENTRY_DSN) {
+    Sentry.captureException(err);
+  }
   return c.json(
     {
       ok: false,

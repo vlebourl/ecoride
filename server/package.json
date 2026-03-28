@@ -6,7 +6,8 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "bunx tsc --noEmit",
-    "test": "bunx vitest run"
+    "test": "bunx vitest run",
+    "test:coverage": "bunx vitest run --coverage"
   },
   "dependencies": {
     "hono": "^4.7.0",
@@ -21,7 +22,8 @@
     "@ecoride/shared": "workspace:*"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.0",
     "@types/web-push": "^3.6.0",
-    "@types/bun": "^1.2.0"
+    "@vitest/coverage-v8": "^4.1.2"
   }
 }

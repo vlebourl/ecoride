@@ -53,6 +53,7 @@ export async function computeStreak(
   let current = 0;
   let longest = 0;
   let streak = 0;
+  let currentStreakEnded = false;
 
   for (let i = 0; i < dates.length; i++) {
     const d = dates[i]!;
@@ -62,6 +63,7 @@ export async function computeStreak(
       if (diffDays > 1) {
         current = 0;
         streak = 1;
+        currentStreakEnded = true;
       } else {
         streak = 1;
         current = 1;
@@ -72,14 +74,13 @@ export async function computeStreak(
       const diff = Math.floor((prev.getTime() - curr.getTime()) / 86400000);
       if (diff === 1) {
         streak++;
-        if (current > 0) current = streak;
+        if (!currentStreakEnded) current = streak;
       } else {
         longest = Math.max(longest, streak);
         streak = 1;
-        if (current > 0) {
-          // Break in the current streak
+        if (!currentStreakEnded) {
+          currentStreakEnded = true;
         }
-        current = current > 0 ? current : 0;
       }
     }
   }

@@ -79,7 +79,7 @@ export function LeaderboardPage() {
   }
 
   const currentUserId = session?.user?.id;
-  const { entries } = data;
+  const entries = data.entries ?? [];
   const top3 = entries.slice(0, 3);
   const rest = entries.slice(3);
 

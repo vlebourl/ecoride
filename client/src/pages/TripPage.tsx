@@ -157,7 +157,7 @@ export function TripPage() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const consumptionL100 = profileData?.user.consumptionL100 ?? 7; // Default 7 L/100km (matches server)
+  const consumptionL100 = profileData?.user?.consumptionL100 ?? 7; // Default 7 L/100km (matches server)
   const co2Saved = distance * (consumptionL100 / 100) * CO2_KG_PER_LITER;
 
   const handleSaveTrip = (km: number, durationSec: number, session?: TrackingSession | null) => {

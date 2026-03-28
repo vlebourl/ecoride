@@ -8,6 +8,7 @@ import { fuelPriceRouter } from "./fuel-price.routes";
 import { pushRouter } from "./push.routes";
 import { adminRouter } from "./admin.routes";
 import { feedbackRouter } from "./feedback.routes";
+import { healthRouter } from "./health.routes";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { announcements } from "../db/schema";
@@ -31,6 +32,7 @@ apiRouter.get("/announcements/active", async (c) => {
   });
 });
 
+apiRouter.route("/health", healthRouter);
 apiRouter.route("/trips", tripsRouter);
 apiRouter.route("/user", usersRouter);
 apiRouter.route("/stats/leaderboard", leaderboardRouter);

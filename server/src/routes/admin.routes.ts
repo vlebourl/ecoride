@@ -3,12 +3,13 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { eq, count, gte, sum, sql, desc } from "drizzle-orm";
 import { db } from "../db";
-import { user, trips, notificationLogs, announcements } from "../db/schema";
+import { user, trips, notificationLogs, announcements, auditLogs } from "../db/schema";
 import { adminMiddleware } from "../auth/admin";
 import { validationHook } from "../lib/validation";
 import { rateLimit } from "../lib/rate-limit";
 import { sendPushBroadcast } from "../lib/push";
 import { logAudit } from "../lib/audit";
+import { env } from "../env";
 import type { AuthEnv } from "../types/context";
 
 const appVersion = (() => {
@@ -53,11 +54,16 @@ adminRouter.get("/health", async (c) => {
     .where(gte(trips.startedAt, weekStart));
   const tripsThisWeek = tripsWeekResult?.value ?? 0;
 
-  // DB connectivity check
+  // DB connectivity check + size
   let dbConnected = false;
+  let dbSizeMb = 0;
   try {
     await db.execute(sql`SELECT 1`);
     dbConnected = true;
+    const [dbSizeResult] = await db.execute(
+      sql`SELECT round(pg_database_size(current_database()) / 1024.0 / 1024.0, 1) AS size_mb`,
+    );
+    dbSizeMb = Number((dbSizeResult as any)?.rows?.[0]?.size_mb ?? 0);
   } catch {
     // dbConnected stays false
   }
@@ -72,6 +78,7 @@ adminRouter.get("/health", async (c) => {
       tripsToday,
       tripsThisWeek,
       dbConnected,
+      dbSizeMb,
     },
   });
 });
@@ -303,5 +310,56 @@ adminRouter.delete("/announcements/:id", async (c) => {
   await db.delete(announcements).where(eq(announcements.id, id));
   return c.json({ ok: true });
 });
+
+// GET /api/admin/audit-logs — Recent audit log entries
+adminRouter.get("/audit-logs", async (c) => {
+  const logs = await db
+    .select({
+      id: auditLogs.id,
+      userId: auditLogs.userId,
+      userName: user.name,
+      action: auditLogs.action,
+      target: auditLogs.target,
+      metadata: auditLogs.metadata,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .innerJoin(user, eq(auditLogs.userId, user.id))
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(20);
+
+  return c.json({
+    ok: true,
+    data: {
+      auditLogs: logs.map((l) => ({
+        ...l,
+        createdAt: l.createdAt.toISOString(),
+      })),
+    },
+  });
+});
+
+// POST /api/admin/deploy — Trigger Coolify deploy webhook
+adminRouter.post(
+  "/deploy",
+  rateLimit({ maxRequests: 1, windowMs: 60_000, prefix: "admin-deploy" }),
+  async (c) => {
+    const currentUser = c.get("user");
+
+    if (!env.COOLIFY_WEBHOOK_URL) {
+      return c.json({ ok: false, error: "Deploy not configured" }, 503);
+    }
+
+    try {
+      await fetch(env.COOLIFY_WEBHOOK_URL, { method: "GET" });
+    } catch {
+      return c.json({ ok: false, error: "Deploy failed" }, 502);
+    }
+
+    logAudit(currentUser.id, "deploy_triggered", "coolify");
+
+    return c.json({ ok: true });
+  },
+);
 
 export { adminRouter };

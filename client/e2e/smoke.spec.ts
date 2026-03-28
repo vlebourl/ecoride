@@ -123,7 +123,19 @@ test.describe("admin dashboard", () => {
               tripsToday: 3,
               tripsThisWeek: 12,
               dbConnected: true,
+              dbSizeMb: 42.3,
             },
+          }),
+        });
+      }
+
+      if (url.includes("/api/admin/audit-logs")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            data: { auditLogs: [] },
           }),
         });
       }

@@ -15,6 +15,8 @@ import {
   Check,
   Megaphone,
   Trash2,
+  Rocket,
+  Activity,
 } from "lucide-react";
 import {
   useAdminHealth,
@@ -24,6 +26,8 @@ import {
   useCreateAnnouncement,
   useDeleteAnnouncement,
   useSendAdminNotification,
+  useAdminAuditLogs,
+  useTriggerDeploy,
   useProfile,
 } from "@/hooks/queries";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
@@ -57,6 +61,8 @@ export function AdminPage() {
   const { data: profileData, isPending: profilePending } = useProfile();
   const { data: health, isPending: healthPending } = useAdminHealth();
   const { data: stats, isPending: statsPending } = useAdminStats();
+  const triggerDeploy = useTriggerDeploy();
+  const [deployStatus, setDeployStatus] = useState<"idle" | "success" | "error">("idle");
 
   const isAdmin = profileData?.user?.isAdmin === true;
 
@@ -115,15 +121,47 @@ export function AdminPage() {
       <div className="space-y-6 px-6 pb-6">
         {/* System Info Card */}
         <section className="rounded-xl bg-surface-low p-5">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-text-muted">
-            Systeme
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-text-muted">Systeme</h2>
+            <button
+              onClick={() => {
+                setDeployStatus("idle");
+                triggerDeploy.mutate(undefined, {
+                  onSuccess: () => {
+                    setDeployStatus("success");
+                    setTimeout(() => setDeployStatus("idle"), 3000);
+                  },
+                  onError: () => {
+                    setDeployStatus("error");
+                    setTimeout(() => setDeployStatus("idle"), 3000);
+                  },
+                });
+              }}
+              disabled={triggerDeploy.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary-light active:scale-95 disabled:opacity-50"
+            >
+              {triggerDeploy.isPending ? (
+                <div className="h-3 w-3 animate-spin rounded-full border border-primary-light border-t-transparent" />
+              ) : deployStatus === "success" ? (
+                <Check size={12} />
+              ) : deployStatus === "error" ? (
+                <span className="text-danger">Erreur</span>
+              ) : (
+                <Rocket size={12} />
+              )}
+              {deployStatus === "success"
+                ? "Déployé !"
+                : deployStatus === "error"
+                  ? "Échec"
+                  : "Déployer"}
+            </button>
+          </div>
           {healthPending ? (
             <div className="flex justify-center py-4">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : health ? (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="flex flex-col items-center gap-1">
                 <span className="text-xs font-bold uppercase text-text-dim">Version</span>
                 <span className="text-sm font-bold text-text">{health.version}</span>
@@ -141,6 +179,11 @@ export function AdminPage() {
                 >
                   {health.dbConnected ? "OK" : "DOWN"}
                 </span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Database size={14} className="text-text-dim" />
+                <span className="text-xs font-bold uppercase text-text-dim">Taille DB</span>
+                <span className="text-sm font-bold text-text">{health.dbSizeMb.toFixed(1)} MB</span>
               </div>
             </div>
           ) : null}
@@ -266,6 +309,9 @@ export function AdminPage() {
           )}
         </section>
 
+        {/* Recent Activity (Audit Log) */}
+        <AuditLogSection />
+
         {/* Recent Trips */}
         <section className="rounded-xl bg-surface-low p-5">
           <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
@@ -314,6 +360,56 @@ export function AdminPage() {
         <NotificationSection users={stats?.users} />
       </div>
     </>
+  );
+}
+
+function AuditLogSection() {
+  const { data: logs, isPending } = useAdminAuditLogs();
+
+  return (
+    <section className="rounded-xl bg-surface-low p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Activity size={14} className="text-text-dim" />
+        <h2 className="text-xs font-bold uppercase tracking-widest text-text-muted">
+          Activité récente
+        </h2>
+      </div>
+      {isPending ? (
+        <div className="flex justify-center py-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : logs && logs.length > 0 ? (
+        <div className="max-h-72 overflow-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-white/5 text-xs font-bold uppercase tracking-widest text-text-dim">
+                <th className="pb-3 pr-4">Action</th>
+                <th className="pb-3 pr-4">Utilisateur</th>
+                <th className="pb-3 text-right">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.id} className="border-b border-white/5 last:border-0">
+                  <td className="py-2 pr-4 font-mono text-xs text-text">{log.action}</td>
+                  <td className="py-2 pr-4 text-xs text-text-muted">{log.userName}</td>
+                  <td className="py-2 text-right text-xs text-text-dim">
+                    {new Date(log.createdAt).toLocaleString("fr-FR", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="py-4 text-center text-sm text-text-muted">Aucune activité</p>
+      )}
+    </section>
   );
 }
 

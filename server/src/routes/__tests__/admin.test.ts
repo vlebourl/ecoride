@@ -11,19 +11,64 @@ const mockEnv = vi.hoisted(
 
 vi.mock("../../env", () => ({ env: mockEnv }));
 
+// Audit log rows returned by the DB mock — tests can replace .value
+const mockAuditRows = vi.hoisted(() => ({
+  value: [
+    {
+      id: "log-1",
+      userId: "user-abc",
+      userName: "Alice",
+      action: "delete_trip",
+      target: "trip-1",
+      metadata: null,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+    },
+    {
+      id: "log-2",
+      userId: "user-xyz",
+      userName: "Bob",
+      action: "delete_account",
+      target: "user-xyz",
+      metadata: null,
+      createdAt: new Date("2026-01-02T00:00:00Z"),
+    },
+  ] as unknown[],
+}));
+
 vi.mock("../../db", () => ({
   db: {
     execute: vi.fn().mockResolvedValue([{ rows: [{ size_mb: "10.0" }] }]),
     select: () => ({
-      from: () => ({
-        // Support: await db.select().from(table)  [no .where()]
-        then: (resolve: (...a: unknown[]) => unknown, reject?: (...a: unknown[]) => unknown) =>
-          Promise.resolve([{ value: 0 }]).then(resolve, reject),
-        catch: (reject: (...a: unknown[]) => unknown) =>
-          Promise.resolve([{ value: 0 }]).catch(reject),
-        // Support: await db.select().from(table).where(...)
-        where: () => Promise.resolve([{ value: 0 }]),
-      }),
+      from: () => {
+        // Terminal promise for simple aggregation queries (db.select().from(table))
+        const simple = Promise.resolve([{ value: 0 }]);
+
+        // Chain returned after .innerJoin() — supports .where().orderBy().limit() and
+        // .orderBy().limit() (the two paths used by the audit-logs endpoint).
+        const auditChain = {
+          where: () => ({
+            orderBy: () => ({ limit: () => Promise.resolve(mockAuditRows.value) }),
+          }),
+          orderBy: () => ({ limit: () => Promise.resolve(mockAuditRows.value) }),
+        };
+
+        return {
+          // Direct await: db.select().from(table) — for aggregation queries
+          then: simple.then.bind(simple),
+          catch: simple.catch.bind(simple),
+          // .where(cond) — for aggregation queries with date filter
+          where: () => Promise.resolve([{ value: 0 }]),
+          // .innerJoin(...) — for audit-logs query
+          innerJoin: () => auditChain,
+          // .leftJoin / .groupBy / .orderBy for admin-stats query
+          leftJoin: () => ({
+            groupBy: () => ({ orderBy: () => Promise.resolve([]) }),
+          }),
+          innerJoin2: () => ({ orderBy: () => ({ limit: () => Promise.resolve([]) }) }),
+          groupBy: () => ({ orderBy: () => Promise.resolve([]) }),
+          orderBy: () => ({ limit: () => Promise.resolve([]) }),
+        };
+      },
     }),
   },
 }));
@@ -165,5 +210,99 @@ describe("GET /admin/health", () => {
     // After the fix (require("../../../package.json")), this must not be "0.0.1".
     expect(body.data.version).not.toBe("0.0.1");
     expect(body.data.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+});
+
+// ---- Audit log filtering tests (ECO-15) ----
+
+type AuditLogsBody = {
+  ok: boolean;
+  data: {
+    auditLogs: Array<{
+      id: string;
+      userId: string;
+      userName: string;
+      action: string;
+      target: string | null;
+      metadata: unknown;
+      createdAt: string;
+    }>;
+  };
+};
+
+describe("GET /admin/audit-logs", () => {
+  it("returns all entries when no filters are provided", async () => {
+    mockAuditRows.value = [
+      {
+        id: "log-1",
+        userId: "user-abc",
+        userName: "Alice",
+        action: "delete_trip",
+        target: "trip-1",
+        metadata: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        id: "log-2",
+        userId: "user-xyz",
+        userName: "Bob",
+        action: "delete_account",
+        target: "user-xyz",
+        metadata: null,
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+      },
+    ];
+
+    const res = await buildApp().request("/admin/audit-logs");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as AuditLogsBody;
+    expect(body.ok).toBe(true);
+    expect(body.data.auditLogs).toHaveLength(2);
+    expect(body.data.auditLogs[0]!.id).toBe("log-1");
+    expect(body.data.auditLogs[1]!.id).toBe("log-2");
+    // Dates should be ISO strings
+    expect(body.data.auditLogs[0]!.createdAt).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("passes ?action=delete_trip query param and returns matching entries", async () => {
+    mockAuditRows.value = [
+      {
+        id: "log-1",
+        userId: "user-abc",
+        userName: "Alice",
+        action: "delete_trip",
+        target: "trip-1",
+        metadata: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+    ];
+
+    const res = await buildApp().request("/admin/audit-logs?action=delete_trip");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as AuditLogsBody;
+    expect(body.ok).toBe(true);
+    expect(body.data.auditLogs).toHaveLength(1);
+    expect(body.data.auditLogs[0]!.action).toBe("delete_trip");
+  });
+
+  it("passes ?userId=user-abc query param and returns matching entries", async () => {
+    mockAuditRows.value = [
+      {
+        id: "log-1",
+        userId: "user-abc",
+        userName: "Alice",
+        action: "delete_trip",
+        target: "trip-1",
+        metadata: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+    ];
+
+    const res = await buildApp().request("/admin/audit-logs?userId=user-abc");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as AuditLogsBody;
+    expect(body.ok).toBe(true);
+    expect(body.data.auditLogs).toHaveLength(1);
+    expect(body.data.auditLogs[0]!.userId).toBe("user-abc");
   });
 });

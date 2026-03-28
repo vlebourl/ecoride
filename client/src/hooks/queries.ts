@@ -243,13 +243,18 @@ export interface AdminAuditLog {
   createdAt: string;
 }
 
-export function useAdminAuditLogs() {
+export function useAdminAuditLogs(filters?: { userId?: string; action?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.userId) params.set("userId", filters.userId);
+  if (filters?.action) params.set("action", filters.action);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+
   return useQuery({
-    queryKey: ["admin", "audit-logs"],
+    queryKey: ["admin", "audit-logs", filters?.userId ?? "", filters?.action ?? ""],
     queryFn: () =>
-      apiFetch<{ ok: boolean; data: { auditLogs: AdminAuditLog[] } }>("/admin/audit-logs").then(
-        (r) => r.data.auditLogs,
-      ),
+      apiFetch<{ ok: boolean; data: { auditLogs: AdminAuditLog[] } }>(
+        `/admin/audit-logs${qs}`,
+      ).then((r) => r.data.auditLogs),
   });
 }
 

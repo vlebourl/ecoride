@@ -271,6 +271,32 @@ export function useGpsTracking() {
     }
   }, []);
 
+  // Separate effect: flush backup immediately when app goes to background (ECO-22).
+  // MUST be a separate effect — GPS effect dependency array must stay [state.isTracking] per CLAUDE.md.
+  useEffect(() => {
+    if (!state.isTracking) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        saveBackup();
+      } else {
+        // Foreground return — re-acquire wake lock
+        wakeLock.request();
+      }
+    };
+
+    const handlePageHide = () => saveBackup();
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isTracking, saveBackup]);
+
   // Start/stop GPS watch, timer, wake lock, and backup based on isTracking state.
   // Only depends on state.isTracking — other refs are stable across renders.
 

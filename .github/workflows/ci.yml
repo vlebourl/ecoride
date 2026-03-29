@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, feat/ci-avancee]
 
 jobs:
   commitlint:
@@ -70,3 +70,78 @@ jobs:
           name: playwright-report
           path: client/test-results/
           retention-days: 7
+
+  lighthouse:
+    name: Lighthouse
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+
+      - name: Build
+        run: (cd client && bun run build)
+
+      - name: Run Lighthouse CI
+        continue-on-error: true
+        run: npx --yes @lhci/cli autorun
+
+      - name: Parse scores and write comment
+        id: report
+        run: |
+          REPORT=$(ls .lighthouseci/lhr-*.json 2>/dev/null | head -1)
+          if [ -z "$REPORT" ]; then
+            echo "No Lighthouse report found — collection may have failed." >&2
+            exit 0
+          fi
+
+          PERF=$(jq '(.categories.performance.score * 100) | round' "$REPORT")
+          A11Y=$(jq '(.categories.accessibility.score * 100) | round' "$REPORT")
+          BP=$(jq '(.categories["best-practices"].score * 100) | round' "$REPORT")
+          SEO=$(jq '(.categories.seo.score * 100) | round' "$REPORT")
+          PWA=$(jq '(.categories.pwa.score * 100) | round' "$REPORT")
+
+          badge() { local s=$1; if [ "$s" -ge 90 ]; then echo "🟢"; elif [ "$s" -ge 70 ]; then echo "🟡"; else echo "🔴"; fi; }
+
+          FAIL=false
+          [ "$PERF" -lt 80 ] && FAIL=true
+          [ "$A11Y" -lt 90 ] && FAIL=true
+
+          if [ "$FAIL" = true ]; then
+            STATUS="❌ Below threshold"
+          else
+            STATUS="✅ All thresholds met"
+          fi
+
+          cat > /tmp/lh-comment.md << MDEOF
+          ## Lighthouse Report — ${STATUS}
+
+          | Category | Score | |
+          |---|---:|:---:|
+          | Performance | ${PERF} | $(badge $PERF) |
+          | Accessibility | ${A11Y} | $(badge $A11Y) |
+          | Best Practices | ${BP} | $(badge $BP) |
+          | SEO | ${SEO} | $(badge $SEO) |
+          | PWA | ${PWA} | $(badge $PWA) |
+
+          > Thresholds: Performance ≥ 80 (warn), Accessibility ≥ 90 (fail). [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          MDEOF
+
+          echo "fail=${FAIL}" >> "$GITHUB_OUTPUT"
+
+      - name: Post Lighthouse comment
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: lighthouse-report
+          path: /tmp/lh-comment.md
+
+      - name: Fail if accessibility below threshold
+        if: steps.report.outputs.fail == 'true'
+        run: |
+          echo "Lighthouse scores below threshold — see PR comment for details."
+          exit 1

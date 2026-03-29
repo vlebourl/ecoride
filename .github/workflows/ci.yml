@@ -149,6 +149,126 @@ jobs:
         if: steps.bundle.outputs.pass == 'false'
         run: |
           echo "Bundle size increased by more than 50 KB (gzipped) — see PR comment for details."
+
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+
+      - name: Restore base coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: .coverage-base
+          key: coverage-main-${{ github.event.pull_request.base.sha }}
+          restore-keys: coverage-main-
+
+      - name: Run server coverage
+        run: cd server && bun run test:coverage
+
+      - name: Run client coverage
+        run: cd client && bun run test:coverage
+
+      - name: Save base coverage
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p .coverage-base
+          cp server/coverage/coverage-summary.json .coverage-base/server-summary.json
+          cp client/coverage/coverage-summary.json .coverage-base/client-summary.json
+
+      - name: Cache base coverage
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: .coverage-base
+          key: coverage-main-${{ github.sha }}
+
+      - name: Generate coverage comment
+        if: github.event_name == 'pull_request'
+        id: report
+        run: |
+          set -e
+
+          pct() { jq -r ".total.$1.pct" "$2"; }
+
+          SRV_S=$(pct statements server/coverage/coverage-summary.json)
+          SRV_L=$(pct lines server/coverage/coverage-summary.json)
+          SRV_F=$(pct functions server/coverage/coverage-summary.json)
+          SRV_B=$(pct branches server/coverage/coverage-summary.json)
+
+          CLI_S=$(pct statements client/coverage/coverage-summary.json)
+          CLI_L=$(pct lines client/coverage/coverage-summary.json)
+          CLI_F=$(pct functions client/coverage/coverage-summary.json)
+          CLI_B=$(pct branches client/coverage/coverage-summary.json)
+
+          SRV_TOTAL=$(jq '.total.statements.total' server/coverage/coverage-summary.json)
+          SRV_COV=$(jq '.total.statements.covered' server/coverage/coverage-summary.json)
+          CLI_TOTAL=$(jq '.total.statements.total' client/coverage/coverage-summary.json)
+          CLI_COV=$(jq '.total.statements.covered' client/coverage/coverage-summary.json)
+          COMBINED_TOTAL=$((SRV_TOTAL + CLI_TOTAL))
+          COMBINED_COV=$((SRV_COV + CLI_COV))
+          OVERALL=$(echo "scale=1; $COMBINED_COV * 100 / $COMBINED_TOTAL" | bc)
+
+          diff_pct() {
+            local base_file="$1" key="$2" cur="$3"
+            if [ -f "$base_file" ]; then
+              local base d
+              base=$(jq -r ".total.$key.pct" "$base_file")
+              d=$(echo "scale=1; $cur - $base" | bc)
+              if (( $(echo "$d > 0" | bc -l) )); then printf " (+%s%%)" "$d"
+              elif (( $(echo "$d < 0" | bc -l) )); then printf " (%s%%)" "$d"
+              fi
+            fi
+          }
+
+          SRV_S_D=$(diff_pct .coverage-base/server-summary.json statements "$SRV_S")
+          SRV_L_D=$(diff_pct .coverage-base/server-summary.json lines "$SRV_L")
+          SRV_F_D=$(diff_pct .coverage-base/server-summary.json functions "$SRV_F")
+          SRV_B_D=$(diff_pct .coverage-base/server-summary.json branches "$SRV_B")
+          CLI_S_D=$(diff_pct .coverage-base/client-summary.json statements "$CLI_S")
+          CLI_L_D=$(diff_pct .coverage-base/client-summary.json lines "$CLI_L")
+          CLI_F_D=$(diff_pct .coverage-base/client-summary.json functions "$CLI_F")
+          CLI_B_D=$(diff_pct .coverage-base/client-summary.json branches "$CLI_B")
+
+          THRESHOLD=70
+          if (( $(echo "$OVERALL < $THRESHOLD" | bc -l) )); then
+            STATUS="❌ Below threshold"
+            echo "pass=false" >> "$GITHUB_OUTPUT"
+          else
+            STATUS="✅ Passing"
+            echo "pass=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          cat > /tmp/coverage-comment.md << EOF
+          ## Coverage Report — ${STATUS}
+
+          > Combined statements: **${OVERALL}%** (threshold: ${THRESHOLD}%)
+
+          | Package | Statements | Lines | Functions | Branches |
+          |---------|-----------|-------|-----------|---------|
+          | server  | ${SRV_S}%${SRV_S_D} | ${SRV_L}%${SRV_L_D} | ${SRV_F}%${SRV_F_D} | ${SRV_B}%${SRV_B_D} |
+          | client  | ${CLI_S}%${CLI_S_D} | ${CLI_L}%${CLI_L_D} | ${CLI_F}%${CLI_F_D} | ${CLI_B}%${CLI_B_D} |
+
+          _[View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})_
+          EOF
+
+      - name: Post coverage comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage-report
+          path: /tmp/coverage-comment.md
+
+      - name: Fail if below threshold
+        if: github.event_name == 'pull_request' && steps.report.outputs.pass == 'false'
+        run: |
+          echo "Combined statement coverage is below 70% — see coverage comment for details"
           exit 1
 
   smoke:

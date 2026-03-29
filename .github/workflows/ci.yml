@@ -66,7 +66,7 @@ jobs:
         run: |
           git checkout ${{ github.event.pull_request.base.sha }}
           bun install
-          cd client && bun run build
+          (cd client && bun run build)
           mkdir -p /tmp/base-dist
           cp -r client/dist/assets /tmp/base-dist/assets
 

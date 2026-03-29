@@ -99,11 +99,11 @@ jobs:
             exit 0
           fi
 
-          PERF=$(jq '(.categories.performance.score * 100) | round' "$REPORT")
-          A11Y=$(jq '(.categories.accessibility.score * 100) | round' "$REPORT")
-          BP=$(jq '(.categories["best-practices"].score * 100) | round' "$REPORT")
-          SEO=$(jq '(.categories.seo.score * 100) | round' "$REPORT")
-          PWA=$(jq '(.categories.pwa.score * 100) | round' "$REPORT")
+          PERF=$(jq '((.categories.performance.score // 0) * 100 | round)' "$REPORT")
+          A11Y=$(jq '((.categories.accessibility.score // 0) * 100 | round)' "$REPORT")
+          BP=$(jq '((.categories["best-practices"].score // 0) * 100 | round)' "$REPORT")
+          SEO=$(jq '((.categories.seo.score // 0) * 100 | round)' "$REPORT")
+          PWA=$(jq '((.categories.pwa.score // 0) * 100 | round)' "$REPORT")
 
           badge() { local s=$1; if [ "$s" -ge 90 ]; then echo "🟢"; elif [ "$s" -ge 70 ]; then echo "🟡"; else echo "🔴"; fi; }
 

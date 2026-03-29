@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, feat/ci-avancee]
 
 jobs:
   commitlint:
@@ -47,6 +47,108 @@ jobs:
       - run: bun install
       - run: cd client && bunx vitest run
       - run: cd server && bun run test:coverage
+
+  bundle-size:
+    name: Bundle Size
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build base branch
+        run: |
+          git checkout ${{ github.event.pull_request.base.sha }}
+          bun install
+          (cd client && bun run build)
+          mkdir -p /tmp/base-dist
+          cp -r client/dist/assets /tmp/base-dist/assets
+
+      - name: Build PR branch
+        run: |
+          git checkout ${{ github.sha }}
+          bun install
+          cd client && bun run build
+
+      - name: Compare bundle sizes
+        id: bundle
+        run: |
+          set -e
+
+          gz_size() {
+            local dir="$1" ext="$2"
+            find "$dir" -name "*.$ext" | while read -r f; do
+              gzip -c "$f" | wc -c
+            done | awk '{s+=$1} END {print s+0}'
+          }
+
+          PR_JS=$(gz_size client/dist/assets js)
+          PR_CSS=$(gz_size client/dist/assets css)
+          PR_TOTAL=$((PR_JS + PR_CSS))
+
+          BASE_JS=$(gz_size /tmp/base-dist/assets js)
+          BASE_CSS=$(gz_size /tmp/base-dist/assets css)
+          BASE_TOTAL=$((BASE_JS + BASE_CSS))
+
+          DELTA_JS=$((PR_JS - BASE_JS))
+          DELTA_CSS=$((PR_CSS - BASE_CSS))
+          DELTA=$((PR_TOTAL - BASE_TOTAL))
+
+          fmt_kb() { echo "scale=1; $1 / 1024" | bc; }
+          fmt_delta() {
+            local kb
+            kb=$(fmt_kb "$1")
+            if [ "$1" -gt 0 ]; then echo "+${kb} KB"; else echo "${kb} KB"; fi
+          }
+
+          PR_JS_KB=$(fmt_kb $PR_JS)
+          PR_CSS_KB=$(fmt_kb $PR_CSS)
+          PR_TOTAL_KB=$(fmt_kb $PR_TOTAL)
+          BASE_JS_KB=$(fmt_kb $BASE_JS)
+          BASE_CSS_KB=$(fmt_kb $BASE_CSS)
+          BASE_TOTAL_KB=$(fmt_kb $BASE_TOTAL)
+          DELTA_JS_D=$(fmt_delta $DELTA_JS)
+          DELTA_CSS_D=$(fmt_delta $DELTA_CSS)
+          DELTA_TOTAL_D=$(fmt_delta $DELTA)
+
+          BUDGET_BYTES=$((50 * 1024))
+
+          if [ "$DELTA" -gt "$BUDGET_BYTES" ]; then
+            STATUS="❌ Exceeds +50 KB budget"
+            echo "pass=false" >> "$GITHUB_OUTPUT"
+          else
+            STATUS="✅ Within budget"
+            echo "pass=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          cat > /tmp/bundle-comment.md << MDEOF
+          ## Bundle Size Report — ${STATUS}
+
+          | | Base | PR | Delta |
+          |---|-----:|----:|------:|
+          | JS (gzip) | ${BASE_JS_KB} KB | ${PR_JS_KB} KB | ${DELTA_JS_D} |
+          | CSS (gzip) | ${BASE_CSS_KB} KB | ${PR_CSS_KB} KB | ${DELTA_CSS_D} |
+          | **Total** | **${BASE_TOTAL_KB} KB** | **${PR_TOTAL_KB} KB** | **${DELTA_TOTAL_D}** |
+
+          > Budget: +50 KB gzipped total. [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          MDEOF
+
+      - name: Post bundle size comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: bundle-size-report
+          path: /tmp/bundle-comment.md
+
+      - name: Fail if over budget
+        if: steps.bundle.outputs.pass == 'false'
+        run: |
+          echo "Bundle size increased by more than 50 KB (gzipped) — see PR comment for details."
 
   coverage:
     name: Coverage Report

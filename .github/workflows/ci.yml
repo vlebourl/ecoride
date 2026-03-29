@@ -108,11 +108,14 @@ jobs:
           badge() { local s=$1; if [ "$s" -ge 90 ]; then echo "🟢"; elif [ "$s" -ge 70 ]; then echo "🟡"; else echo "🔴"; fi; }
 
           FAIL=false
-          [ "$PERF" -lt 80 ] && FAIL=true
+          WARN=false
+          [ "$PERF" -lt 80 ] && WARN=true
           [ "$A11Y" -lt 90 ] && FAIL=true
 
           if [ "$FAIL" = true ]; then
-            STATUS="❌ Below threshold"
+            STATUS="❌ Accessibility below threshold"
+          elif [ "$WARN" = true ]; then
+            STATUS="⚠️ Performance below threshold (warning only)"
           else
             STATUS="✅ All thresholds met"
           fi
@@ -128,7 +131,7 @@ jobs:
           | SEO | ${SEO} | $(badge $SEO) |
           | PWA | ${PWA} | $(badge $PWA) |
 
-          > Thresholds: Performance ≥ 80 (warn), Accessibility ≥ 90 (fail). [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          > Thresholds: Performance ≥ 80 ⚠️ warn only, Accessibility ≥ 90 ❌ fails CI. [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
           MDEOF
 
           echo "fail=${FAIL}" >> "$GITHUB_OUTPUT"

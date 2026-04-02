@@ -124,14 +124,10 @@ test.describe("Trip map bounds in bottom sheet (#103)", () => {
     await expect(sheet).toBeVisible({ timeout: 3000 });
 
     // The map container should be visible inside the sheet
-    const mapContainer = sheet.locator(".leaflet-container");
+    const mapContainer = sheet.locator(".maplibregl-map");
     await expect(mapContainer).toBeVisible({ timeout: 3000 });
 
-    // After invalidateSize + fitBounds, the polyline SVG path should be rendered
-    const polyline = mapContainer.locator("path.leaflet-interactive");
-    await expect(polyline).toBeVisible({ timeout: 2000 });
-
-    // Verify the map container has non-zero dimensions (Leaflet knows its size)
+    // MapLibre renders to canvas, not SVG — verify the canvas has non-zero dimensions
     const box = await mapContainer.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThan(100);

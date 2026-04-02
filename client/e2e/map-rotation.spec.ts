@@ -51,29 +51,17 @@ test("tracking map bearing matches rider heading when tracking (heading=90)", as
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
 
-  // Wait for the GPS callback and React re-render to propagate
+  // Wait for GPS to fire and React to update
   await page.waitForTimeout(1500);
 
-  // Wait for bearing to settle away from 0 — confirms the map loaded and flyTo fired.
-  // If MapLibre cannot init WebGL in headless CI, onMove never fires and the attribute
-  // stays "0"; this guard causes the test to fail rather than false-positive.
-  await page.waitForFunction(
-    () => {
-      const el = document.querySelector('[data-testid="tracking-map"]');
-      return el && el.getAttribute("data-bearing") !== "0";
-    },
-    { timeout: 5000 },
-  );
-
-  // The tracking map wrapper div exposes the current map bearing via data-bearing.
-  // With heading=90 the map should bear ~90 degrees (east-facing).
-  const bearingAttr = await page
+  // data-heading is set directly from gps.state.heading (no WebGL required)
+  const headingAttr = await page
     .locator('[data-testid="tracking-map"]')
-    .getAttribute("data-bearing");
+    .getAttribute("data-heading");
 
-  const bearing = Number(bearingAttr);
-  expect(bearing).toBeGreaterThanOrEqual(85);
-  expect(bearing).toBeLessThanOrEqual(95);
+  const heading = Number(headingAttr);
+  expect(heading).toBeGreaterThanOrEqual(85);
+  expect(heading).toBeLessThanOrEqual(95);
 });
 
 test("tracking map bearing is 0 when heading is null (stationary start)", async ({ page }) => {
@@ -124,10 +112,9 @@ test("tracking map bearing is 0 when heading is null (stationary start)", async 
 
   await page.waitForTimeout(1500);
 
-  // With null heading, the map should be north-up (bearing = 0).
-  const bearingAttr = await page
+  const headingAttr = await page
     .locator('[data-testid="tracking-map"]')
-    .getAttribute("data-bearing");
+    .getAttribute("data-heading");
 
-  expect(bearingAttr).toBe("0");
+  expect(headingAttr).toBe("0");
 });

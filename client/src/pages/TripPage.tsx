@@ -30,7 +30,6 @@ export function TripPage() {
   );
   const [idleAccuracy, setIdleAccuracy] = useState<number | null>(null);
   const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
-  const [currentBearing, setCurrentBearing] = useState(0);
   const sessionRef = useRef<TrackingSession | null>(null);
   const trackingMapRef = useRef<MapRef>(null);
   const idleMapRef = useRef<MapRef>(null);
@@ -352,7 +351,7 @@ export function TripPage() {
           <div
             className="relative min-h-0 flex-1 overflow-hidden"
             data-testid="tracking-map"
-            data-bearing={Math.round(currentBearing)}
+            data-heading={gps.state.heading ?? 0}
           >
             <Map
               ref={trackingMapRef}
@@ -366,7 +365,6 @@ export function TripPage() {
               mapStyle={MAP_STYLE}
               attributionControl={false}
               style={{ width: "100%", height: "100%" }}
-              onMove={(e) => setCurrentBearing(e.viewState.bearing)}
             >
               {positions.length > 1 && (
                 <Source type="geojson" data={geojsonLine}>

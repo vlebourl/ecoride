@@ -54,6 +54,17 @@ test("tracking map bearing matches rider heading when tracking (heading=90)", as
   // Wait for the GPS callback and React re-render to propagate
   await page.waitForTimeout(1500);
 
+  // Wait for bearing to settle away from 0 — confirms the map loaded and flyTo fired.
+  // If MapLibre cannot init WebGL in headless CI, onMove never fires and the attribute
+  // stays "0"; this guard causes the test to fail rather than false-positive.
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="tracking-map"]');
+      return el && el.getAttribute("data-bearing") !== "0";
+    },
+    { timeout: 5000 },
+  );
+
   // The tracking map wrapper div exposes the current map bearing via data-bearing.
   // With heading=90 the map should bear ~90 degrees (east-facing).
   const bearingAttr = await page

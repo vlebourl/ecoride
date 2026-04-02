@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Play, Square, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
@@ -98,10 +98,10 @@ export function TripPage() {
   const lastPos = positions.length > 0 ? positions[positions.length - 1] : undefined;
   const currentPos: [number, number] = lastPos ?? initialPos;
 
-  // Fly to current position on tracking map (throttled 500ms, runs every render)
+  // Fly to current position on tracking map (throttled 500ms)
   useEffect(() => {
     if (uiState !== "tracking") return;
-    const now = Date.now(); // eslint-disable-line react-hooks/purity
+    const now = Date.now();
     if (now - lastFlyToRef.current < 500) return;
     lastFlyToRef.current = now;
     trackingMapRef.current?.flyTo({
@@ -110,10 +110,11 @@ export function TripPage() {
       pitch: gps.state.heading != null ? 45 : 0,
       zoom: 15,
       duration: 400,
+      padding: { top: 0, bottom: 200, left: 0, right: 0 },
     });
-  });
+  }, [uiState, currentPos[0], currentPos[1], gps.state.heading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fly to current position on idle map (throttled 500ms, runs every render)
+  // Fly to current position on idle map (throttled 500ms)
   useEffect(() => {
     if (uiState === "tracking") return;
     const now = Date.now();
@@ -124,16 +125,19 @@ export function TripPage() {
       zoom: 15,
       duration: 400,
     });
-  });
+  }, [uiState, currentPos[0], currentPos[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const geojsonLine = {
-    type: "Feature" as const,
-    geometry: {
-      type: "LineString" as const,
-      coordinates: positions.map(([lat, lng]) => [lng, lat]),
-    },
-    properties: {},
-  };
+  const geojsonLine = useMemo(
+    () => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "LineString" as const,
+        coordinates: positions.map(([lat, lng]) => [lng, lat]),
+      },
+      properties: {},
+    }),
+    [positions],
+  );
 
   const distance =
     uiState === "stopped" && sessionRef.current
@@ -359,7 +363,6 @@ export function TripPage() {
                 bearing: gps.state.heading ?? 0,
                 pitch: gps.state.heading != null ? 45 : 0,
               }}
-              padding={{ top: 0, bottom: 200, left: 0, right: 0 }}
               mapStyle={MAP_STYLE}
               attributionControl={false}
               style={{ width: "100%", height: "100%" }}

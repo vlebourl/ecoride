@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
-import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
@@ -70,8 +69,6 @@ function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, numbe
 }
 
 function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
-  const mapRef = useRef<MapRef>(null);
-
   const coordinates = gpsPoints.map((p) => [p.lng, p.lat] as [number, number]);
   const lngs = gpsPoints.map((p) => p.lng);
   const lats = gpsPoints.map((p) => p.lat);
@@ -94,7 +91,6 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
   return (
     <div className="mb-4 h-48 rounded-xl overflow-hidden">
       <Map
-        ref={mapRef}
         initialViewState={{
           longitude: centerLng,
           latitude: centerLat,

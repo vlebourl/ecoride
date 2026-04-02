@@ -33,7 +33,8 @@ export function TripPage() {
   const sessionRef = useRef<TrackingSession | null>(null);
   const trackingMapRef = useRef<MapRef>(null);
   const idleMapRef = useRef<MapRef>(null);
-  const lastFlyToRef = useRef(0);
+  const trackingFlyToRef = useRef(0);
+  const idleFlyToRef = useRef(0);
   const createTrip = useCreateTrip();
   const { data: profileData } = useProfile();
   const gps = useGpsTracking();
@@ -101,8 +102,8 @@ export function TripPage() {
   useEffect(() => {
     if (uiState !== "tracking") return;
     const now = Date.now();
-    if (now - lastFlyToRef.current < 500) return;
-    lastFlyToRef.current = now;
+    if (now - trackingFlyToRef.current < 500) return;
+    trackingFlyToRef.current = now;
     trackingMapRef.current?.flyTo({
       center: [currentPos[1], currentPos[0]],
       bearing: gps.state.heading ?? 0,
@@ -111,19 +112,21 @@ export function TripPage() {
       duration: 400,
       padding: { top: 0, bottom: 200, left: 0, right: 0 },
     });
+    // trackingFlyToRef is a ref (stable, no re-render) — safe to omit from deps
   }, [uiState, currentPos[0], currentPos[1], gps.state.heading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fly to current position on idle map (throttled 500ms)
   useEffect(() => {
     if (uiState === "tracking") return;
     const now = Date.now();
-    if (now - lastFlyToRef.current < 500) return;
-    lastFlyToRef.current = now;
+    if (now - idleFlyToRef.current < 500) return;
+    idleFlyToRef.current = now;
     idleMapRef.current?.flyTo({
       center: [currentPos[1], currentPos[0]],
       zoom: 15,
       duration: 400,
     });
+    // idleFlyToRef is a ref (stable, no re-render) — safe to omit from deps
   }, [uiState, currentPos[0], currentPos[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const geojsonLine = useMemo(
@@ -131,11 +134,11 @@ export function TripPage() {
       type: "Feature" as const,
       geometry: {
         type: "LineString" as const,
-        coordinates: positions.map(([lat, lng]) => [lng, lat]),
+        coordinates: gps.state.gpsPoints.map((p) => [p.lng, p.lat]),
       },
       properties: {},
     }),
-    [positions],
+    [gps.state.gpsPoints],
   );
 
   const distance =

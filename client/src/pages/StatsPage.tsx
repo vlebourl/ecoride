@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { MapContainer, TileLayer, Polyline, useMap } from "react-leaflet";
-import type { LatLngTuple, LatLngBoundsExpression } from "leaflet";
-import L from "leaflet";
+import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
+import type { MapRef } from "react-map-gl/maplibre";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
 import {
@@ -51,15 +51,18 @@ const MONTH_LABELS = [
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
-function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
-  const map = useMap();
+const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+
+function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, number]] }) {
+  const { current: map } = useMap();
   useEffect(() => {
+    if (!map) return;
     // Delay fitBounds until after the bottom sheet slide-up animation (0.2s)
-    // completes. Without this, Leaflet doesn't know the container's final
+    // completes. Without this, MapLibre doesn't know the container's final
     // dimensions and calculates the wrong center/zoom (#103).
     const timer = setTimeout(() => {
-      map.invalidateSize();
-      map.fitBounds(bounds, { padding: [20, 20] });
+      map.resize();
+      map.fitBounds(bounds, { padding: 20 });
     }, 250);
     return () => clearTimeout(timer);
   }, [map, bounds]);
@@ -67,33 +70,53 @@ function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
 }
 
 function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
-  const positions: LatLngTuple[] = gpsPoints.map((p) => [p.lat, p.lng]);
-  const bounds = L.latLngBounds(positions);
+  const mapRef = useRef<MapRef>(null);
+
+  const coordinates = gpsPoints.map((p) => [p.lng, p.lat] as [number, number]);
+  const lngs = gpsPoints.map((p) => p.lng);
+  const lats = gpsPoints.map((p) => p.lat);
+  const bounds: [[number, number], [number, number]] = [
+    [Math.min(...lngs), Math.min(...lats)],
+    [Math.max(...lngs), Math.max(...lats)],
+  ];
+  const centerLng = (bounds[0][0] + bounds[1][0]) / 2;
+  const centerLat = (bounds[0][1] + bounds[1][1]) / 2;
+
+  const geojsonLine = {
+    type: "Feature" as const,
+    geometry: {
+      type: "LineString" as const,
+      coordinates,
+    },
+    properties: {},
+  };
 
   return (
     <div className="mb-4 h-48 rounded-xl overflow-hidden">
-      <MapContainer
-        center={bounds.getCenter()}
-        zoom={13}
-        zoomControl={false}
+      <Map
+        ref={mapRef}
+        initialViewState={{
+          longitude: centerLng,
+          latitude: centerLat,
+          zoom: 13,
+        }}
+        mapStyle={MAP_STYLE}
         attributionControl={false}
-        dragging={false}
-        scrollWheelZoom={false}
+        dragPan={false}
+        scrollZoom={false}
         doubleClickZoom={false}
-        touchZoom={false}
-        className="h-full w-full"
-        style={{ background: "#232d35" }}
+        touchZoomRotate={false}
+        style={{ width: "100%", height: "100%" }}
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        />
-        <Polyline
-          positions={positions}
-          pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
-        />
-        <FitBounds bounds={bounds} />
-      </MapContainer>
+        <Source type="geojson" data={geojsonLine}>
+          <Layer
+            type="line"
+            paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+            layout={{ "line-cap": "round", "line-join": "round" }}
+          />
+        </Source>
+        <FitBoundsOnLoad bounds={bounds} />
+      </Map>
     </div>
   );
 }

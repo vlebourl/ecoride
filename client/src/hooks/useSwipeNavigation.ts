@@ -7,7 +7,7 @@ const SWIPE_THRESHOLD = 60;
 /** Tan of max angle from horizontal — if dy/dx > this, it's a vertical gesture. */
 const ANGLE_LIMIT = 0.6;
 /** Elements that should not trigger swipe (CSS selectors). */
-const IGNORE_SELECTORS = ".leaflet-container, input, textarea, [data-no-swipe]";
+const IGNORE_SELECTORS = ".maplibregl-map, input, textarea, [data-no-swipe]";
 
 export function useSwipeNavigation() {
   const navigate = useNavigate();

@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { MapContainer, TileLayer, Polyline, useMap } from "react-leaflet";
-import type { LatLngTuple, LatLngBoundsExpression } from "leaflet";
-import L from "leaflet";
+import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
 import {
@@ -17,6 +16,8 @@ import {
   useDeleteTrip,
 } from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
+import { isWebGLSupported } from "@/lib/webgl";
+import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
@@ -51,15 +52,18 @@ const MONTH_LABELS = [
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
-function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
-  const map = useMap();
+const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+
+function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, number]] }) {
+  const { current: map } = useMap();
   useEffect(() => {
+    if (!map) return;
     // Delay fitBounds until after the bottom sheet slide-up animation (0.2s)
-    // completes. Without this, Leaflet doesn't know the container's final
+    // completes. Without this, MapLibre doesn't know the container's final
     // dimensions and calculates the wrong center/zoom (#103).
     const timer = setTimeout(() => {
-      map.invalidateSize();
-      map.fitBounds(bounds, { padding: [20, 20] });
+      map.resize();
+      map.fitBounds(bounds, { padding: 20 });
     }, 250);
     return () => clearTimeout(timer);
   }, [map, bounds]);
@@ -67,33 +71,87 @@ function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
 }
 
 function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
-  const positions: LatLngTuple[] = gpsPoints.map((p) => [p.lat, p.lng]);
-  const bounds = L.latLngBounds(positions);
+  const webGLSupported = isWebGLSupported();
+  const [webglLost, setWebglLost] = useState(false);
+  const mapStyleReadyRef = useRef(false);
+  const [mapLoadError, setMapLoadError] = useState(false);
+  const geojsonLine = useMemo(
+    () => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "LineString" as const,
+        coordinates: gpsPoints.map((p) => [p.lng, p.lat] as [number, number]),
+      },
+      properties: {},
+    }),
+    [gpsPoints],
+  );
+  // Single-pass bounds computation: avoids Math.min/max spread which throws
+  // RangeError when trips exceed ~65k GPS points (JS call-stack limit).
+  let minLng = Infinity,
+    maxLng = -Infinity,
+    minLat = Infinity,
+    maxLat = -Infinity;
+  for (const p of gpsPoints) {
+    if (p.lng < minLng) minLng = p.lng;
+    if (p.lng > maxLng) maxLng = p.lng;
+    if (p.lat < minLat) minLat = p.lat;
+    if (p.lat > maxLat) maxLat = p.lat;
+  }
+  const bounds: [[number, number], [number, number]] = [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ];
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
 
   return (
-    <div className="mb-4 h-48 rounded-xl overflow-hidden">
-      <MapContainer
-        center={bounds.getCenter()}
-        zoom={13}
-        zoomControl={false}
-        attributionControl={false}
-        dragging={false}
-        scrollWheelZoom={false}
-        doubleClickZoom={false}
-        touchZoom={false}
-        className="h-full w-full"
-        style={{ background: "#232d35" }}
-      >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        />
-        <Polyline
-          positions={positions}
-          pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
-        />
-        <FitBounds bounds={bounds} />
-      </MapContainer>
+    <div className="relative mb-4 h-48 overflow-hidden rounded-xl">
+      {webGLSupported ? (
+        <>
+          <Map
+            initialViewState={{
+              longitude: centerLng,
+              latitude: centerLat,
+              zoom: 13,
+            }}
+            mapStyle={MAP_STYLE}
+            attributionControl={false}
+            dragPan={false}
+            scrollZoom={false}
+            doubleClickZoom={false}
+            touchZoomRotate={false}
+            style={{ width: "100%", height: "100%" }}
+            onLoad={(e) => {
+              mapStyleReadyRef.current = true;
+              setMapLoadError(false);
+              setWebglLost(false);
+              const m = e.target;
+              m.on("webglcontextlost", () => setWebglLost(true));
+              m.on("webglcontextrestored", () => setWebglLost(false));
+            }}
+            onError={() => {
+              if (!mapStyleReadyRef.current) setMapLoadError(true);
+            }}
+          >
+            <Source type="geojson" data={geojsonLine}>
+              <Layer
+                type="line"
+                paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                layout={{ "line-cap": "round", "line-join": "round" }}
+              />
+            </Source>
+            <FitBoundsOnLoad bounds={bounds} />
+          </Map>
+          {(webglLost || mapLoadError) && (
+            <div className="absolute inset-0">
+              <MapNoWebGL />
+            </div>
+          )}
+        </>
+      ) : (
+        <MapNoWebGL />
+      )}
     </div>
   );
 }

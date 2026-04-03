@@ -162,4 +162,63 @@ test.describe("swipe navigation between pages", () => {
     await page.waitForTimeout(500);
     expect(page.url()).toMatch(/\/$/);
   });
+
+  test("swipe left inside tracking map does not navigate away", async ({ page }) => {
+    await page.addInitScript(() => {
+      const mockPos = {
+        coords: {
+          latitude: 48.8566,
+          longitude: 2.3522,
+          accuracy: 5,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: 90,
+          speed: 5,
+        } as GeolocationCoordinates,
+        timestamp: Date.now(),
+      } as GeolocationPosition;
+      let id = 0;
+      Object.defineProperty(navigator, "geolocation", {
+        value: {
+          watchPosition: (cb: PositionCallback) => {
+            const watchId = ++id;
+            setTimeout(() => cb(mockPos), 50);
+            return watchId;
+          },
+          clearWatch: () => {},
+          getCurrentPosition: (cb: PositionCallback) => {
+            setTimeout(() => cb(mockPos), 50);
+          },
+        },
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    await page.route(/\/api\//, (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, data: {} }),
+      });
+    });
+
+    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.getByText("Démarrer").click();
+    await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+
+    // Wait for map container to be present
+    const mapEl = page.locator('[data-testid="tracking-map"]');
+    await expect(mapEl).toBeVisible({ timeout: 3000 });
+
+    // Swipe left within the map area — should be blocked
+    const box = await mapEl.boundingBox();
+    if (!box) throw new Error("tracking-map bounding box not found");
+    const mapY = box.y + box.height / 2;
+    const mapSwipeStart = box.x + box.width * 0.8;
+    const mapSwipeEnd = box.x + box.width * 0.1;
+    await swipe(page, mapSwipeStart, mapSwipeEnd, mapY);
+    await page.waitForTimeout(500);
+    expect(page.url()).toMatch(/\/trip/);
+  });
 });

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Play, Square, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
-import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, useMap } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
-import L from "leaflet";
+import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
+import type { MapRef } from "react-map-gl/maplibre";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import {
@@ -13,67 +13,13 @@ import {
 } from "@/hooks/useGpsTracking";
 import type { TrackingSession, TrackingBackup } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
+import { isWebGLSupported } from "@/lib/webgl";
+import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
 const DEFAULT_CENTER: [number, number] = [48.8566, 2.3522]; // Paris
-
-function RecenterMap({
-  position,
-  offsetBottom,
-}: {
-  position: [number, number];
-  offsetBottom?: boolean;
-}) {
-  const map = useMap();
-  const lastUpdateRef = useRef(0);
-  useEffect(() => {
-    const now = Date.now();
-    if (now - lastUpdateRef.current < 500) return;
-    lastUpdateRef.current = now;
-
-    if (offsetBottom) {
-      // Offset center so rider appears at ~75% from top (25% from bottom)
-      const size = map.getSize();
-      const targetPoint = map.project(position, map.getZoom());
-      targetPoint.y -= size.y * 0.25;
-      const offsetCenter = map.unproject(targetPoint, map.getZoom());
-      map.setView(offsetCenter, map.getZoom(), { animate: true });
-    } else {
-      map.setView(position, map.getZoom(), { animate: true });
-    }
-  }, [map, position, offsetBottom]);
-  return null;
-}
-
-function createArrowIcon(heading: number) {
-  return L.divIcon({
-    className: "",
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    html: `<svg width="24" height="24" viewBox="0 0 24 24" style="transform:rotate(${heading}deg)">
-      <path d="M12 2 L18 20 L12 16 L6 20 Z" fill="#2ecc71" stroke="#fff" stroke-width="1.5"/>
-    </svg>`,
-  });
-}
-
-function RotateMap({ heading }: { heading: number | null }) {
-  const map = useMap();
-
-  useEffect(() => {
-    const container = map.getContainer();
-    if (heading != null) {
-      container.style.transform = `rotate(${-heading}deg)`;
-      container.style.transformOrigin = "50% 50%";
-      container.style.transition = "transform 0.4s ease-out";
-    } else {
-      container.style.transform = "";
-      container.style.transition = "";
-    }
-  }, [map, heading]);
-
-  return null;
-}
+const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
 export function TripPage() {
   const [uiState, setUiState] = useState<TripState>("idle");
@@ -86,7 +32,13 @@ export function TripPage() {
   );
   const [idleAccuracy, setIdleAccuracy] = useState<number | null>(null);
   const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
+  // True when sessionStorage.setItem threw on stop — user must not close the tab.
+  const [sessionPersistFailed, setSessionPersistFailed] = useState(false);
   const sessionRef = useRef<TrackingSession | null>(null);
+  const trackingMapRef = useRef<MapRef>(null);
+  const idleMapRef = useRef<MapRef>(null);
+  const trackingFlyToRef = useRef(0);
+  const idleFlyToRef = useRef(0);
   const createTrip = useCreateTrip();
   const { data: profileData } = useProfile();
   const gps = useGpsTracking();
@@ -96,6 +48,18 @@ export function TripPage() {
   // auto-restore without prompting so the trip continues seamlessly.
   // If there is no session key (app crash / tab close), show the recovery prompt.
   useEffect(() => {
+    // Restore an unsaved trip that survived navigation (data-loss guard).
+    const stoppedRaw = sessionStorage.getItem("ecoride-stopped-session");
+    if (stoppedRaw) {
+      try {
+        const session = JSON.parse(stoppedRaw) as TrackingSession;
+        sessionRef.current = session;
+        setUiState("stopped");
+      } catch {
+        sessionStorage.removeItem("ecoride-stopped-session");
+      }
+      return;
+    }
     const backup = getTrackingBackup();
     if (!backup) return;
     const sessionStartedAt = getTrackingSession();
@@ -111,7 +75,7 @@ export function TripPage() {
 
   // Fix 1.7: Navigation guard — beforeunload for browser close/refresh
   useEffect(() => {
-    if (uiState !== "tracking") return;
+    if (uiState !== "tracking" && uiState !== "stopped") return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
     };
@@ -145,10 +109,76 @@ export function TripPage() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // Derive map data from GPS state
+  // Derive map data from GPS state (must be before flyTo effects so currentPos is defined)
   const positions: [number, number][] = gps.state.gpsPoints.map((p) => [p.lat, p.lng]);
   const lastPos = positions.length > 0 ? positions[positions.length - 1] : undefined;
   const currentPos: [number, number] = lastPos ?? initialPos;
+
+  // Incremented by each map's onLoad so pending flyTo updates are replayed after map is ready.
+  const [trackingMapLoadSeq, setTrackingMapLoadSeq] = useState(0);
+  const [idleMapLoadSeq, setIdleMapLoadSeq] = useState(0);
+
+  // Fly to current position on tracking map (throttled 500ms).
+  // Throttle is only advanced after a confirmed flyTo — if the map is not yet
+  // ready, we return without consuming the timestamp so the next GPS tick or
+  // the onLoad replay can still execute the move.
+  useEffect(() => {
+    if (uiState !== "tracking") return;
+    const now = Date.now();
+    if (now - trackingFlyToRef.current < 500) return;
+    const map = trackingMapRef.current;
+    if (!map) return; // map not yet mounted; onLoad will replay via trackingMapLoadSeq
+    trackingFlyToRef.current = now;
+    map.flyTo({
+      center: [currentPos[1], currentPos[0]],
+      bearing: gps.state.heading ?? 0,
+      pitch: gps.state.heading != null ? 45 : 0,
+      zoom: 15,
+      duration: 400,
+      padding: { top: 0, bottom: 200, left: 0, right: 0 },
+    });
+    // trackingFlyToRef is a ref (stable) — trackingMapLoadSeq is intentionally listed
+    // so onLoad triggers a replay for GPS updates that arrived before the map was ready.
+  }, [uiState, currentPos[0], currentPos[1], gps.state.heading, trackingMapLoadSeq]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fly to current position on idle map (throttled 500ms).
+  // Same load-race fix as the tracking effect: throttle is only advanced after
+  // a confirmed flyTo so onLoad can replay any update that arrived before mount.
+  useEffect(() => {
+    if (uiState === "tracking") return;
+    const now = Date.now();
+    if (now - idleFlyToRef.current < 500) return;
+    const map = idleMapRef.current;
+    if (!map) return; // map not yet mounted; onLoad will replay via idleMapLoadSeq
+    idleFlyToRef.current = now;
+    map.flyTo({
+      center: [currentPos[1], currentPos[0]],
+      zoom: 15,
+      duration: 400,
+    });
+    // idleFlyToRef is a ref (stable) — idleMapLoadSeq is intentionally listed.
+  }, [uiState, currentPos[0], currentPos[1], idleMapLoadSeq]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const geojsonLine = useMemo(
+    () => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "LineString" as const,
+        coordinates: gps.state.gpsPoints.map((p) => [p.lng, p.lat]),
+      },
+      properties: {},
+    }),
+    [gps.state.gpsPoints],
+  );
+
+  const webGLSupported = useMemo(() => isWebGLSupported(), []);
+  // Tracks runtime WebGL context loss after initial mount.
+  // webGLSupported covers capability at mount; webglLost covers loss during the session.
+  const [webglLost, setWebglLost] = useState(false);
+  // Guards onError: only pre-load errors indicate a non-functional map.
+  // Post-load errors are transient tile failures — MapLibre retries them automatically.
+  const mapStyleReadyRef = useRef(false);
+  const [mapLoadError, setMapLoadError] = useState(false);
 
   const distance =
     uiState === "stopped" && sessionRef.current
@@ -160,6 +190,14 @@ export function TripPage() {
       : gps.state.durationSec;
 
   const startTracking = () => {
+    trackingFlyToRef.current = 0;
+    idleFlyToRef.current = 0;
+    mapStyleReadyRef.current = false;
+    setWebglLost(false);
+    setMapLoadError(false);
+    setSessionPersistFailed(false);
+    // Dismiss any stale crash-recovery banner — the user is starting a new trip.
+    setPendingBackup(null);
     sessionRef.current = null;
     gps.start();
     setUiState("tracking");
@@ -168,12 +206,31 @@ export function TripPage() {
   const stopTracking = () => {
     const session = gps.stop();
     sessionRef.current = session;
+    trackingFlyToRef.current = 0;
+    idleFlyToRef.current = 0;
+    mapStyleReadyRef.current = false;
+    setWebglLost(false);
+    setMapLoadError(false);
+    // Persist session so accidental navigation cannot destroy unsaved trip data.
+    // QuotaExceededError is caught — setUiState("stopped") always runs even if
+    // the write fails; sessionRef.current remains the authoritative in-memory copy.
+    try {
+      sessionStorage.setItem("ecoride-stopped-session", JSON.stringify(session));
+    } catch {
+      // Storage quota exceeded — flag so the stopped panel can warn the user not
+      // to close the tab before saving. sessionRef.current is still valid.
+      setSessionPersistFailed(true);
+    }
     setUiState("stopped");
   };
 
   // Fix 1.3: Restore tracking from backup
   const handleRestore = () => {
     if (!pendingBackup) return;
+    trackingFlyToRef.current = 0;
+    mapStyleReadyRef.current = false;
+    setWebglLost(false);
+    setMapLoadError(false);
     gps.restore(pendingBackup);
     setUiState("tracking");
     setPendingBackup(null);
@@ -209,6 +266,8 @@ export function TripPage() {
     createTrip.mutate(tripData, {
       onSuccess: () => {
         setSaveError("");
+        sessionStorage.removeItem("ecoride-stopped-session");
+        setPendingBackup(null);
         setUiState("idle");
         setManualKm("");
         setManualMinutes("");
@@ -220,7 +279,9 @@ export function TripPage() {
         setSaveError("Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement.");
         // Reset UI to idle after a short delay so the user sees the message
         setTimeout(() => {
+          setPendingBackup(null);
           setUiState("idle");
+          sessionStorage.removeItem("ecoride-stopped-session");
           setManualKm("");
           setManualMinutes("");
           sessionRef.current = null;
@@ -360,45 +421,93 @@ export function TripPage() {
           </div>
 
           {/* Mini map */}
-          <div className="relative min-h-0 flex-1 overflow-hidden" data-testid="tracking-map">
-            <MapContainer
-              center={currentPos as LatLngExpression}
-              zoom={15}
-              zoomControl={false}
-              attributionControl={false}
-              className="h-full w-full"
-              style={{ background: "#232d35" }}
-            >
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-              />
-              {positions.length > 1 && (
-                <Polyline
-                  positions={positions as LatLngExpression[]}
-                  pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
-                />
-              )}
-              {gps.state.heading != null ? (
-                <Marker
-                  position={currentPos as LatLngExpression}
-                  icon={createArrowIcon(gps.state.heading)}
-                />
-              ) : (
-                <CircleMarker
-                  center={currentPos as LatLngExpression}
-                  radius={8}
-                  pathOptions={{
-                    fillColor: "#2ecc71",
-                    fillOpacity: 1,
-                    color: "#ffffff",
-                    weight: 2,
+          <div
+            className="relative min-h-0 flex-1 overflow-hidden"
+            data-testid="tracking-map"
+            data-heading={gps.state.heading ?? 0}
+          >
+            {webGLSupported ? (
+              <>
+                <Map
+                  ref={trackingMapRef}
+                  initialViewState={{
+                    longitude: currentPos[1],
+                    latitude: currentPos[0],
+                    zoom: 15,
+                    bearing: gps.state.heading ?? 0,
+                    pitch: gps.state.heading != null ? 45 : 0,
                   }}
-                />
-              )}
-              <RecenterMap position={currentPos} offsetBottom />
-              <RotateMap heading={gps.state.heading} />
-            </MapContainer>
+                  mapStyle={MAP_STYLE}
+                  attributionControl={false}
+                  style={{ width: "100%", height: "100%" }}
+                  onLoad={(e) => {
+                    mapStyleReadyRef.current = true;
+                    setMapLoadError(false);
+                    // Bump load sequence to replay any GPS update that arrived before
+                    // the map was ready. Also resets stale WebGL-loss state.
+                    setTrackingMapLoadSeq((s) => s + 1);
+                    setWebglLost(false);
+                    const m = e.target;
+                    m.on("webglcontextlost", () => setWebglLost(true));
+                    m.on("webglcontextrestored", () => setWebglLost(false));
+                  }}
+                  onError={() => {
+                    // Only show fallback for pre-load failures (style/sprites/glyphs).
+                    // Post-load tile errors are transient — MapLibre retries them.
+                    if (!mapStyleReadyRef.current) setMapLoadError(true);
+                  }}
+                >
+                  {positions.length > 1 && (
+                    <Source type="geojson" data={geojsonLine}>
+                      <Layer
+                        type="line"
+                        paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                        layout={{ "line-cap": "round", "line-join": "round" }}
+                      />
+                    </Source>
+                  )}
+                  <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
+                    {gps.state.heading != null ? (
+                      <div
+                        style={{
+                          width: 24,
+                          height: 24,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24">
+                          <path
+                            d="M12 2 L18 20 L12 16 L6 20 Z"
+                            fill="#2ecc71"
+                            stroke="#fff"
+                            strokeWidth="1.5"
+                          />
+                        </svg>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: "50%",
+                          background: "#2ecc71",
+                          border: "2px solid #ffffff",
+                        }}
+                      />
+                    )}
+                  </Marker>
+                </Map>
+                {(webglLost || mapLoadError) && (
+                  <div className="absolute inset-0">
+                    <MapNoWebGL />
+                  </div>
+                )}
+              </>
+            ) : (
+              <MapNoWebGL />
+            )}
           </div>
         </>
       )}
@@ -406,42 +515,69 @@ export function TripPage() {
       {/* === IDLE / STOPPED / MANUAL: full map === */}
       {uiState !== "tracking" && (
         <div className="relative min-h-0 flex-1">
-          <MapContainer
-            center={currentPos as LatLngExpression}
-            zoom={15}
-            zoomControl={false}
-            attributionControl={false}
-            className="h-full w-full"
-            style={{ background: "#232d35" }}
-          >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            />
-            {positions.length > 1 && (
-              <Polyline
-                positions={positions as LatLngExpression[]}
-                pathOptions={{ color: "#2ecc71", weight: 4, opacity: 0.9 }}
-              />
-            )}
-            <CircleMarker
-              center={currentPos as LatLngExpression}
-              radius={8}
-              pathOptions={{
-                fillColor: "#2ecc71",
-                fillOpacity: 1,
-                color: "#ffffff",
-                weight: 2,
-              }}
-            />
-            <RecenterMap position={currentPos} />
-          </MapContainer>
+          {webGLSupported ? (
+            <>
+              <Map
+                ref={idleMapRef}
+                initialViewState={{
+                  longitude: currentPos[1],
+                  latitude: currentPos[0],
+                  zoom: 15,
+                  bearing: 0,
+                  pitch: 0,
+                }}
+                mapStyle={MAP_STYLE}
+                attributionControl={false}
+                style={{ width: "100%", height: "100%" }}
+                onLoad={(e) => {
+                  mapStyleReadyRef.current = true;
+                  setMapLoadError(false);
+                  setIdleMapLoadSeq((s) => s + 1);
+                  setWebglLost(false);
+                  const m = e.target;
+                  m.on("webglcontextlost", () => setWebglLost(true));
+                  m.on("webglcontextrestored", () => setWebglLost(false));
+                }}
+                onError={() => {
+                  if (!mapStyleReadyRef.current) setMapLoadError(true);
+                }}
+              >
+                {positions.length > 1 && (
+                  <Source type="geojson" data={geojsonLine}>
+                    <Layer
+                      type="line"
+                      paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                      layout={{ "line-cap": "round", "line-join": "round" }}
+                    />
+                  </Source>
+                )}
+                <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "#2ecc71",
+                      border: "2px solid #ffffff",
+                    }}
+                  />
+                </Marker>
+              </Map>
+              {(webglLost || mapLoadError) && (
+                <div className="absolute inset-0">
+                  <MapNoWebGL />
+                </div>
+              )}
+            </>
+          ) : (
+            <MapNoWebGL />
+          )}
         </div>
       )}
 
       {/* Stopped summary */}
       {uiState === "stopped" && (
-        <div className="space-y-4 px-6 pb-4">
+        <div className="space-y-4 px-6 pb-4" data-no-swipe>
           <div className="rounded-xl bg-surface-container p-6">
             <h2 className="mb-4 text-lg font-bold">Trajet terminé</h2>
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -462,6 +598,8 @@ export function TripPage() {
               <button
                 onClick={() => {
                   if (window.confirm("Abandonner ce trajet ? Les données seront perdues.")) {
+                    setPendingBackup(null);
+                    sessionStorage.removeItem("ecoride-stopped-session");
                     setUiState("idle");
                     sessionRef.current = null;
                     gps.reset();
@@ -484,6 +622,17 @@ export function TripPage() {
                 {createTrip.isPending ? "..." : "Enregistrer"}
               </button>
             </div>
+            {sessionPersistFailed && (
+              <div className="mt-4 rounded-xl bg-danger/10 p-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle size={16} className="shrink-0 text-danger" />
+                  <span className="text-sm font-medium text-danger">
+                    Session non sauvegardée localement (stockage insuffisant). Enregistrez le trajet
+                    avant de fermer cet onglet.
+                  </span>
+                </div>
+              </div>
+            )}
             {saveError && (
               <div className="mt-4 rounded-xl bg-primary/10 p-4">
                 <div className="flex items-center gap-3">

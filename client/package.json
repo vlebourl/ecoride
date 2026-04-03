@@ -6,7 +6,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bunx vitest run",
+    "test:coverage": "bunx vitest run --coverage"
   },
   "dependencies": {
     "@ecoride/shared": "workspace:*",

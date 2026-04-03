@@ -32,6 +32,8 @@ export function TripPage() {
   );
   const [idleAccuracy, setIdleAccuracy] = useState<number | null>(null);
   const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
+  // True when sessionStorage.setItem threw on stop — user must not close the tab.
+  const [sessionPersistFailed, setSessionPersistFailed] = useState(false);
   const sessionRef = useRef<TrackingSession | null>(null);
   const trackingMapRef = useRef<MapRef>(null);
   const idleMapRef = useRef<MapRef>(null);
@@ -193,6 +195,9 @@ export function TripPage() {
     mapStyleReadyRef.current = false;
     setWebglLost(false);
     setMapLoadError(false);
+    setSessionPersistFailed(false);
+    // Dismiss any stale crash-recovery banner — the user is starting a new trip.
+    setPendingBackup(null);
     sessionRef.current = null;
     gps.start();
     setUiState("tracking");
@@ -212,8 +217,9 @@ export function TripPage() {
     try {
       sessionStorage.setItem("ecoride-stopped-session", JSON.stringify(session));
     } catch {
-      // Storage quota exceeded — recovery via sessionStorage unavailable for this
-      // session, but the user can still save/discard via sessionRef.current.
+      // Storage quota exceeded — flag so the stopped panel can warn the user not
+      // to close the tab before saving. sessionRef.current is still valid.
+      setSessionPersistFailed(true);
     }
     setUiState("stopped");
   };
@@ -261,6 +267,7 @@ export function TripPage() {
       onSuccess: () => {
         setSaveError("");
         sessionStorage.removeItem("ecoride-stopped-session");
+        setPendingBackup(null);
         setUiState("idle");
         setManualKm("");
         setManualMinutes("");
@@ -272,6 +279,7 @@ export function TripPage() {
         setSaveError("Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement.");
         // Reset UI to idle after a short delay so the user sees the message
         setTimeout(() => {
+          setPendingBackup(null);
           setUiState("idle");
           sessionStorage.removeItem("ecoride-stopped-session");
           setManualKm("");
@@ -590,6 +598,7 @@ export function TripPage() {
               <button
                 onClick={() => {
                   if (window.confirm("Abandonner ce trajet ? Les données seront perdues.")) {
+                    setPendingBackup(null);
                     sessionStorage.removeItem("ecoride-stopped-session");
                     setUiState("idle");
                     sessionRef.current = null;
@@ -613,6 +622,17 @@ export function TripPage() {
                 {createTrip.isPending ? "..." : "Enregistrer"}
               </button>
             </div>
+            {sessionPersistFailed && (
+              <div className="mt-4 rounded-xl bg-danger/10 p-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle size={16} className="shrink-0 text-danger" />
+                  <span className="text-sm font-medium text-danger">
+                    Session non sauvegardée localement (stockage insuffisant). Enregistrez le trajet
+                    avant de fermer cet onglet.
+                  </span>
+                </div>
+              </div>
+            )}
             {saveError && (
               <div className="mt-4 rounded-xl bg-primary/10 p-4">
                 <div className="flex items-center gap-3">

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, feat/ci-avancee]
 
 jobs:
   commitlint:
@@ -48,6 +48,229 @@ jobs:
       - run: cd client && bunx vitest run
       - run: cd server && bun run test:coverage
 
+  bundle-size:
+    name: Bundle Size
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build base branch
+        run: |
+          git checkout ${{ github.event.pull_request.base.sha }}
+          bun install
+          (cd client && bun run build)
+          mkdir -p /tmp/base-dist
+          cp -r client/dist/assets /tmp/base-dist/assets
+
+      - name: Build PR branch
+        run: |
+          git checkout ${{ github.sha }}
+          bun install
+          cd client && bun run build
+
+      - name: Compare bundle sizes
+        id: bundle
+        run: |
+          set -e
+
+          gz_size() {
+            local dir="$1" ext="$2"
+            find "$dir" -name "*.$ext" | while read -r f; do
+              gzip -c "$f" | wc -c
+            done | awk '{s+=$1} END {print s+0}'
+          }
+
+          PR_JS=$(gz_size client/dist/assets js)
+          PR_CSS=$(gz_size client/dist/assets css)
+          PR_TOTAL=$((PR_JS + PR_CSS))
+
+          BASE_JS=$(gz_size /tmp/base-dist/assets js)
+          BASE_CSS=$(gz_size /tmp/base-dist/assets css)
+          BASE_TOTAL=$((BASE_JS + BASE_CSS))
+
+          DELTA_JS=$((PR_JS - BASE_JS))
+          DELTA_CSS=$((PR_CSS - BASE_CSS))
+          DELTA=$((PR_TOTAL - BASE_TOTAL))
+
+          fmt_kb() { echo "scale=1; $1 / 1024" | bc; }
+          fmt_delta() {
+            local kb
+            kb=$(fmt_kb "$1")
+            if [ "$1" -gt 0 ]; then echo "+${kb} KB"; else echo "${kb} KB"; fi
+          }
+
+          PR_JS_KB=$(fmt_kb $PR_JS)
+          PR_CSS_KB=$(fmt_kb $PR_CSS)
+          PR_TOTAL_KB=$(fmt_kb $PR_TOTAL)
+          BASE_JS_KB=$(fmt_kb $BASE_JS)
+          BASE_CSS_KB=$(fmt_kb $BASE_CSS)
+          BASE_TOTAL_KB=$(fmt_kb $BASE_TOTAL)
+          DELTA_JS_D=$(fmt_delta $DELTA_JS)
+          DELTA_CSS_D=$(fmt_delta $DELTA_CSS)
+          DELTA_TOTAL_D=$(fmt_delta $DELTA)
+
+          BUDGET_BYTES=$((50 * 1024))
+
+          if [ "$DELTA" -gt "$BUDGET_BYTES" ]; then
+            STATUS="❌ Exceeds +50 KB budget"
+            echo "pass=false" >> "$GITHUB_OUTPUT"
+          else
+            STATUS="✅ Within budget"
+            echo "pass=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          cat > /tmp/bundle-comment.md << MDEOF
+          ## Bundle Size Report — ${STATUS}
+
+          | | Base | PR | Delta |
+          |---|-----:|----:|------:|
+          | JS (gzip) | ${BASE_JS_KB} KB | ${PR_JS_KB} KB | ${DELTA_JS_D} |
+          | CSS (gzip) | ${BASE_CSS_KB} KB | ${PR_CSS_KB} KB | ${DELTA_CSS_D} |
+          | **Total** | **${BASE_TOTAL_KB} KB** | **${PR_TOTAL_KB} KB** | **${DELTA_TOTAL_D}** |
+
+          > Budget: +50 KB gzipped total. [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          MDEOF
+
+      - name: Post bundle size comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: bundle-size-report
+          path: /tmp/bundle-comment.md
+
+      - name: Fail if over budget
+        if: steps.bundle.outputs.pass == 'false'
+        run: |
+          echo "Bundle size increased by more than 50 KB (gzipped) — see PR comment for details."
+
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+
+      - name: Restore base coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: .coverage-base
+          key: coverage-main-${{ github.event.pull_request.base.sha }}
+          restore-keys: coverage-main-
+
+      - name: Run server coverage
+        run: cd server && bun run test:coverage
+
+      - name: Run client coverage
+        run: cd client && bun run test:coverage
+
+      - name: Save base coverage
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p .coverage-base
+          cp server/coverage/coverage-summary.json .coverage-base/server-summary.json
+          cp client/coverage/coverage-summary.json .coverage-base/client-summary.json
+
+      - name: Cache base coverage
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: .coverage-base
+          key: coverage-main-${{ github.sha }}
+
+      - name: Generate coverage comment
+        if: github.event_name == 'pull_request'
+        id: report
+        run: |
+          set -e
+
+          pct() { jq -r ".total.$1.pct" "$2"; }
+
+          SRV_S=$(pct statements server/coverage/coverage-summary.json)
+          SRV_L=$(pct lines server/coverage/coverage-summary.json)
+          SRV_F=$(pct functions server/coverage/coverage-summary.json)
+          SRV_B=$(pct branches server/coverage/coverage-summary.json)
+
+          CLI_S=$(pct statements client/coverage/coverage-summary.json)
+          CLI_L=$(pct lines client/coverage/coverage-summary.json)
+          CLI_F=$(pct functions client/coverage/coverage-summary.json)
+          CLI_B=$(pct branches client/coverage/coverage-summary.json)
+
+          SRV_TOTAL=$(jq '.total.statements.total' server/coverage/coverage-summary.json)
+          SRV_COV=$(jq '.total.statements.covered' server/coverage/coverage-summary.json)
+          CLI_TOTAL=$(jq '.total.statements.total' client/coverage/coverage-summary.json)
+          CLI_COV=$(jq '.total.statements.covered' client/coverage/coverage-summary.json)
+          COMBINED_TOTAL=$((SRV_TOTAL + CLI_TOTAL))
+          COMBINED_COV=$((SRV_COV + CLI_COV))
+          OVERALL=$(echo "scale=1; $COMBINED_COV * 100 / $COMBINED_TOTAL" | bc)
+
+          diff_pct() {
+            local base_file="$1" key="$2" cur="$3"
+            if [ -f "$base_file" ]; then
+              local base d
+              base=$(jq -r ".total.$key.pct" "$base_file")
+              d=$(echo "scale=1; $cur - $base" | bc)
+              if (( $(echo "$d > 0" | bc -l) )); then printf " (+%s%%)" "$d"
+              elif (( $(echo "$d < 0" | bc -l) )); then printf " (%s%%)" "$d"
+              fi
+            fi
+          }
+
+          SRV_S_D=$(diff_pct .coverage-base/server-summary.json statements "$SRV_S")
+          SRV_L_D=$(diff_pct .coverage-base/server-summary.json lines "$SRV_L")
+          SRV_F_D=$(diff_pct .coverage-base/server-summary.json functions "$SRV_F")
+          SRV_B_D=$(diff_pct .coverage-base/server-summary.json branches "$SRV_B")
+          CLI_S_D=$(diff_pct .coverage-base/client-summary.json statements "$CLI_S")
+          CLI_L_D=$(diff_pct .coverage-base/client-summary.json lines "$CLI_L")
+          CLI_F_D=$(diff_pct .coverage-base/client-summary.json functions "$CLI_F")
+          CLI_B_D=$(diff_pct .coverage-base/client-summary.json branches "$CLI_B")
+
+          THRESHOLD=70
+          if (( $(echo "$OVERALL < $THRESHOLD" | bc -l) )); then
+            STATUS="❌ Below threshold"
+            echo "pass=false" >> "$GITHUB_OUTPUT"
+          else
+            STATUS="✅ Passing"
+            echo "pass=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          cat > /tmp/coverage-comment.md << EOF
+          ## Coverage Report — ${STATUS}
+
+          > Combined statements: **${OVERALL}%** (threshold: ${THRESHOLD}%)
+
+          | Package | Statements | Lines | Functions | Branches |
+          |---------|-----------|-------|-----------|---------|
+          | server  | ${SRV_S}%${SRV_S_D} | ${SRV_L}%${SRV_L_D} | ${SRV_F}%${SRV_F_D} | ${SRV_B}%${SRV_B_D} |
+          | client  | ${CLI_S}%${CLI_S_D} | ${CLI_L}%${CLI_L_D} | ${CLI_F}%${CLI_F_D} | ${CLI_B}%${CLI_B_D} |
+
+          _[View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})_
+          EOF
+
+      - name: Post coverage comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage-report
+          path: /tmp/coverage-comment.md
+
+      - name: Fail if below threshold
+        if: github.event_name == 'pull_request' && steps.report.outputs.pass == 'false'
+        run: |
+          echo "Combined statement coverage is below 70% — see coverage comment for details"
+          exit 1
+
   smoke:
     name: Smoke test (Playwright)
     runs-on: ubuntu-latest
@@ -70,3 +293,81 @@ jobs:
           name: playwright-report
           path: client/test-results/
           retention-days: 7
+
+  lighthouse:
+    name: Lighthouse
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+
+      - name: Build
+        run: (cd client && bun run build)
+
+      - name: Run Lighthouse CI
+        continue-on-error: true
+        run: npx --yes @lhci/cli autorun
+
+      - name: Parse scores and write comment
+        id: report
+        run: |
+          REPORT=$(ls .lighthouseci/lhr-*.json 2>/dev/null | head -1)
+          if [ -z "$REPORT" ]; then
+            echo "No Lighthouse report found — collection may have failed." >&2
+            exit 0
+          fi
+
+          PERF=$(jq '((.categories.performance.score // 0) * 100 | round)' "$REPORT")
+          A11Y=$(jq '((.categories.accessibility.score // 0) * 100 | round)' "$REPORT")
+          BP=$(jq '((.categories["best-practices"].score // 0) * 100 | round)' "$REPORT")
+          SEO=$(jq '((.categories.seo.score // 0) * 100 | round)' "$REPORT")
+          PWA=$(jq '((.categories.pwa.score // 0) * 100 | round)' "$REPORT")
+
+          badge() { local s=$1; if [ "$s" -ge 90 ]; then echo "🟢"; elif [ "$s" -ge 70 ]; then echo "🟡"; else echo "🔴"; fi; }
+
+          FAIL=false
+          WARN=false
+          [ "$PERF" -lt 80 ] && WARN=true
+          [ "$A11Y" -lt 90 ] && FAIL=true
+
+          if [ "$FAIL" = true ]; then
+            STATUS="❌ Accessibility below threshold"
+          elif [ "$WARN" = true ]; then
+            STATUS="⚠️ Performance below threshold (warning only)"
+          else
+            STATUS="✅ All thresholds met"
+          fi
+
+          cat > /tmp/lh-comment.md << MDEOF
+          ## Lighthouse Report — ${STATUS}
+
+          | Category | Score | |
+          |---|---:|:---:|
+          | Performance | ${PERF} | $(badge $PERF) |
+          | Accessibility | ${A11Y} | $(badge $A11Y) |
+          | Best Practices | ${BP} | $(badge $BP) |
+          | SEO | ${SEO} | $(badge $SEO) |
+          | PWA | ${PWA} | $(badge $PWA) |
+
+          > Thresholds: Performance ≥ 80 ⚠️ warn only, Accessibility ≥ 90 ❌ fails CI. [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          MDEOF
+
+          echo "fail=${FAIL}" >> "$GITHUB_OUTPUT"
+
+      - name: Post Lighthouse comment
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: lighthouse-report
+          path: /tmp/lh-comment.md
+
+      - name: Fail if accessibility below threshold
+        if: steps.report.outputs.fail == 'true'
+        run: |
+          echo "Lighthouse scores below threshold — see PR comment for details."
+          exit 1

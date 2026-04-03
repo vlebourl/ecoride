@@ -12,6 +12,7 @@ export default defineConfig({
     exclude: ["node_modules/**"],
     coverage: {
       provider: "v8",
+      reporter: ["text", "json-summary"],
       include: ["src/lib/**"],
       thresholds: {
         statements: 80,

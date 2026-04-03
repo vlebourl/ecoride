@@ -69,7 +69,17 @@ function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, numbe
 }
 
 function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
-  const coordinates = gpsPoints.map((p) => [p.lng, p.lat] as [number, number]);
+  const geojsonLine = useMemo(
+    () => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "LineString" as const,
+        coordinates: gpsPoints.map((p) => [p.lng, p.lat] as [number, number]),
+      },
+      properties: {},
+    }),
+    [gpsPoints],
+  );
   const lngs = gpsPoints.map((p) => p.lng);
   const lats = gpsPoints.map((p) => p.lat);
   const bounds: [[number, number], [number, number]] = [
@@ -78,15 +88,6 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
   ];
   const centerLng = (bounds[0][0] + bounds[1][0]) / 2;
   const centerLat = (bounds[0][1] + bounds[1][1]) / 2;
-
-  const geojsonLine = {
-    type: "Feature" as const,
-    geometry: {
-      type: "LineString" as const,
-      coordinates,
-    },
-    properties: {},
-  };
 
   return (
     <div className="mb-4 h-48 rounded-xl overflow-hidden">

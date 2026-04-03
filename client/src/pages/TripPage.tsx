@@ -46,6 +46,18 @@ export function TripPage() {
   // auto-restore without prompting so the trip continues seamlessly.
   // If there is no session key (app crash / tab close), show the recovery prompt.
   useEffect(() => {
+    // Restore an unsaved trip that survived navigation (data-loss guard).
+    const stoppedRaw = localStorage.getItem("ecoride-stopped-session");
+    if (stoppedRaw) {
+      try {
+        const session = JSON.parse(stoppedRaw) as TrackingSession;
+        sessionRef.current = session;
+        setUiState("stopped");
+      } catch {
+        localStorage.removeItem("ecoride-stopped-session");
+      }
+      return;
+    }
     const backup = getTrackingBackup();
     if (!backup) return;
     const sessionStartedAt = getTrackingSession();
@@ -61,7 +73,7 @@ export function TripPage() {
 
   // Fix 1.7: Navigation guard — beforeunload for browser close/refresh
   useEffect(() => {
-    if (uiState !== "tracking") return;
+    if (uiState !== "tracking" && uiState !== "stopped") return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
     };
@@ -161,6 +173,10 @@ export function TripPage() {
   // Tracks runtime WebGL context loss after initial mount.
   // webGLSupported covers capability at mount; webglLost covers loss during the session.
   const [webglLost, setWebglLost] = useState(false);
+  // Guards onError: only pre-load errors indicate a non-functional map.
+  // Post-load errors are transient tile failures — MapLibre retries them automatically.
+  const mapStyleReadyRef = useRef(false);
+  const [mapLoadError, setMapLoadError] = useState(false);
 
   const distance =
     uiState === "stopped" && sessionRef.current
@@ -172,6 +188,11 @@ export function TripPage() {
       : gps.state.durationSec;
 
   const startTracking = () => {
+    trackingFlyToRef.current = 0;
+    idleFlyToRef.current = 0;
+    mapStyleReadyRef.current = false;
+    setWebglLost(false);
+    setMapLoadError(false);
     sessionRef.current = null;
     gps.start();
     setUiState("tracking");
@@ -180,12 +201,23 @@ export function TripPage() {
   const stopTracking = () => {
     const session = gps.stop();
     sessionRef.current = session;
+    trackingFlyToRef.current = 0;
+    idleFlyToRef.current = 0;
+    mapStyleReadyRef.current = false;
+    setWebglLost(false);
+    setMapLoadError(false);
+    // Persist session so accidental navigation cannot destroy unsaved trip data.
+    localStorage.setItem("ecoride-stopped-session", JSON.stringify(session));
     setUiState("stopped");
   };
 
   // Fix 1.3: Restore tracking from backup
   const handleRestore = () => {
     if (!pendingBackup) return;
+    trackingFlyToRef.current = 0;
+    mapStyleReadyRef.current = false;
+    setWebglLost(false);
+    setMapLoadError(false);
     gps.restore(pendingBackup);
     setUiState("tracking");
     setPendingBackup(null);
@@ -221,6 +253,7 @@ export function TripPage() {
     createTrip.mutate(tripData, {
       onSuccess: () => {
         setSaveError("");
+        localStorage.removeItem("ecoride-stopped-session");
         setUiState("idle");
         setManualKm("");
         setManualMinutes("");
@@ -233,6 +266,7 @@ export function TripPage() {
         // Reset UI to idle after a short delay so the user sees the message
         setTimeout(() => {
           setUiState("idle");
+          localStorage.removeItem("ecoride-stopped-session");
           setManualKm("");
           setManualMinutes("");
           sessionRef.current = null;
@@ -392,6 +426,8 @@ export function TripPage() {
                   attributionControl={false}
                   style={{ width: "100%", height: "100%" }}
                   onLoad={(e) => {
+                    mapStyleReadyRef.current = true;
+                    setMapLoadError(false);
                     // Bump load sequence to replay any GPS update that arrived before
                     // the map was ready. Also resets stale WebGL-loss state.
                     setTrackingMapLoadSeq((s) => s + 1);
@@ -399,6 +435,11 @@ export function TripPage() {
                     const m = e.target;
                     m.on("webglcontextlost", () => setWebglLost(true));
                     m.on("webglcontextrestored", () => setWebglLost(false));
+                  }}
+                  onError={() => {
+                    // Only show fallback for pre-load failures (style/sprites/glyphs).
+                    // Post-load tile errors are transient — MapLibre retries them.
+                    if (!mapStyleReadyRef.current) setMapLoadError(true);
                   }}
                 >
                   {positions.length > 1 && (
@@ -443,7 +484,7 @@ export function TripPage() {
                     )}
                   </Marker>
                 </Map>
-                {webglLost && (
+                {(webglLost || mapLoadError) && (
                   <div className="absolute inset-0">
                     <MapNoWebGL />
                   </div>
@@ -474,11 +515,16 @@ export function TripPage() {
                 attributionControl={false}
                 style={{ width: "100%", height: "100%" }}
                 onLoad={(e) => {
+                  mapStyleReadyRef.current = true;
+                  setMapLoadError(false);
                   setIdleMapLoadSeq((s) => s + 1);
                   setWebglLost(false);
                   const m = e.target;
                   m.on("webglcontextlost", () => setWebglLost(true));
                   m.on("webglcontextrestored", () => setWebglLost(false));
+                }}
+                onError={() => {
+                  if (!mapStyleReadyRef.current) setMapLoadError(true);
                 }}
               >
                 {positions.length > 1 && (
@@ -502,7 +548,7 @@ export function TripPage() {
                   />
                 </Marker>
               </Map>
-              {webglLost && (
+              {(webglLost || mapLoadError) && (
                 <div className="absolute inset-0">
                   <MapNoWebGL />
                 </div>
@@ -516,7 +562,7 @@ export function TripPage() {
 
       {/* Stopped summary */}
       {uiState === "stopped" && (
-        <div className="space-y-4 px-6 pb-4">
+        <div className="space-y-4 px-6 pb-4" data-no-swipe>
           <div className="rounded-xl bg-surface-container p-6">
             <h2 className="mb-4 text-lg font-bold">Trajet terminé</h2>
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -537,6 +583,7 @@ export function TripPage() {
               <button
                 onClick={() => {
                   if (window.confirm("Abandonner ce trajet ? Les données seront perdues.")) {
+                    localStorage.removeItem("ecoride-stopped-session");
                     setUiState("idle");
                     sessionRef.current = null;
                     gps.reset();

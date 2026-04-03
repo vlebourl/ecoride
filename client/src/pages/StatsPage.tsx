@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
@@ -73,6 +73,8 @@ function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, numbe
 function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
   const webGLSupported = isWebGLSupported();
   const [webglLost, setWebglLost] = useState(false);
+  const mapStyleReadyRef = useRef(false);
+  const [mapLoadError, setMapLoadError] = useState(false);
   const geojsonLine = useMemo(
     () => ({
       type: "Feature" as const,
@@ -84,14 +86,24 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
     }),
     [gpsPoints],
   );
-  const lngs = gpsPoints.map((p) => p.lng);
-  const lats = gpsPoints.map((p) => p.lat);
+  // Single-pass bounds computation: avoids Math.min/max spread which throws
+  // RangeError when trips exceed ~65k GPS points (JS call-stack limit).
+  let minLng = Infinity,
+    maxLng = -Infinity,
+    minLat = Infinity,
+    maxLat = -Infinity;
+  for (const p of gpsPoints) {
+    if (p.lng < minLng) minLng = p.lng;
+    if (p.lng > maxLng) maxLng = p.lng;
+    if (p.lat < minLat) minLat = p.lat;
+    if (p.lat > maxLat) maxLat = p.lat;
+  }
   const bounds: [[number, number], [number, number]] = [
-    [Math.min(...lngs), Math.min(...lats)],
-    [Math.max(...lngs), Math.max(...lats)],
+    [minLng, minLat],
+    [maxLng, maxLat],
   ];
-  const centerLng = (bounds[0][0] + bounds[1][0]) / 2;
-  const centerLat = (bounds[0][1] + bounds[1][1]) / 2;
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
 
   return (
     <div className="relative mb-4 h-48 overflow-hidden rounded-xl">
@@ -111,10 +123,15 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
             touchZoomRotate={false}
             style={{ width: "100%", height: "100%" }}
             onLoad={(e) => {
+              mapStyleReadyRef.current = true;
+              setMapLoadError(false);
               setWebglLost(false);
               const m = e.target;
               m.on("webglcontextlost", () => setWebglLost(true));
               m.on("webglcontextrestored", () => setWebglLost(false));
+            }}
+            onError={() => {
+              if (!mapStyleReadyRef.current) setMapLoadError(true);
             }}
           >
             <Source type="geojson" data={geojsonLine}>
@@ -126,7 +143,7 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
             </Source>
             <FitBoundsOnLoad bounds={bounds} />
           </Map>
-          {webglLost && (
+          {(webglLost || mapLoadError) && (
             <div className="absolute inset-0">
               <MapNoWebGL />
             </div>

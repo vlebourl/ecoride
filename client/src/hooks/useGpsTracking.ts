@@ -94,7 +94,9 @@ function reducer(state: TrackingState, action: Action): TrackingState {
     case "TICK":
       return { ...state, durationSec: state.durationSec + 1 };
     case "ERROR":
-      return { ...state, error: action.message };
+      // Clear heading on GPS loss so the map reverts to north-up
+      // instead of staying rotated to a stale direction.
+      return { ...state, error: action.message, heading: null };
     case "RESTORE":
       return {
         isTracking: true,

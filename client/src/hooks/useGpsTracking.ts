@@ -13,6 +13,7 @@ const TIMEOUT_RETRY_DELAY_MS = 3_000;
 
 export interface TrackingState {
   isTracking: boolean;
+  isPaused: boolean;
   distanceKm: number;
   durationSec: number;
   gpsPoints: GpsPoint[];
@@ -40,6 +41,8 @@ export interface TrackingBackup {
 type Action =
   | { type: "START" }
   | { type: "STOP" }
+  | { type: "PAUSE" }
+  | { type: "RESUME" }
   | {
       type: "GPS_POINT";
       point: GpsPoint;
@@ -53,6 +56,7 @@ type Action =
 
 const initial: TrackingState = {
   isTracking: false,
+  isPaused: false,
   distanceKm: 0,
   durationSec: 0,
   gpsPoints: [],
@@ -65,9 +69,22 @@ const initial: TrackingState = {
 function reducer(state: TrackingState, action: Action): TrackingState {
   switch (action.type) {
     case "START":
-      return { ...initial, isTracking: true, lastAccuracy: null, speedKmh: null, heading: null };
+      return {
+        ...initial,
+        isTracking: true,
+        isPaused: false,
+        lastAccuracy: null,
+        speedKmh: null,
+        heading: null,
+      };
     case "STOP":
-      return { ...state, isTracking: false };
+      return { ...state, isTracking: false, isPaused: false };
+    case "PAUSE":
+      // Preserve all accumulated data; GPS watch and timer stop via the effect.
+      return { ...state, isPaused: true, error: null };
+    case "RESUME":
+      // GPS watch and timer restart via the effect when isPaused flips to false.
+      return { ...state, isPaused: false, error: null };
     case "GPS_POINT": {
       const points = [...state.gpsPoints, action.point];
       let added = 0;
@@ -100,6 +117,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
     case "RESTORE":
       return {
         isTracking: true,
+        isPaused: false,
         gpsPoints: action.backup.gpsPoints,
         distanceKm: action.backup.distanceKm,
         durationSec: action.backup.durationSec,
@@ -299,12 +317,17 @@ export function useGpsTracking() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isTracking, saveBackup]);
 
-  // Start/stop GPS watch, timer, wake lock, and backup based on isTracking state.
-  // Only depends on state.isTracking — other refs are stable across renders.
+  // Start/stop GPS watch, timer, wake lock, and backup based on isTracking+isPaused state.
+  // Runs when either flag changes:
+  //   isTracking true + isPaused false  → start GPS watch, timer, backup
+  //   isPaused becomes true             → cleanup (watch+timer stop; distance/duration frozen)
+  //   isPaused becomes false (resume)   → restart watch+timer from current accumulated state
+  //   isTracking becomes false          → cleanup
 
   useEffect(() => {
-    if (!state.isTracking) return;
+    if (!state.isTracking || state.isPaused) return;
 
+    retryCountRef.current = 0; // Reset retry counter on (re)start / resume
     wakeLock.request();
 
     // GPS watch
@@ -333,7 +356,7 @@ export function useGpsTracking() {
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
 
-    // Timer
+    // Timer — only ticks when active (not paused), so durationSec reflects active time only.
     const timer = setInterval(() => dispatch({ type: "TICK" }), 1000);
 
     // Backup
@@ -348,7 +371,8 @@ export function useGpsTracking() {
       clearInterval(backupTimer);
       wakeLock.release();
     };
-  }, [state.isTracking]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isTracking, state.isPaused]);
 
   /** Restore tracking from a backup (called externally by TripPage). */
   const restore = useCallback((backup: TrackingBackup) => {
@@ -372,6 +396,18 @@ export function useGpsTracking() {
     // Previously restore() started its own GPS/timers which caused double-tick.
     dispatch({ type: "RESTORE", backup });
     clearTrackingBackup();
+  }, []);
+
+  /** Pause the trip — GPS watch and timer stop; accumulated data is preserved. */
+  const pause = useCallback(() => {
+    // Flush backup immediately so data isn't lost if the browser kills the tab while paused.
+    saveBackup();
+    dispatch({ type: "PAUSE" });
+  }, [saveBackup]);
+
+  /** Resume after a pause — GPS watch and timer restart via the effect. */
+  const resume = useCallback(() => {
+    dispatch({ type: "RESUME" });
   }, []);
 
   const stop = useCallback((): TrackingSession => {
@@ -408,7 +444,7 @@ export function useGpsTracking() {
     }
   }, [cleanup, wakeLock]);
 
-  // Cleanup is now handled by the isTracking effect above
+  // Cleanup is now handled by the isTracking/isPaused effect above
 
-  return { state, start, stop, reset, restore };
+  return { state, start, stop, reset, restore, pause, resume };
 }

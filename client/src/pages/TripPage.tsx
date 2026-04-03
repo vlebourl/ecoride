@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Play, Square, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
+import { Play, Square, Pause, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -392,10 +392,21 @@ export function TripPage() {
         <>
           {/* Speed — hero central */}
           <div className="flex flex-col items-center py-6">
-            <span className="text-7xl font-black tracking-tighter text-text">
-              {gps.state.speedKmh != null ? gps.state.speedKmh.toFixed(0) : "—"}
+            {gps.state.isPaused ? (
+              <span
+                className="text-5xl font-black tracking-tighter text-warning"
+                aria-label="Trajet en pause"
+              >
+                PAUSÉ
+              </span>
+            ) : (
+              <span className="text-7xl font-black tracking-tighter text-text">
+                {gps.state.speedKmh != null ? gps.state.speedKmh.toFixed(0) : "—"}
+              </span>
+            )}
+            <span className="text-sm font-bold uppercase tracking-widest text-text-dim">
+              {gps.state.isPaused ? "en pause" : "km/h"}
             </span>
-            <span className="text-sm font-bold uppercase tracking-widest text-text-dim">km/h</span>
           </div>
 
           {/* Distance / CO₂ / Temps — row */}
@@ -733,14 +744,48 @@ export function TripPage() {
       )}
 
       {uiState === "tracking" && (
-        <div className="px-6 py-6">
-          <button
-            onClick={stopTracking}
-            className="flex w-full items-center justify-center gap-4 rounded-xl bg-danger py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"
-          >
-            <Square size={28} className="text-text" fill="currentColor" />
-            <span className="text-xl font-black uppercase tracking-widest text-text">Terminer</span>
-          </button>
+        <div className="flex gap-3 px-6 py-6">
+          {gps.state.isPaused ? (
+            /* Paused: Resume (primary) + Stop */
+            <>
+              <button
+                onClick={() => gps.resume()}
+                className="flex flex-1 items-center justify-center gap-3 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"
+              >
+                <Play size={28} className="text-bg" fill="currentColor" />
+                <span className="text-xl font-black uppercase tracking-widest text-bg">
+                  Reprendre
+                </span>
+              </button>
+              <button
+                onClick={stopTracking}
+                className="flex items-center justify-center gap-2 rounded-xl bg-surface-container px-6 py-6 active:scale-95"
+                aria-label="Terminer le trajet"
+              >
+                <Square size={24} className="text-text-muted" fill="currentColor" />
+              </button>
+            </>
+          ) : (
+            /* Active: Pause + Stop */
+            <>
+              <button
+                onClick={() => gps.pause()}
+                className="flex items-center justify-center gap-2 rounded-xl bg-warning/20 px-6 py-6 active:scale-95"
+                aria-label="Mettre en pause"
+              >
+                <Pause size={24} className="text-warning" fill="currentColor" />
+              </button>
+              <button
+                onClick={stopTracking}
+                className="flex flex-1 items-center justify-center gap-4 rounded-xl bg-danger py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"
+              >
+                <Square size={28} className="text-text" fill="currentColor" />
+                <span className="text-xl font-black uppercase tracking-widest text-text">
+                  Terminer
+                </span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

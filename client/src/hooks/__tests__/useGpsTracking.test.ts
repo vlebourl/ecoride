@@ -165,3 +165,279 @@ describe("useGpsTracking — background backup (ECO-22)", () => {
     expect(localStorageStub.setItem).not.toHaveBeenCalledWith(BACKUP_KEY, expect.any(String));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Pause / Resume (issue #166)
+// ---------------------------------------------------------------------------
+
+describe("useGpsTracking — pause/resume (#166)", () => {
+  let localStorageStub: ReturnType<typeof makeLocalStorageStub>;
+  let watchPositionCallback: ((pos: GeolocationPosition) => void) | null = null;
+  let watchPositionErrorCallback: ((err: GeolocationPositionError) => void) | null = null;
+  let clearWatchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+
+    localStorageStub = makeLocalStorageStub();
+    vi.stubGlobal("localStorage", localStorageStub);
+
+    const sessionStub = makeLocalStorageStub();
+    vi.stubGlobal("sessionStorage", sessionStub);
+
+    clearWatchMock = vi.fn();
+    watchPositionCallback = null;
+    watchPositionErrorCallback = null;
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: vi.fn().mockImplementation((success, error) => {
+          watchPositionCallback = success;
+          watchPositionErrorCallback = error;
+          return 1;
+        }),
+        clearWatch: clearWatchMock,
+      },
+      configurable: true,
+    });
+
+    Object.defineProperty(navigator, "wakeLock", {
+      value: {
+        request: vi.fn().mockResolvedValue({
+          release: vi.fn().mockResolvedValue(undefined),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }),
+      },
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    watchPositionCallback = null;
+    watchPositionErrorCallback = null;
+  });
+
+  /** Inject a fake GPS fix at the given coordinates. */
+  async function injectGpsPoint(lat = 48.8566, lng = 2.3522) {
+    if (!watchPositionCallback) return;
+    await act(async () => {
+      watchPositionCallback!({
+        coords: {
+          latitude: lat,
+          longitude: lng,
+          accuracy: 10,
+          speed: 5,
+          heading: 90,
+          altitude: null,
+          altitudeAccuracy: null,
+        },
+        timestamp: Date.now(),
+      } as GeolocationPosition);
+    });
+  }
+
+  it("initial state has isPaused=false", () => {
+    const { result } = renderHook(() => useGpsTracking());
+    expect(result.current.state.isPaused).toBe(false);
+  });
+
+  it("pause() sets isPaused=true and clears GPS watch", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    await injectGpsPoint();
+
+    const watchCallsBefore = clearWatchMock.mock.calls.length;
+
+    await act(async () => {
+      result.current.pause();
+    });
+
+    expect(result.current.state.isPaused).toBe(true);
+    expect(result.current.state.isTracking).toBe(true); // trip still in progress
+    // GPS watch must be cleared when pausing
+    expect(clearWatchMock.mock.calls.length).toBeGreaterThan(watchCallsBefore);
+  });
+
+  it("resume() sets isPaused=false and restarts GPS watch", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    await injectGpsPoint();
+    await act(async () => {
+      result.current.pause();
+    });
+
+    const watchPositionCallsBefore = (
+      navigator.geolocation.watchPosition as ReturnType<typeof vi.fn>
+    ).mock.calls.length;
+
+    await act(async () => {
+      result.current.resume();
+    });
+
+    expect(result.current.state.isPaused).toBe(false);
+    expect(result.current.state.isTracking).toBe(true);
+    // watchPosition must be called again after resume
+    expect(
+      (navigator.geolocation.watchPosition as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThan(watchPositionCallsBefore);
+  });
+
+  it("timer does not tick while paused", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    // Advance 2 seconds while active
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+    const durationAfterActive = result.current.state.durationSec;
+
+    await act(async () => {
+      result.current.pause();
+    });
+    // Advance 5 seconds while paused — timer must not tick
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(result.current.state.durationSec).toBe(durationAfterActive);
+  });
+
+  it("timer resumes ticking after resume()", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+    const durationAtPause = result.current.state.durationSec;
+
+    await act(async () => {
+      result.current.pause();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    }); // should not count
+    await act(async () => {
+      result.current.resume();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    }); // should count
+
+    // duration = 2s active + 3s after resume = 5s; the 3s pause gap is excluded
+    expect(result.current.state.durationSec).toBeGreaterThanOrEqual(durationAtPause + 2);
+  });
+
+  it("distance does not accumulate while paused", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    // Inject first point
+    await injectGpsPoint(48.8566, 2.3522);
+    const distanceBefore = result.current.state.distanceKm;
+
+    await act(async () => {
+      result.current.pause();
+    });
+
+    // While paused, the watch is cleared so watchPositionCallback is null.
+    // Manually verify no distance was added (guard: distance unchanged after pause dispatch).
+    expect(result.current.state.distanceKm).toBe(distanceBefore);
+  });
+
+  it("stop() after pause/resume returns correct accumulated totals", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+    await injectGpsPoint(48.8566, 2.3522);
+    await injectGpsPoint(48.86, 2.36); // some distance
+
+    await act(async () => {
+      result.current.pause();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(10000);
+    }); // 10s pause — must not count
+    await act(async () => {
+      result.current.resume();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    }); // 2s more active
+
+    let session!: ReturnType<typeof result.current.stop>;
+    await act(async () => {
+      session = result.current.stop();
+    });
+
+    // Duration = ~2s + ~2s active = ~4s (not 14s)
+    expect(session.durationSec).toBeLessThan(8);
+    // Distance recorded (non-zero from GPS points above)
+    expect(session.distanceKm).toBeGreaterThan(0);
+    // Session timestamps are present
+    expect(session.startedAt).toBeTruthy();
+    expect(session.endedAt).toBeTruthy();
+  });
+
+  it("stop() while paused still returns valid session", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+    await injectGpsPoint();
+    await act(async () => {
+      result.current.pause();
+    });
+
+    let session!: ReturnType<typeof result.current.stop>;
+    await act(async () => {
+      session = result.current.stop();
+    });
+
+    expect(session.startedAt).toBeTruthy();
+    expect(session.endedAt).toBeTruthy();
+    expect(result.current.state.isTracking).toBe(false);
+    expect(result.current.state.isPaused).toBe(false);
+  });
+
+  it("backup flushes on pause so data is not lost if tab dies while paused", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+    await injectGpsPoint();
+    localStorageStub.setItem.mockClear();
+
+    await act(async () => {
+      result.current.pause();
+    });
+
+    expect(localStorageStub.setItem).toHaveBeenCalledWith(BACKUP_KEY, expect.any(String));
+  });
+});

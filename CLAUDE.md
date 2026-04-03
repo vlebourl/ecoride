@@ -39,11 +39,12 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 
 ## Development Rules
 
-### Branching
+### Branching — MANDATORY
 
-- NEVER commit directly to main
-- Always create a feature/fix branch and open a PR
-- Wait for CI (typecheck + tests + smoke) before merging
+- **NEVER commit directly to `main`** — not even a single line, not even a typo fix.
+- Every task (feature, fix, chore) starts by creating a dedicated branch: `git checkout -b feat/... main`
+- Push the branch and open a PR. CI must pass before merge.
+- This applies to ALL agents and ALL sessions, no exceptions.
 
 ### Bug Fixes
 

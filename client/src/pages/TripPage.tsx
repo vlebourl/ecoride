@@ -13,6 +13,8 @@ import {
 } from "@/hooks/useGpsTracking";
 import type { TrackingSession, TrackingBackup } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
+import { isWebGLSupported } from "@/lib/webgl";
+import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -140,6 +142,8 @@ export function TripPage() {
     }),
     [gps.state.gpsPoints],
   );
+
+  const webGLSupported = useMemo(() => isWebGLSupported(), []);
 
   const distance =
     uiState === "stopped" && sessionRef.current
@@ -356,14 +360,81 @@ export function TripPage() {
             data-testid="tracking-map"
             data-heading={gps.state.heading ?? 0}
           >
+            {webGLSupported ? (
+              <Map
+                ref={trackingMapRef}
+                initialViewState={{
+                  longitude: currentPos[1],
+                  latitude: currentPos[0],
+                  zoom: 15,
+                  bearing: gps.state.heading ?? 0,
+                  pitch: gps.state.heading != null ? 45 : 0,
+                }}
+                mapStyle={MAP_STYLE}
+                attributionControl={false}
+                style={{ width: "100%", height: "100%" }}
+              >
+                {positions.length > 1 && (
+                  <Source type="geojson" data={geojsonLine}>
+                    <Layer
+                      type="line"
+                      paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                      layout={{ "line-cap": "round", "line-join": "round" }}
+                    />
+                  </Source>
+                )}
+                <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
+                  {gps.state.heading != null ? (
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24">
+                        <path
+                          d="M12 2 L18 20 L12 16 L6 20 Z"
+                          fill="#2ecc71"
+                          stroke="#fff"
+                          strokeWidth="1.5"
+                        />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        background: "#2ecc71",
+                        border: "2px solid #ffffff",
+                      }}
+                    />
+                  )}
+                </Marker>
+              </Map>
+            ) : (
+              <MapNoWebGL />
+            )}
+          </div>
+        </>
+      )}
+
+      {/* === IDLE / STOPPED / MANUAL: full map === */}
+      {uiState !== "tracking" && (
+        <div className="relative min-h-0 flex-1">
+          {webGLSupported ? (
             <Map
-              ref={trackingMapRef}
+              ref={idleMapRef}
               initialViewState={{
                 longitude: currentPos[1],
                 latitude: currentPos[0],
                 zoom: 15,
-                bearing: gps.state.heading ?? 0,
-                pitch: gps.state.heading != null ? 45 : 0,
+                bearing: 0,
+                pitch: 0,
               }}
               mapStyle={MAP_STYLE}
               attributionControl={false}
@@ -379,79 +450,20 @@ export function TripPage() {
                 </Source>
               )}
               <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
-                {gps.state.heading != null ? (
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24">
-                      <path
-                        d="M12 2 L18 20 L12 16 L6 20 Z"
-                        fill="#2ecc71"
-                        stroke="#fff"
-                        strokeWidth="1.5"
-                      />
-                    </svg>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: "50%",
-                      background: "#2ecc71",
-                      border: "2px solid #ffffff",
-                    }}
-                  />
-                )}
+                <div
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    background: "#2ecc71",
+                    border: "2px solid #ffffff",
+                  }}
+                />
               </Marker>
             </Map>
-          </div>
-        </>
-      )}
-
-      {/* === IDLE / STOPPED / MANUAL: full map === */}
-      {uiState !== "tracking" && (
-        <div className="relative min-h-0 flex-1">
-          <Map
-            ref={idleMapRef}
-            initialViewState={{
-              longitude: currentPos[1],
-              latitude: currentPos[0],
-              zoom: 15,
-              bearing: 0,
-              pitch: 0,
-            }}
-            mapStyle={MAP_STYLE}
-            attributionControl={false}
-            style={{ width: "100%", height: "100%" }}
-          >
-            {positions.length > 1 && (
-              <Source type="geojson" data={geojsonLine}>
-                <Layer
-                  type="line"
-                  paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
-                  layout={{ "line-cap": "round", "line-join": "round" }}
-                />
-              </Source>
-            )}
-            <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
-              <div
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: "50%",
-                  background: "#2ecc71",
-                  border: "2px solid #ffffff",
-                }}
-              />
-            </Marker>
-          </Map>
+          ) : (
+            <MapNoWebGL />
+          )}
         </div>
       )}
 

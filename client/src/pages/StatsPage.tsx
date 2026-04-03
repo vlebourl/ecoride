@@ -16,6 +16,8 @@ import {
   useDeleteTrip,
 } from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
+import { isWebGLSupported } from "@/lib/webgl";
+import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
@@ -69,6 +71,7 @@ function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, numbe
 }
 
 function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
+  const webGLSupported = isWebGLSupported();
   const geojsonLine = useMemo(
     () => ({
       type: "Feature" as const,
@@ -91,29 +94,33 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
 
   return (
     <div className="mb-4 h-48 rounded-xl overflow-hidden">
-      <Map
-        initialViewState={{
-          longitude: centerLng,
-          latitude: centerLat,
-          zoom: 13,
-        }}
-        mapStyle={MAP_STYLE}
-        attributionControl={false}
-        dragPan={false}
-        scrollZoom={false}
-        doubleClickZoom={false}
-        touchZoomRotate={false}
-        style={{ width: "100%", height: "100%" }}
-      >
-        <Source type="geojson" data={geojsonLine}>
-          <Layer
-            type="line"
-            paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
-            layout={{ "line-cap": "round", "line-join": "round" }}
-          />
-        </Source>
-        <FitBoundsOnLoad bounds={bounds} />
-      </Map>
+      {webGLSupported ? (
+        <Map
+          initialViewState={{
+            longitude: centerLng,
+            latitude: centerLat,
+            zoom: 13,
+          }}
+          mapStyle={MAP_STYLE}
+          attributionControl={false}
+          dragPan={false}
+          scrollZoom={false}
+          doubleClickZoom={false}
+          touchZoomRotate={false}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <Source type="geojson" data={geojsonLine}>
+            <Layer
+              type="line"
+              paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+              layout={{ "line-cap": "round", "line-join": "round" }}
+            />
+          </Source>
+          <FitBoundsOnLoad bounds={bounds} />
+        </Map>
+      ) : (
+        <MapNoWebGL />
+      )}
     </div>
   );
 }

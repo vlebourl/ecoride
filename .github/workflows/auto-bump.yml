@@ -15,6 +15,11 @@ jobs:
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
       - uses: actions/checkout@v4
+        with:
+          # PAT with repo scope (owner token) — GITHUB_TOKEN cannot push directly
+          # to a protected branch. Owner token bypasses branch protection when
+          # enforce_admins is false.
+          token: ${{ secrets.GH_PAT }}
 
       - name: Determine bump type from commit message
         id: bump

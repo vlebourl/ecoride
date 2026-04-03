@@ -100,13 +100,22 @@ export function TripPage() {
   const lastPos = positions.length > 0 ? positions[positions.length - 1] : undefined;
   const currentPos: [number, number] = lastPos ?? initialPos;
 
-  // Fly to current position on tracking map (throttled 500ms)
+  // Incremented by each map's onLoad so pending flyTo updates are replayed after map is ready.
+  const [trackingMapLoadSeq, setTrackingMapLoadSeq] = useState(0);
+  const [idleMapLoadSeq, setIdleMapLoadSeq] = useState(0);
+
+  // Fly to current position on tracking map (throttled 500ms).
+  // Throttle is only advanced after a confirmed flyTo — if the map is not yet
+  // ready, we return without consuming the timestamp so the next GPS tick or
+  // the onLoad replay can still execute the move.
   useEffect(() => {
     if (uiState !== "tracking") return;
     const now = Date.now();
     if (now - trackingFlyToRef.current < 500) return;
+    const map = trackingMapRef.current;
+    if (!map) return; // map not yet mounted; onLoad will replay via trackingMapLoadSeq
     trackingFlyToRef.current = now;
-    trackingMapRef.current?.flyTo({
+    map.flyTo({
       center: [currentPos[1], currentPos[0]],
       bearing: gps.state.heading ?? 0,
       pitch: gps.state.heading != null ? 45 : 0,
@@ -114,22 +123,27 @@ export function TripPage() {
       duration: 400,
       padding: { top: 0, bottom: 200, left: 0, right: 0 },
     });
-    // trackingFlyToRef is a ref (stable, no re-render) — safe to omit from deps
-  }, [uiState, currentPos[0], currentPos[1], gps.state.heading]); // eslint-disable-line react-hooks/exhaustive-deps
+    // trackingFlyToRef is a ref (stable) — trackingMapLoadSeq is intentionally listed
+    // so onLoad triggers a replay for GPS updates that arrived before the map was ready.
+  }, [uiState, currentPos[0], currentPos[1], gps.state.heading, trackingMapLoadSeq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fly to current position on idle map (throttled 500ms)
+  // Fly to current position on idle map (throttled 500ms).
+  // Same load-race fix as the tracking effect: throttle is only advanced after
+  // a confirmed flyTo so onLoad can replay any update that arrived before mount.
   useEffect(() => {
     if (uiState === "tracking") return;
     const now = Date.now();
     if (now - idleFlyToRef.current < 500) return;
+    const map = idleMapRef.current;
+    if (!map) return; // map not yet mounted; onLoad will replay via idleMapLoadSeq
     idleFlyToRef.current = now;
-    idleMapRef.current?.flyTo({
+    map.flyTo({
       center: [currentPos[1], currentPos[0]],
       zoom: 15,
       duration: 400,
     });
-    // idleFlyToRef is a ref (stable, no re-render) — safe to omit from deps
-  }, [uiState, currentPos[0], currentPos[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+    // idleFlyToRef is a ref (stable) — idleMapLoadSeq is intentionally listed.
+  }, [uiState, currentPos[0], currentPos[1], idleMapLoadSeq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const geojsonLine = useMemo(
     () => ({
@@ -378,8 +392,9 @@ export function TripPage() {
                   attributionControl={false}
                   style={{ width: "100%", height: "100%" }}
                   onLoad={(e) => {
-                    // Reset stale context-lost state from a previous map instance,
-                    // then subscribe so the overlay appears on GPU reset.
+                    // Bump load sequence to replay any GPS update that arrived before
+                    // the map was ready. Also resets stale WebGL-loss state.
+                    setTrackingMapLoadSeq((s) => s + 1);
                     setWebglLost(false);
                     const m = e.target;
                     m.on("webglcontextlost", () => setWebglLost(true));
@@ -459,6 +474,7 @@ export function TripPage() {
                 attributionControl={false}
                 style={{ width: "100%", height: "100%" }}
                 onLoad={(e) => {
+                  setIdleMapLoadSeq((s) => s + 1);
                   setWebglLost(false);
                   const m = e.target;
                   m.on("webglcontextlost", () => setWebglLost(true));

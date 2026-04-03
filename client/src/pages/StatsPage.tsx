@@ -72,6 +72,7 @@ function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, numbe
 
 function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
   const webGLSupported = isWebGLSupported();
+  const [webglLost, setWebglLost] = useState(false);
   const geojsonLine = useMemo(
     () => ({
       type: "Feature" as const,
@@ -93,31 +94,44 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
   const centerLat = (bounds[0][1] + bounds[1][1]) / 2;
 
   return (
-    <div className="mb-4 h-48 rounded-xl overflow-hidden">
+    <div className="relative mb-4 h-48 overflow-hidden rounded-xl">
       {webGLSupported ? (
-        <Map
-          initialViewState={{
-            longitude: centerLng,
-            latitude: centerLat,
-            zoom: 13,
-          }}
-          mapStyle={MAP_STYLE}
-          attributionControl={false}
-          dragPan={false}
-          scrollZoom={false}
-          doubleClickZoom={false}
-          touchZoomRotate={false}
-          style={{ width: "100%", height: "100%" }}
-        >
-          <Source type="geojson" data={geojsonLine}>
-            <Layer
-              type="line"
-              paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
-              layout={{ "line-cap": "round", "line-join": "round" }}
-            />
-          </Source>
-          <FitBoundsOnLoad bounds={bounds} />
-        </Map>
+        <>
+          <Map
+            initialViewState={{
+              longitude: centerLng,
+              latitude: centerLat,
+              zoom: 13,
+            }}
+            mapStyle={MAP_STYLE}
+            attributionControl={false}
+            dragPan={false}
+            scrollZoom={false}
+            doubleClickZoom={false}
+            touchZoomRotate={false}
+            style={{ width: "100%", height: "100%" }}
+            onLoad={(e) => {
+              setWebglLost(false);
+              const m = e.target;
+              m.on("webglcontextlost", () => setWebglLost(true));
+              m.on("webglcontextrestored", () => setWebglLost(false));
+            }}
+          >
+            <Source type="geojson" data={geojsonLine}>
+              <Layer
+                type="line"
+                paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                layout={{ "line-cap": "round", "line-join": "round" }}
+              />
+            </Source>
+            <FitBoundsOnLoad bounds={bounds} />
+          </Map>
+          {webglLost && (
+            <div className="absolute inset-0">
+              <MapNoWebGL />
+            </div>
+          )}
+        </>
       ) : (
         <MapNoWebGL />
       )}

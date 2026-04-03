@@ -47,14 +47,14 @@ export function TripPage() {
   // If there is no session key (app crash / tab close), show the recovery prompt.
   useEffect(() => {
     // Restore an unsaved trip that survived navigation (data-loss guard).
-    const stoppedRaw = localStorage.getItem("ecoride-stopped-session");
+    const stoppedRaw = sessionStorage.getItem("ecoride-stopped-session");
     if (stoppedRaw) {
       try {
         const session = JSON.parse(stoppedRaw) as TrackingSession;
         sessionRef.current = session;
         setUiState("stopped");
       } catch {
-        localStorage.removeItem("ecoride-stopped-session");
+        sessionStorage.removeItem("ecoride-stopped-session");
       }
       return;
     }
@@ -207,7 +207,14 @@ export function TripPage() {
     setWebglLost(false);
     setMapLoadError(false);
     // Persist session so accidental navigation cannot destroy unsaved trip data.
-    localStorage.setItem("ecoride-stopped-session", JSON.stringify(session));
+    // QuotaExceededError is caught — setUiState("stopped") always runs even if
+    // the write fails; sessionRef.current remains the authoritative in-memory copy.
+    try {
+      sessionStorage.setItem("ecoride-stopped-session", JSON.stringify(session));
+    } catch {
+      // Storage quota exceeded — recovery via sessionStorage unavailable for this
+      // session, but the user can still save/discard via sessionRef.current.
+    }
     setUiState("stopped");
   };
 
@@ -253,7 +260,7 @@ export function TripPage() {
     createTrip.mutate(tripData, {
       onSuccess: () => {
         setSaveError("");
-        localStorage.removeItem("ecoride-stopped-session");
+        sessionStorage.removeItem("ecoride-stopped-session");
         setUiState("idle");
         setManualKm("");
         setManualMinutes("");
@@ -266,7 +273,7 @@ export function TripPage() {
         // Reset UI to idle after a short delay so the user sees the message
         setTimeout(() => {
           setUiState("idle");
-          localStorage.removeItem("ecoride-stopped-session");
+          sessionStorage.removeItem("ecoride-stopped-session");
           setManualKm("");
           setManualMinutes("");
           sessionRef.current = null;
@@ -583,7 +590,7 @@ export function TripPage() {
               <button
                 onClick={() => {
                   if (window.confirm("Abandonner ce trajet ? Les données seront perdues.")) {
-                    localStorage.removeItem("ecoride-stopped-session");
+                    sessionStorage.removeItem("ecoride-stopped-session");
                     setUiState("idle");
                     sessionRef.current = null;
                     gps.reset();

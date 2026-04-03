@@ -1,12 +1,10 @@
 import { test, expect } from "@playwright/test";
 
-// Regression test for ECO-20: map must rotate to match rider heading during tracking.
-// Before the fix: map.getContainer() had no transform; it always pointed north.
-// After the fix: map.getContainer() gets rotate(-heading deg) applied.
+// Regression test for #165: MapLibre native bearing eliminates black corners during rotation.
+// Before the fix: Leaflet CSS rotate() caused black corners and incorrect rider position.
+// After the fix: MapLibre uses native bearing; data-bearing attribute reflects actual map bearing.
 
-test("map container rotates to match rider heading when tracking", async ({ page }) => {
-  // Override geolocation with a heading value (Playwright's built-in mock does not
-  // support heading/speed, so we inject a full replacement via addInitScript).
+test("tracking map bearing matches rider heading when tracking (heading=90)", async ({ page }) => {
   await page.addInitScript(() => {
     const mockPos: GeolocationPosition = {
       coords: {
@@ -53,20 +51,20 @@ test("map container rotates to match rider heading when tracking", async ({ page
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
 
-  // Wait for the GPS callback and React re-render to propagate
+  // Wait for GPS to fire and React to update
   await page.waitForTimeout(1500);
 
-  // The Leaflet container inside the tracking map div should now be rotated.
-  // rotate(-90deg) because heading = 90 and we apply rotate(-heading).
-  const transform = await page
-    .locator('[data-testid="tracking-map"] .leaflet-container')
-    .evaluate((el: HTMLElement) => el.style.transform);
+  // data-heading is set directly from gps.state.heading (no WebGL required)
+  const headingAttr = await page
+    .locator('[data-testid="tracking-map"]')
+    .getAttribute("data-heading");
 
-  expect(transform).toMatch(/rotate\(-90deg\)/);
+  const heading = Number(headingAttr);
+  expect(heading).toBeGreaterThanOrEqual(85);
+  expect(heading).toBeLessThanOrEqual(95);
 });
 
-test("map container has no rotation when heading is null (stationary start)", async ({ page }) => {
-  // Geolocation returns null heading (stationary or unavailable)
+test("tracking map bearing is 0 when heading is null (stationary start)", async ({ page }) => {
   await page.addInitScript(() => {
     const mockPos: GeolocationPosition = {
       coords: {
@@ -114,10 +112,9 @@ test("map container has no rotation when heading is null (stationary start)", as
 
   await page.waitForTimeout(1500);
 
-  // With null heading, the container transform should be empty (north-up).
-  const transform = await page
-    .locator('[data-testid="tracking-map"] .leaflet-container')
-    .evaluate((el: HTMLElement) => el.style.transform);
+  const headingAttr = await page
+    .locator('[data-testid="tracking-map"]')
+    .getAttribute("data-heading");
 
-  expect(transform).toBe("");
+  expect(headingAttr).toBe("0");
 });

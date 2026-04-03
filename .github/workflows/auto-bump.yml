@@ -15,6 +15,11 @@ jobs:
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
       - uses: actions/checkout@v4
+        with:
+          # PAT with repo scope (owner token) — GITHUB_TOKEN cannot push directly
+          # to a protected branch. Owner token bypasses branch protection when
+          # enforce_admins is false.
+          token: ${{ secrets.GH_PAT }}
 
       - name: Determine bump type from commit message
         id: bump
@@ -91,10 +96,16 @@ jobs:
 
       - name: Wait and verify
         run: |
-          sleep 90
-          STATUS=$(curl -s \
-            "http://localhost:8000/api/v1/deployments/${{ env.deploy_uuid }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('status'))")
-          echo "Status: $STATUS"
-          [ "$STATUS" = "finished" ] || exit 1
+          echo "Waiting for deployment ${{ env.deploy_uuid }} to finish..."
+          for i in $(seq 1 24); do
+            sleep 15
+            STATUS=$(curl -s \
+              "http://localhost:8000/api/v1/deployments/${{ env.deploy_uuid }}" \
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('status'))")
+            echo "[$((i * 15))s] Status: $STATUS"
+            [ "$STATUS" = "finished" ] && exit 0
+            [ "$STATUS" = "failed" ] && echo "Deployment failed!" && exit 1
+          done
+          echo "Timeout: deployment still $STATUS after 360s"
+          exit 1

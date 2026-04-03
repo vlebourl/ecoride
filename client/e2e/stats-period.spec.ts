@@ -115,14 +115,25 @@ test.describe("Stats evolution period filter (#86)", () => {
     // Should have made a chart request for this week
     expect(chartFromDates.length).toBeGreaterThanOrEqual(1);
     const weekFrom = new Date(chartFromDates[chartFromDates.length - 1]);
+    // "Semaine" must start on the Monday of the current week
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, …
+    const daysToMonday = (dayOfWeek + 6) % 7; // days since last Monday
+    const expectedMondayMs = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - daysToMonday,
+    ).getTime();
+    expect(weekFrom.getTime()).toBe(expectedMondayMs);
 
-    // Click "Mois" — should fetch from 1st of current month (earlier than Monday)
+    // Click "Mois" — should fetch from 1st of current month
     chartFromDates.length = 0;
     await page.getByText("Mois", { exact: true }).click();
     await page.waitForTimeout(1000);
     expect(chartFromDates.length).toBeGreaterThanOrEqual(1);
     const monthFrom = new Date(chartFromDates[chartFromDates.length - 1]);
-    expect(monthFrom.getTime()).toBeLessThanOrEqual(weekFrom.getTime());
+    const expectedMonthStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    expect(monthFrom.getTime()).toBe(expectedMonthStartMs);
 
     // Click "Année" — should fetch from Jan 1st (earlier than 1st of month)
     chartFromDates.length = 0;
@@ -130,10 +141,9 @@ test.describe("Stats evolution period filter (#86)", () => {
     await page.waitForTimeout(1000);
     expect(chartFromDates.length).toBeGreaterThanOrEqual(1);
     const yearFrom = new Date(chartFromDates[chartFromDates.length - 1]);
-    expect(yearFrom.getTime()).toBeLessThanOrEqual(monthFrom.getTime());
 
     // Year start should be in January of the current year
-    expect(yearFrom.getFullYear()).toBe(new Date().getFullYear());
+    expect(yearFrom.getFullYear()).toBe(now.getFullYear());
     expect(yearFrom.getMonth()).toBeLessThanOrEqual(0); // January = 0
   });
 });

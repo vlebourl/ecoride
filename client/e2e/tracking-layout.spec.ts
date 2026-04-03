@@ -29,7 +29,7 @@ test("#82 regression: stop button anchored at bottom and map visible during trac
   await expect(stopBtn).toBeVisible({ timeout: 5000 });
 
   // REGRESSION: Map must be visible during tracking
-  const mapContainer = page.locator(".leaflet-container");
+  const mapContainer = page.locator(".maplibregl-map");
   await expect(mapContainer).toBeVisible({ timeout: 3000 });
   const mapBox = await mapContainer.boundingBox();
   expect(mapBox).not.toBeNull();

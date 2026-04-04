@@ -11,7 +11,7 @@ COPY shared/package.json shared/
 COPY client/package.json client/
 COPY server/package.json server/
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copier le code source
 COPY shared/ shared/

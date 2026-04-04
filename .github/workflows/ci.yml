@@ -72,7 +72,7 @@ jobs:
 
       - name: Build PR branch
         run: |
-          git checkout ${{ github.sha }}
+          git checkout -f ${{ github.sha }}
           bun install
           cd client && bun run build
 

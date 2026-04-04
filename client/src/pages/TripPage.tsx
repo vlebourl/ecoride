@@ -352,9 +352,6 @@ export function TripPage() {
             </div>
           );
         })()}
-        {uiState === "tracking" && (
-          <Super73ModeButton enabled={!!profileData?.user?.super73Enabled} compact />
-        )}
       </header>
 
       {/* Fix 1.3: Recovery banner for interrupted trip */}
@@ -749,6 +746,7 @@ export function TripPage() {
 
       {uiState === "tracking" && (
         <div className="flex gap-3 px-6 py-6">
+          {profileData?.user?.super73Enabled && <Super73ModeButton enabled compact />}
           {gps.state.isPaused ? (
             /* Paused: Resume (primary) + Stop */
             <>

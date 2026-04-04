@@ -34,9 +34,9 @@ export function VehiclePage() {
       {/* Back button */}
       <button
         onClick={() => navigate("/profile")}
-        className="flex items-center gap-1 self-start text-sm font-medium text-text-muted active:scale-95"
+        className="flex h-12 items-center gap-1.5 self-start rounded-xl px-3 text-sm font-medium text-text-muted active:scale-95"
       >
-        <ChevronLeft size={16} />
+        <ChevronLeft size={20} />
         Profil
       </button>
 
@@ -76,7 +76,7 @@ export function VehiclePage() {
                 <button
                   key={level}
                   onClick={() => ble.setAssist(level)}
-                  className={`flex-1 rounded-xl py-3 text-center text-lg font-bold transition-colors active:scale-95 ${
+                  className={`flex-1 rounded-2xl py-5 text-center text-xl font-bold transition-colors active:scale-95 ${
                     ble.bikeState?.assist === level
                       ? "bg-primary text-bg"
                       : "bg-surface-high text-text-muted"
@@ -95,16 +95,16 @@ export function VehiclePage() {
             </h2>
             <button
               onClick={() => ble.setLight(!ble.bikeState?.light)}
-              className={`flex w-full items-center justify-between rounded-xl px-4 py-3 transition-colors active:scale-[0.98] ${
+              className={`flex w-full items-center justify-between rounded-2xl px-6 py-5 transition-colors active:scale-[0.98] ${
                 ble.bikeState?.light
                   ? "bg-primary/20 text-primary-light"
                   : "bg-surface-high text-text-muted"
               }`}
             >
-              <span className="text-sm font-bold">
+              <span className="text-base font-bold">
                 {ble.bikeState?.light ? "Allumées" : "Éteintes"}
               </span>
-              {ble.bikeState?.light ? <Sun size={20} /> : <SunDim size={20} />}
+              {ble.bikeState?.light ? <Sun size={24} /> : <SunDim size={24} />}
             </button>
           </section>
 

@@ -7,6 +7,7 @@ import {
   modeIndex,
   isBleSupported,
   scanAndConnect,
+  reconnectPairedDevice,
   readState,
   writeState,
   type Super73State,
@@ -193,6 +194,57 @@ describe("scanAndConnect", () => {
     });
 
     await expect(scanAndConnect()).rejects.toThrow("GATT not available");
+  });
+});
+
+describe("reconnectPairedDevice", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns null when getDevices is not available", async () => {
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { requestDevice: vi.fn() },
+      configurable: true,
+    });
+    const result = await reconnectPairedDevice();
+    expect(result).toBeNull();
+  });
+
+  it("reconnects to a previously paired Super73 device", async () => {
+    const gatt = { connect: vi.fn().mockResolvedValue(undefined) };
+    const device = { name: "SUPER73-RX", gatt };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([device]) },
+      configurable: true,
+    });
+
+    const result = await reconnectPairedDevice();
+    expect(result).toBe(device);
+    expect(gatt.connect).toHaveBeenCalled();
+  });
+
+  it("returns null when no Super73 is among paired devices", async () => {
+    const otherDevice = { name: "SomeOtherDevice", gatt: { connect: vi.fn() } };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([otherDevice]) },
+      configurable: true,
+    });
+
+    const result = await reconnectPairedDevice();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when connect fails (device out of range)", async () => {
+    const gatt = { connect: vi.fn().mockRejectedValue(new Error("connection failed")) };
+    const device = { name: "S73 FTEX", gatt };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([device]) },
+      configurable: true,
+    });
+
+    const result = await reconnectPairedDevice();
+    expect(result).toBeNull();
   });
 });
 

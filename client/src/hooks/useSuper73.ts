@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   isBleSupported,
   scanAndConnect,
+  reconnectPairedDevice,
   readState,
   writeState,
   type Super73State,
@@ -11,6 +12,8 @@ import {
 export type BleStatus = "disconnected" | "connecting" | "connected" | "unsupported" | "error";
 
 const STATE_KEY = "ecoride-super73-state";
+const RECONNECT_DELAY = 2_000;
+const MAX_RECONNECT_ATTEMPTS = 1;
 
 function loadCachedState(): Super73State | null {
   try {
@@ -62,29 +65,105 @@ export function useSuper73(enabled: boolean): UseSuper73Result {
 
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualDisconnectRef = useRef(false);
 
-  const onDisconnected = useCallback(() => {
-    setStatus("disconnected");
-    serverRef.current = null;
+  // Attach device listeners and read initial state
+  const attachDevice = useCallback(async (device: BluetoothDevice) => {
+    deviceRef.current = device;
+    serverRef.current = device.gatt!;
+    reconnectAttemptsRef.current = 0;
+    manualDisconnectRef.current = false;
+
+    const state = await readState(device.gatt!);
+    setBikeState(state);
+    cacheState(state);
+    setStatus("connected");
   }, []);
 
+  // (2) Auto-reconnect on unexpected disconnect
+  const tryReconnect = useCallback(async () => {
+    if (manualDisconnectRef.current || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      setStatus("disconnected");
+      return;
+    }
+    reconnectAttemptsRef.current += 1;
+    setStatus("connecting");
+    try {
+      const device = await reconnectPairedDevice();
+      if (device) {
+        await attachDevice(device);
+      } else {
+        setStatus("disconnected");
+      }
+    } catch {
+      setStatus("disconnected");
+    }
+  }, [attachDevice]);
+
+  const onDisconnected = useCallback(() => {
+    serverRef.current = null;
+    if (manualDisconnectRef.current) {
+      setStatus("disconnected");
+      return;
+    }
+    // Auto-retry after a short delay
+    reconnectTimerRef.current = setTimeout(tryReconnect, RECONNECT_DELAY);
+  }, [tryReconnect]);
+
+  // Wire up disconnect listener whenever device changes
+  useEffect(() => {
+    const device = deviceRef.current;
+    if (!device) return;
+    device.addEventListener("gattserverdisconnected", onDisconnected);
+    return () => {
+      device.removeEventListener("gattserverdisconnected", onDisconnected);
+    };
+  }, [status, onDisconnected]); // re-attach when status changes (new device)
+
+  // Cleanup reconnect timer on unmount
+  useEffect(() => {
+    return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    };
+  }, []);
+
+  // (1) Auto-reconnect to paired device on mount
+  useEffect(() => {
+    if (!enabled || !isBleSupported()) return;
+    if (status !== "disconnected") return;
+    if (deviceRef.current) return; // already have a device
+
+    let cancelled = false;
+    (async () => {
+      const device = await reconnectPairedDevice();
+      if (cancelled || !device) return;
+      setStatus("connecting");
+      try {
+        await attachDevice(device);
+      } catch {
+        setStatus("disconnected");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only run on mount (enabled won't change mid-render in practice)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
+
+  // Manual connect via picker
   const connect = useCallback(async () => {
     if (!enabled || !isBleSupported()) return;
     setStatus("connecting");
     setError(null);
     try {
       const device = await scanAndConnect();
-      device.addEventListener("gattserverdisconnected", onDisconnected);
-      deviceRef.current = device;
-      serverRef.current = device.gatt!;
-
-      const state = await readState(device.gatt!);
-      setBikeState(state);
-      cacheState(state);
-      setStatus("connected");
+      await attachDevice(device);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Connexion échouée";
-      // User cancelled the chooser — not an error
       if (msg.includes("cancelled") || msg.includes("NotFoundError")) {
         setStatus("disconnected");
       } else {
@@ -92,23 +171,23 @@ export function useSuper73(enabled: boolean): UseSuper73Result {
         setStatus("error");
       }
     }
-  }, [enabled, onDisconnected]);
+  }, [enabled, attachDevice]);
 
   const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     if (deviceRef.current) {
-      deviceRef.current.removeEventListener("gattserverdisconnected", onDisconnected);
       deviceRef.current.gatt?.disconnect();
       deviceRef.current = null;
       serverRef.current = null;
     }
     setStatus("disconnected");
-  }, [onDisconnected]);
+  }, []);
 
   const updateState = useCallback(
     async (patch: Partial<Super73State>) => {
       if (!serverRef.current?.connected || !bikeState) return;
       try {
-        // Read current state before writing to avoid overwriting other fields
         const current = await readState(serverRef.current);
         const next: Super73State = { ...current, ...patch };
         await writeState(serverRef.current, next);
@@ -133,8 +212,6 @@ export function useSuper73(enabled: boolean): UseSuper73Result {
 
   const toggleMode = useCallback(async () => {
     if (!bikeState) return;
-    // Toggle between eco (EPAC, modes 0-3 EU offset) and race (Off-Road, mode 3)
-    // Per issue spec: EPAC = eco (mode 0 EU), Off-Road = race (mode 3 EU)
     const nextMode: Super73Mode = bikeState.mode === "race" ? "eco" : "race";
     await setMode(nextMode);
   }, [bikeState, setMode]);

@@ -74,6 +74,7 @@ function withTimeout<T>(promise: Promise<T>, ms = BLE_TIMEOUT): Promise<T> {
   ]);
 }
 
+/** Open the browser device picker, let the user select a Super73, and connect. */
 export async function scanAndConnect(): Promise<BluetoothDevice> {
   const device = await navigator.bluetooth.requestDevice({
     filters: [{ namePrefix: "SUPER73" }, { namePrefix: "S73" }],
@@ -82,6 +83,24 @@ export async function scanAndConnect(): Promise<BluetoothDevice> {
   if (!device.gatt) throw new Error("GATT not available");
   await withTimeout(device.gatt.connect());
   return device;
+}
+
+/**
+ * Try to reconnect to a previously paired Super73 without showing the picker.
+ * Uses navigator.bluetooth.getDevices() (Chrome 85+). Returns null if no
+ * paired device is found or if the API is unavailable.
+ */
+export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
+  if (!navigator.bluetooth.getDevices) return null;
+  const devices = await navigator.bluetooth.getDevices();
+  const super73 = devices.find((d) => d.name?.startsWith("SUPER73") || d.name?.startsWith("S73"));
+  if (!super73?.gatt) return null;
+  try {
+    await withTimeout(super73.gatt.connect());
+    return super73;
+  } catch {
+    return null;
+  }
 }
 
 async function getCharacteristics(server: BluetoothRemoteGATTServer) {

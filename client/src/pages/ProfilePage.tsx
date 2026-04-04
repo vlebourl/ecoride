@@ -30,6 +30,7 @@ import {
 } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
+import { isBleSupported, scanAndConnect } from "@/lib/super73-ble";
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
@@ -448,7 +449,7 @@ export function ProfilePage() {
 
             <div className="mx-4 h-px bg-white/5" />
 
-            {/* Super73 BLE — toggle */}
+            {/* Super73 BLE — toggle + guided pairing */}
             <div className="flex w-full items-center justify-between p-4">
               <div className="flex items-center gap-4">
                 <Bluetooth
@@ -457,14 +458,29 @@ export function ProfilePage() {
                 />
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-medium">Vélo connecté (Super73)</span>
-                  {typeof navigator !== "undefined" && !("bluetooth" in navigator) && (
+                  {!isBleSupported() && (
                     <span className="text-xs text-text-dim">Non supporté par ce navigateur</span>
                   )}
                   {user?.super73Enabled && <span className="text-xs text-primary/70">Activé</span>}
                 </div>
               </div>
               <button
-                onClick={() => updateProfile.mutate({ super73Enabled: !user?.super73Enabled })}
+                onClick={async () => {
+                  if (user?.super73Enabled) {
+                    // Disable — just toggle off
+                    updateProfile.mutate({ super73Enabled: false });
+                    return;
+                  }
+                  // Enable — launch pairing immediately
+                  if (!isBleSupported()) return;
+                  try {
+                    await scanAndConnect(); // opens picker, user selects bike
+                    updateProfile.mutate({ super73Enabled: true });
+                    navigate("/vehicle");
+                  } catch {
+                    // User cancelled picker — don't enable
+                  }
+                }}
                 disabled={updateProfile.isPending}
                 aria-label={
                   user?.super73Enabled ? "Désactiver le contrôle BLE" : "Activer le contrôle BLE"

@@ -22,6 +22,7 @@ export const user = pgTable("user", {
   reminderTime: text("reminder_time"), // HH:MM
   reminderDays: text("reminder_days").array(), // ["mon","tue",...]
   isAdmin: boolean("is_admin").notNull().default(false),
+  super73Enabled: boolean("super73_enabled").notNull().default(false),
 });
 
 // Better Auth session table

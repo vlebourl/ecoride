@@ -15,6 +15,7 @@ import type { TrackingSession, TrackingBackup } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
+import { Super73ModeButton } from "@/components/Super73ModeButton";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -351,6 +352,9 @@ export function TripPage() {
             </div>
           );
         })()}
+        {uiState === "tracking" && (
+          <Super73ModeButton enabled={!!profileData?.user?.super73Enabled} compact />
+        )}
       </header>
 
       {/* Fix 1.3: Recovery banner for interrupted trip */}

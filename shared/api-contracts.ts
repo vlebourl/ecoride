@@ -56,6 +56,7 @@ export interface UpdateUserRequest {
   reminderEnabled?: boolean;
   reminderTime?: string; // HH:MM
   reminderDays?: WeekDay[];
+  super73Enabled?: boolean;
 }
 
 export interface PushSubscribeRequest {

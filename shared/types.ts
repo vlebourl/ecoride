@@ -14,6 +14,7 @@ export interface User {
   reminderTime: string | null;
   reminderDays: WeekDay[] | null;
   isAdmin: boolean;
+  super73Enabled: boolean;
   createdAt: string;
 }
 

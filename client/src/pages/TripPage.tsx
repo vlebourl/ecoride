@@ -15,6 +15,7 @@ import type { TrackingSession, TrackingBackup } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
+import { Super73ModeButton } from "@/components/Super73ModeButton";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -745,6 +746,7 @@ export function TripPage() {
 
       {uiState === "tracking" && (
         <div className="flex gap-3 px-6 py-6">
+          {profileData?.user?.super73Enabled && <Super73ModeButton enabled compact />}
           {gps.state.isPaused ? (
             /* Paused: Resume (primary) + Stop */
             <>

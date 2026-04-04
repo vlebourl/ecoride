@@ -13,6 +13,7 @@ export const updateUserSchema = z.object({
     .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
     .optional(),
   reminderDays: z.array(z.enum(WEEK_DAYS as unknown as [string, ...string[]])).optional(),
+  super73Enabled: z.boolean().optional(),
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

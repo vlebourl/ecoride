@@ -20,6 +20,7 @@ const PAGES = [
   { path: "/profile", name: "Profile" },
   { path: "/admin", name: "Admin" },
   { path: "/privacy", name: "Privacy" },
+  { path: "/vehicle", name: "Vehicle" },
   { path: "/nonexistent", name: "404" },
 ];
 
@@ -65,6 +66,7 @@ test.describe("admin dashboard", () => {
       reminderEnabled: false,
       reminderTime: null,
       reminderDays: null,
+      super73Enabled: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       emailVerified: true,

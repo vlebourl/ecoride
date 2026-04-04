@@ -15,6 +15,7 @@ import {
   Trash2,
   Shield,
   MessageSquarePlus,
+  Bluetooth,
 } from "lucide-react";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
@@ -444,6 +445,57 @@ export function ProfilePage() {
                 </button>
               )}
             </div>
+
+            <div className="mx-4 h-px bg-white/5" />
+
+            {/* Super73 BLE — toggle */}
+            <div className="flex w-full items-center justify-between p-4">
+              <div className="flex items-center gap-4">
+                <Bluetooth
+                  size={20}
+                  className={user?.super73Enabled ? "text-primary-light" : "text-text-muted"}
+                />
+                <div className="flex flex-col items-start">
+                  <span className="text-sm font-medium">Vélo connecté (Super73)</span>
+                  {typeof navigator !== "undefined" && !("bluetooth" in navigator) && (
+                    <span className="text-xs text-text-dim">Non supporté par ce navigateur</span>
+                  )}
+                  {user?.super73Enabled && <span className="text-xs text-primary/70">Activé</span>}
+                </div>
+              </div>
+              <button
+                onClick={() => updateProfile.mutate({ super73Enabled: !user?.super73Enabled })}
+                disabled={updateProfile.isPending}
+                aria-label={
+                  user?.super73Enabled ? "Désactiver le contrôle BLE" : "Activer le contrôle BLE"
+                }
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
+                  user?.super73Enabled ? "bg-primary" : "bg-surface-high"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
+                    user?.super73Enabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {user?.super73Enabled && (
+              <>
+                <div className="mx-4 h-px bg-white/5" />
+                <Link
+                  to="/vehicle"
+                  className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high"
+                >
+                  <div className="flex items-center gap-4">
+                    <Bike size={20} className="text-primary-light" />
+                    <span className="text-sm font-medium">Contrôle du vélo</span>
+                  </div>
+                  <ChevronRight size={18} className="text-text-dim" />
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Feedback form */}

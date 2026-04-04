@@ -15,6 +15,7 @@ export const mockUser: User = {
   reminderTime: "08:00",
   reminderDays: ["mon", "tue", "wed", "thu", "fri"],
   isAdmin: false,
+  super73Enabled: false,
   createdAt: "2026-01-15T10:00:00Z",
 };
 

@@ -21,6 +21,7 @@ type TripState = "idle" | "tracking" | "stopped" | "manual";
 
 const DEFAULT_CENTER: [number, number] = [48.8566, 2.3522]; // Paris
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+const TRACKING_CAMERA_PADDING = { top: 200, bottom: 0, left: 0, right: 0 };
 
 export function TripPage() {
   const [uiState, setUiState] = useState<TripState>("idle");
@@ -136,7 +137,7 @@ export function TripPage() {
       pitch: gps.state.heading != null ? 45 : 0,
       zoom: 15,
       duration: 400,
-      padding: { top: 0, bottom: 200, left: 0, right: 0 },
+      padding: TRACKING_CAMERA_PADDING,
     });
     // trackingFlyToRef is a ref (stable) — trackingMapLoadSeq is intentionally listed
     // so onLoad triggers a replay for GPS updates that arrived before the map was ready.
@@ -437,6 +438,8 @@ export function TripPage() {
             className="relative min-h-0 flex-1 overflow-hidden"
             data-testid="tracking-map"
             data-heading={gps.state.heading ?? 0}
+            data-camera-padding-top={TRACKING_CAMERA_PADDING.top}
+            data-camera-padding-bottom={TRACKING_CAMERA_PADDING.bottom}
           >
             {webGLSupported ? (
               <>

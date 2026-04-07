@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("#82 regression: stop button anchored at bottom and map visible during tracking", async ({
+test("#82 regression: interrupt button anchored at bottom and map visible during tracking", async ({
   page,
   context,
 }) => {
@@ -25,26 +25,26 @@ test("#82 regression: stop button anchored at bottom and map visible during trac
   await startBtn.click();
 
   // Wait for tracking UI
-  const stopBtn = page.getByText("Terminer");
-  await expect(stopBtn).toBeVisible({ timeout: 5000 });
+  const interruptBtn = page.getByText("Interrompre");
+  await expect(interruptBtn).toBeVisible({ timeout: 5000 });
 
-  // REGRESSION: Map must be visible during tracking
-  const mapContainer = page.locator(".maplibregl-map");
+  // REGRESSION: Tracking map area must be visible during tracking, with or without WebGL
+  const mapContainer = page.locator('[data-testid="tracking-map"]');
   await expect(mapContainer).toBeVisible({ timeout: 3000 });
   const mapBox = await mapContainer.boundingBox();
   expect(mapBox).not.toBeNull();
   expect(mapBox!.height).toBeGreaterThan(50);
 
   // REGRESSION: Stop button must be near the bottom of the viewport
-  const stopBtnBox = await stopBtn.boundingBox();
-  expect(stopBtnBox).not.toBeNull();
+  const interruptBtnBox = await interruptBtn.boundingBox();
+  expect(interruptBtnBox).not.toBeNull();
   const viewport = page.viewportSize()!;
   // Button bottom edge should be in the lower 40% of the viewport
-  const buttonBottom = stopBtnBox!.y + stopBtnBox!.height;
+  const buttonBottom = interruptBtnBox!.y + interruptBtnBox!.height;
   expect(buttonBottom).toBeGreaterThan(viewport.height * 0.6);
 
-  // REGRESSION: Stop button must be below the map (not overlapping)
-  expect(stopBtnBox!.y).toBeGreaterThanOrEqual(mapBox!.y + mapBox!.height - 1);
+  // REGRESSION: Interrupt button must be below the map (not overlapping)
+  expect(interruptBtnBox!.y).toBeGreaterThanOrEqual(mapBox!.y + mapBox!.height - 1);
 
   // ErrorBoundary should not appear
   const errorBoundary = page.getByText("Une erreur est survenue");

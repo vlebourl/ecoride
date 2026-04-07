@@ -205,7 +205,7 @@ test.describe("swipe navigation between pages", () => {
 
     await page.goto("/trip", { waitUntil: "networkidle" });
     await page.getByText("Démarrer").click();
-    await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
     // Wait for map container to be present
     const mapEl = page.locator('[data-testid="tracking-map"]');

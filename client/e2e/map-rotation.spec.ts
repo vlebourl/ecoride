@@ -49,7 +49,7 @@ test("tracking map bearing matches rider heading when tracking (heading=90)", as
 
   // Start tracking
   await page.getByText("Démarrer").click();
-  await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
   // Wait for GPS to fire and React to update
   await page.waitForTimeout(1500);
@@ -108,7 +108,7 @@ test("tracking map bearing is 0 when heading is null (stationary start)", async 
   await page.goto("/trip", { waitUntil: "networkidle" });
 
   await page.getByText("Démarrer").click();
-  await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
   await page.waitForTimeout(1500);
 

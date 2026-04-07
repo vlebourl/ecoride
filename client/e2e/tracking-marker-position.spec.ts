@@ -15,7 +15,7 @@ test("tracking camera keeps the rider anchored toward the bottom", async ({ page
   await page.goto("/trip", { waitUntil: "networkidle" });
 
   await page.getByText("Démarrer").click();
-  await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
   const map = page.locator('[data-testid="tracking-map"]');
   await expect(map).toBeVisible({ timeout: 5000 });

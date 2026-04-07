@@ -29,7 +29,7 @@ test.describe("trip navigation state persistence", () => {
 
     // Start tracking
     await page.getByText("Démarrer").click();
-    await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
     // Read the session key that start() wrote to sessionStorage
     const startedAt = await page.evaluate((key) => sessionStorage.getItem(key), SESSION_KEY);
@@ -53,8 +53,8 @@ test.describe("trip navigation state persistence", () => {
     // Navigate back to the trip page
     await page.goto("/trip", { waitUntil: "networkidle" });
 
-    // Trip must be auto-restored — Terminer button visible without user action
-    await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+    // Trip must be auto-restored — interrupt button visible without user action
+    await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
     // The crash-recovery "Reprendre" banner must NOT be shown
     await expect(page.getByText("Reprendre")).not.toBeVisible();
@@ -89,7 +89,7 @@ test.describe("trip navigation state persistence", () => {
     // Dismiss the recovery prompt and start a fresh trip
     await page.getByRole("button", { name: /Fermer/i }).click();
     await page.getByText("Démarrer").click();
-    await expect(page.getByText("Terminer")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
     // Verify the stale backup was cleared by start()
     const backupAfterStart = await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY);

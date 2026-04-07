@@ -34,6 +34,7 @@ export function TripPage() {
   );
   const [idleAccuracy, setIdleAccuracy] = useState<number | null>(null);
   const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
+  const [interruptMenuOpen, setInterruptMenuOpen] = useState(false);
   // True when sessionStorage.setItem threw on stop — user must not close the tab.
   const [sessionPersistFailed, setSessionPersistFailed] = useState(false);
   const sessionRef = useRef<TrackingSession | null>(null);
@@ -202,6 +203,7 @@ export function TripPage() {
     setWebglLost(false);
     setMapLoadError(false);
     setSessionPersistFailed(false);
+    setInterruptMenuOpen(false);
     // Dismiss any stale crash-recovery banner — the user is starting a new trip.
     setPendingBackup(null);
     sessionRef.current = null;
@@ -217,6 +219,7 @@ export function TripPage() {
     mapStyleReadyRef.current = false;
     setWebglLost(false);
     setMapLoadError(false);
+    setInterruptMenuOpen(false);
     // Persist session so accidental navigation cannot destroy unsaved trip data.
     // QuotaExceededError is caught — setUiState("stopped") always runs even if
     // the write fails; sessionRef.current remains the authoritative in-memory copy.
@@ -237,6 +240,7 @@ export function TripPage() {
     mapStyleReadyRef.current = false;
     setWebglLost(false);
     setMapLoadError(false);
+    setInterruptMenuOpen(false);
     gps.restore(pendingBackup);
     setUiState("tracking");
     setPendingBackup(null);
@@ -245,6 +249,31 @@ export function TripPage() {
   const handleDismissBackup = () => {
     clearTrackingBackup();
     setPendingBackup(null);
+  };
+
+  const handleInterrupt = () => {
+    if (!gps.state.isPaused) gps.pause();
+    setInterruptMenuOpen(true);
+  };
+
+  const handleResumeFromInterrupt = () => {
+    gps.resume();
+    setInterruptMenuOpen(false);
+  };
+
+  const handleStopFromInterrupt = () => {
+    stopTracking();
+  };
+
+  const handleAbandonFromInterrupt = () => {
+    if (window.confirm("Abandonner ce trajet ? Les données seront perdues.")) {
+      setPendingBackup(null);
+      sessionStorage.removeItem("ecoride-stopped-session");
+      setInterruptMenuOpen(false);
+      setUiState("idle");
+      sessionRef.current = null;
+      gps.reset();
+    }
   };
 
   const formatTime = (sec: number) => {
@@ -752,50 +781,84 @@ export function TripPage() {
       )}
 
       {uiState === "tracking" && (
-        <div className="flex gap-3 px-6 py-6">
-          {profileData?.user?.super73Enabled && <Super73ModeButton enabled compact />}
-          {gps.state.isPaused ? (
-            /* Paused: Resume (primary) + Stop */
-            <>
-              <button
-                onClick={() => gps.resume()}
-                className="flex flex-1 items-center justify-center gap-3 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"
+        <>
+          <div className="flex gap-3 px-6 py-6">
+            {profileData?.user?.super73Enabled && <Super73ModeButton enabled compact />}
+            <button
+              onClick={handleInterrupt}
+              className={`flex flex-1 items-center justify-center gap-4 rounded-xl py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 ${
+                gps.state.isPaused ? "bg-warning/20" : "bg-danger"
+              }`}
+              aria-label={
+                gps.state.isPaused ? "Ouvrir le menu d'interruption" : "Interrompre le trajet"
+              }
+            >
+              <Pause
+                size={28}
+                className={gps.state.isPaused ? "text-warning" : "text-text"}
+                fill="currentColor"
+              />
+              <span
+                className={`text-xl font-black uppercase tracking-widest ${
+                  gps.state.isPaused ? "text-warning" : "text-text"
+                }`}
               >
-                <Play size={28} className="text-bg" fill="currentColor" />
-                <span className="text-xl font-black uppercase tracking-widest text-bg">
-                  Reprendre
-                </span>
-              </button>
-              <button
-                onClick={stopTracking}
-                className="flex items-center justify-center gap-2 rounded-xl bg-surface-container px-6 py-6 active:scale-95"
-                aria-label="Terminer le trajet"
+                {gps.state.isPaused ? "Interrompu" : "Interrompre"}
+              </span>
+            </button>
+          </div>
+
+          {interruptMenuOpen && (
+            <div className="fixed inset-0 z-50 flex items-end bg-black/50 px-6 pb-6" data-no-swipe>
+              <div
+                className="w-full rounded-3xl border border-surface-highest bg-surface p-4 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+                role="dialog"
+                aria-label="Menu d'interruption du trajet"
               >
-                <Square size={24} className="text-text-muted" fill="currentColor" />
-              </button>
-            </>
-          ) : (
-            /* Active: Pause + Stop */
-            <>
-              <button
-                onClick={() => gps.pause()}
-                className="flex items-center justify-center gap-2 rounded-xl bg-warning/20 px-6 py-6 active:scale-95"
-                aria-label="Mettre en pause"
-              >
-                <Pause size={24} className="text-warning" fill="currentColor" />
-              </button>
-              <button
-                onClick={stopTracking}
-                className="flex flex-1 items-center justify-center gap-4 rounded-xl bg-danger py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95"
-              >
-                <Square size={28} className="text-text" fill="currentColor" />
-                <span className="text-xl font-black uppercase tracking-widest text-text">
-                  Terminer
-                </span>
-              </button>
-            </>
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-widest text-text-dim">
+                      Trajet interrompu
+                    </p>
+                    <p className="mt-1 text-sm text-text-muted">
+                      Reprendre, terminer ou abandonner ce trajet.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setInterruptMenuOpen(false)}
+                    className="rounded-xl p-2 text-text-muted active:scale-95"
+                    aria-label="Fermer le menu d'interruption"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={handleResumeFromInterrupt}
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-4 text-base font-black uppercase tracking-widest text-bg active:scale-95"
+                  >
+                    <Play size={20} fill="currentColor" />
+                    Reprendre
+                  </button>
+                  <button
+                    onClick={handleStopFromInterrupt}
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-surface-high py-4 text-base font-bold text-text active:scale-95"
+                  >
+                    <Square size={18} fill="currentColor" />
+                    Terminer
+                  </button>
+                  <button
+                    onClick={handleAbandonFromInterrupt}
+                    className="flex w-full items-center justify-center rounded-2xl bg-danger/10 py-4 text-base font-bold text-danger active:scale-95"
+                  >
+                    Abandonner
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

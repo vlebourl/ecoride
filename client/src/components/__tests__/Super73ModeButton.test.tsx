@@ -1,0 +1,71 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { Super73ModeButton } from "../Super73ModeButton";
+
+const useSuper73Mock = vi.fn();
+
+vi.mock("@/hooks/useSuper73", () => ({
+  useSuper73: () => useSuper73Mock(),
+}));
+
+describe("Super73ModeButton compact", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders a fixed-size disconnected button", () => {
+    useSuper73Mock.mockReturnValue({
+      status: "disconnected",
+      bikeState: null,
+      error: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      setMode: vi.fn(),
+      setAssist: vi.fn(),
+      setLight: vi.fn(),
+      toggleMode: vi.fn(),
+    });
+
+    render(<Super73ModeButton enabled compact />);
+
+    const button = screen.getByRole("button", { name: "Super73 déconnecté" });
+    expect(button.className).toContain("h-12");
+    expect(button.className).toContain("w-12");
+  });
+
+  it("renders the EPAC icon state", () => {
+    useSuper73Mock.mockReturnValue({
+      status: "connected",
+      bikeState: { mode: "eco", assist: 2, light: false, region: "eu" },
+      error: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      setMode: vi.fn(),
+      setAssist: vi.fn(),
+      setLight: vi.fn(),
+      toggleMode: vi.fn(),
+    });
+
+    render(<Super73ModeButton enabled compact />);
+
+    expect(screen.getByRole("button", { name: "Mode EPAC" })).toBeTruthy();
+  });
+
+  it("renders the Off-Road icon state", () => {
+    useSuper73Mock.mockReturnValue({
+      status: "connected",
+      bikeState: { mode: "race", assist: 4, light: false, region: "us" },
+      error: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      setMode: vi.fn(),
+      setAssist: vi.fn(),
+      setLight: vi.fn(),
+      toggleMode: vi.fn(),
+    });
+
+    render(<Super73ModeButton enabled compact />);
+
+    expect(screen.getByRole("button", { name: "Mode Off-Road" })).toBeTruthy();
+  });
+});

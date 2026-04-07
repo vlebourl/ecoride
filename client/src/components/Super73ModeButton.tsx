@@ -1,6 +1,5 @@
-import { Bluetooth, BluetoothOff, Loader2 } from "lucide-react";
+import { BluetoothOff, Loader2 } from "lucide-react";
 import { useSuper73, type BleStatus } from "@/hooks/useSuper73";
-import type { Super73Mode } from "@/lib/super73-ble";
 
 interface Props {
   enabled: boolean;
@@ -27,31 +26,48 @@ function StatusDot({ status, size = "md" }: { status: BleStatus; size?: "sm" | "
   return <span className={`inline-block rounded-full ${px} ${color}`} />;
 }
 
+function CompactModeIcon({ offRoad }: { offRoad: boolean }) {
+  if (offRoad) {
+    return (
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <path d="M9 2 L16 15 H2 Z" fill="#60A5FA" />
+      </svg>
+    );
+  }
+
+  return <span className="h-4 w-4 rounded-full bg-warning" aria-hidden="true" />;
+}
+
 export function Super73ModeButton({ enabled, compact = false }: Props) {
   const ble = useSuper73();
 
   if (!enabled || ble.status === "unsupported") return null;
 
-  // ---- Compact mode: glove-friendly pill for TripPage header ----
-  // Min touch target: 48×48 (iOS HIG) — we use h-12 (48px) with generous padding
+  // ---- Compact mode: fixed-size control for TripPage header ----
+  // Min touch target: 48×48 (iOS HIG)
   if (compact) {
+    const compactBaseClass =
+      "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border active:scale-95";
+
     if (ble.status === "disconnected") {
       return (
         <button
           onClick={ble.connect}
-          className="flex h-12 items-center gap-2 rounded-2xl bg-surface-container px-4 active:scale-95"
+          className={`${compactBaseClass} border-surface-highest bg-surface-container`}
+          aria-label="Super73 déconnecté"
         >
-          <Bluetooth size={18} className="text-text-muted" />
-          <span className="text-sm font-bold text-text-muted">S73</span>
+          <BluetoothOff size={18} className="text-text-muted" />
         </button>
       );
     }
 
     if (ble.status === "connecting") {
       return (
-        <div className="flex h-12 items-center gap-2 rounded-2xl bg-surface-container px-4">
+        <div
+          className={`${compactBaseClass} border-surface-highest bg-surface-container`}
+          aria-label="Connexion Super73 en cours"
+        >
           <Loader2 size={18} className="animate-spin text-warning" />
-          <span className="text-sm font-bold text-text-muted">S73</span>
         </div>
       );
     }
@@ -60,31 +76,24 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
       return (
         <button
           onClick={ble.connect}
-          className="flex h-12 items-center gap-2 rounded-2xl bg-danger/10 px-4 active:scale-95"
+          className={`${compactBaseClass} border-surface-highest bg-surface-container`}
+          aria-label="Super73 déconnecté"
         >
-          <BluetoothOff size={18} className="text-danger" />
-          <span className="text-sm font-bold text-danger">Erreur</span>
+          <BluetoothOff size={18} className="text-text-muted" />
         </button>
       );
     }
 
-    // Connected — large mode toggle pill
     const isOffRoad = ble.bikeState?.mode === "race";
     return (
       <button
         onClick={ble.toggleMode}
-        className={`flex h-12 items-center gap-2.5 rounded-2xl px-5 active:scale-95 ${
-          isOffRoad ? "bg-warning/20" : "bg-primary/20"
+        className={`${compactBaseClass} ${
+          isOffRoad ? "border-[#60A5FA]/40 bg-[#60A5FA]/10" : "border-warning/40 bg-warning/10"
         }`}
+        aria-label={isOffRoad ? "Mode Off-Road" : "Mode EPAC"}
       >
-        <StatusDot status={ble.status} size="sm" />
-        <span
-          className={`text-sm font-bold uppercase tracking-wider ${
-            isOffRoad ? "text-warning" : "text-primary-light"
-          }`}
-        >
-          {ble.bikeState ? (MODE_LABELS[ble.bikeState.mode] ?? ble.bikeState.mode) : "..."}
-        </span>
+        <CompactModeIcon offRoad={isOffRoad} />
       </button>
     );
   }

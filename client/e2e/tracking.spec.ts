@@ -21,9 +21,9 @@ test("clicking Démarrer starts tracking with counters", async ({ page, context 
   await expect(startBtn).toBeVisible();
   await startBtn.click();
 
-  // Should now see Terminer button (tracking mode)
-  const stopBtn = page.getByText("Terminer");
-  await expect(stopBtn).toBeVisible({ timeout: 5000 });
+  // Should now see Interrompre button (tracking mode)
+  const interruptBtn = page.getByText("Interrompre");
+  await expect(interruptBtn).toBeVisible({ timeout: 5000 });
 
   // Should see speed display (km/h label)
   const speedLabel = page.getByText("km/h");

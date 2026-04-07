@@ -29,6 +29,9 @@ import {
   useAdminAuditLogs,
   useTriggerDeploy,
   useProfile,
+  useGrantAdmin,
+  useRevokeAdmin,
+  useGrantSuper73Access,
 } from "@/hooks/queries";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -62,7 +65,11 @@ export function AdminPage() {
   const { data: health, isPending: healthPending } = useAdminHealth();
   const { data: stats, isPending: statsPending } = useAdminStats();
   const triggerDeploy = useTriggerDeploy();
+  const grantAdmin = useGrantAdmin();
+  const revokeAdmin = useRevokeAdmin();
+  const grantSuper73Access = useGrantSuper73Access();
   const [deployStatus, setDeployStatus] = useState<"idle" | "success" | "error">("idle");
+  const [grantEmail, setGrantEmail] = useState("");
 
   const isAdmin = profileData?.user?.isAdmin === true;
 
@@ -261,6 +268,54 @@ export function AdminPage() {
           )}
         </section>
 
+        <section className="rounded-xl bg-surface-low p-5">
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
+            Promouvoir un admin
+          </h2>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              grantAdmin.mutate(
+                { email: grantEmail.trim().toLowerCase() },
+                {
+                  onSuccess: () => setGrantEmail(""),
+                },
+              );
+            }}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="email"
+                value={grantEmail}
+                onChange={(e) => setGrantEmail(e.target.value)}
+                placeholder="utilisateur@exemple.com"
+                required
+                className="flex-1 rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <button
+                type="submit"
+                disabled={grantAdmin.isPending}
+                className="rounded-lg bg-primary/20 px-4 py-3 text-sm font-bold text-primary-light transition-colors active:scale-95 disabled:opacity-50"
+              >
+                {grantAdmin.isPending ? "Ajout..." : "Ajouter admin"}
+              </button>
+            </div>
+            {grantAdmin.isError && (
+              <p className="text-sm text-danger">
+                Échec de la promotion admin. Vérifiez l’email et vos droits.
+              </p>
+            )}
+            {grantAdmin.isSuccess && (
+              <p className="text-sm text-primary-light">
+                {grantAdmin.data.granted
+                  ? `${grantAdmin.data.user.email} est désormais admin.`
+                  : `${grantAdmin.data.user.email} est déjà admin.`}
+              </p>
+            )}
+          </form>
+        </section>
+
         {/* Users Table */}
         <section className="rounded-xl bg-surface-low p-5">
           <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
@@ -279,6 +334,7 @@ export function AdminPage() {
                     <th className="pb-3 pr-4">Email</th>
                     <th className="pb-3 pr-4 text-right">Trajets</th>
                     <th className="pb-3 pr-4 text-right">CO2 (kg)</th>
+                    <th className="pb-3 pr-4 text-right">Accès</th>
                     <th className="pb-3 text-right">Inscrit</th>
                   </tr>
                 </thead>
@@ -292,11 +348,46 @@ export function AdminPage() {
                             admin
                           </span>
                         )}
+                        {u.super73Enabled && (
+                          <span className="ml-2 inline-flex items-center rounded bg-sky-500/20 px-1.5 py-0.5 text-xs font-bold text-sky-300">
+                            s73
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 pr-4 text-text-muted">{u.email}</td>
                       <td className="py-3 pr-4 text-right text-text">{u.tripCount}</td>
                       <td className="py-3 pr-4 text-right text-text">
                         {typeof u.totalCo2 === "number" ? u.totalCo2.toFixed(1) : "0.0"}
+                      </td>
+                      <td className="py-3 pr-4 text-right">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={grantSuper73Access.isPending || u.super73Enabled}
+                            onClick={() => grantSuper73Access.mutate({ userId: u.id })}
+                            className="rounded-md bg-sky-500/20 px-2 py-1 text-xs font-bold text-sky-300 disabled:opacity-50"
+                          >
+                            {u.super73Enabled ? "S73 ok" : "Accorder S73"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={grantAdmin.isPending || revokeAdmin.isPending || u.isAdmin}
+                            onClick={() => grantAdmin.mutate({ email: u.email })}
+                            className="rounded-md bg-primary/20 px-2 py-1 text-xs font-bold text-primary-light disabled:opacity-50"
+                          >
+                            {u.isAdmin ? "Admin" : "Rendre admin"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={
+                              revokeAdmin.isPending || !u.isAdmin || u.id === profileData?.user?.id
+                            }
+                            onClick={() => revokeAdmin.mutate({ userId: u.id })}
+                            className="rounded-md bg-danger/15 px-2 py-1 text-xs font-bold text-danger disabled:opacity-50"
+                          >
+                            Retirer admin
+                          </button>
+                        </div>
                       </td>
                       <td className="py-3 text-right text-text-muted">{formatDate(u.createdAt)}</td>
                     </tr>

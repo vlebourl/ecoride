@@ -18,7 +18,11 @@ describe("production database deployment safety", () => {
     expect(dockerfile).toContain("bun --cwd server scripts/start-production.ts");
     expect(startupScript).toContain("ensureCoolifyBackupBeforeMigration");
     expect(startupScript).toContain("ensureLegacyDrizzleBaseline");
-    expect(startupScript).toContain('["bunx", "drizzle-kit", "migrate"]');
+    expect(startupScript).toContain('const repoRoot = path.resolve(import.meta.dirname, "../..")');
+    expect(startupScript).toContain(
+      '["bunx", "drizzle-kit", "migrate", "--config", "drizzle.config.ts"]',
+    );
+    expect(startupScript).toContain("cwd: repoRoot");
     expect(migrationJournal).toContain("0000_omniscient_doomsday");
   });
 

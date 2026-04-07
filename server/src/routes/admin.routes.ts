@@ -11,6 +11,7 @@ import { sendPushBroadcast } from "../lib/push";
 import { logAudit } from "../lib/audit";
 import { env } from "../env";
 import { logger } from "../lib/logger";
+import { forbidden, notFound } from "../lib/errors";
 import type { AuthEnv } from "../types/context";
 
 const appVersion = (() => {
@@ -20,6 +21,29 @@ const appVersion = (() => {
     return "unknown";
   }
 })();
+
+const adminManagedUserSelection = {
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  isAdmin: user.isAdmin,
+  super73Enabled: user.super73Enabled,
+};
+
+const userIdSchema = z.object({
+  userId: z.string().min(1),
+});
+
+async function getManagedUserById(userId: string) {
+  const [targetUser] = await db
+    .select(adminManagedUserSelection)
+    .from(user)
+    .where(eq(user.id, userId));
+  if (!targetUser) {
+    throw notFound(`User ${userId} not found`);
+  }
+  return targetUser;
+}
 
 const adminRouter = new Hono<AuthEnv>();
 
@@ -94,12 +118,13 @@ adminRouter.get("/stats", async (c) => {
       email: user.email,
       createdAt: user.createdAt,
       isAdmin: user.isAdmin,
+      super73Enabled: user.super73Enabled,
       tripCount: count(trips.id),
       totalCo2: sum(trips.co2SavedKg).mapWith(Number),
     })
     .from(user)
     .leftJoin(trips, eq(user.id, trips.userId))
-    .groupBy(user.id, user.name, user.email, user.createdAt, user.isAdmin)
+    .groupBy(user.id, user.name, user.email, user.createdAt, user.isAdmin, user.super73Enabled)
     .orderBy(desc(user.createdAt));
 
   // Recent 20 trips with user name
@@ -154,6 +179,7 @@ adminRouter.get("/stats", async (c) => {
         totalCo2: u.totalCo2 ?? 0,
         createdAt: u.createdAt.toISOString(),
         isAdmin: u.isAdmin,
+        super73Enabled: u.super73Enabled,
       })),
       recentTrips: recentTrips.map((t) => ({
         id: t.id,
@@ -168,6 +194,147 @@ adminRouter.get("/stats", async (c) => {
     },
   });
 });
+
+const grantAdminSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+});
+
+// POST /api/admin/users/grant — Grant admin role to an existing user
+adminRouter.post(
+  "/users/grant",
+  rateLimit({ maxRequests: 10, windowMs: 60_000, prefix: "admin-grant-user" }),
+  zValidator("json", grantAdminSchema, validationHook),
+  async (c) => {
+    const currentUser = c.get("user");
+    const data = c.req.valid("json");
+
+    const [targetUser] = await db
+      .select(adminManagedUserSelection)
+      .from(user)
+      .where(eq(user.email, data.email));
+
+    if (!targetUser) {
+      throw notFound(`User with email ${data.email} not found`);
+    }
+
+    if (targetUser.isAdmin) {
+      return c.json({
+        ok: true,
+        data: {
+          granted: false,
+          user: targetUser,
+        },
+      });
+    }
+
+    const [updatedUser] = await db
+      .update(user)
+      .set({
+        isAdmin: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, targetUser.id))
+      .returning(adminManagedUserSelection);
+
+    logAudit(currentUser.id, "grant_admin", targetUser.id, { email: targetUser.email });
+
+    return c.json({
+      ok: true,
+      data: {
+        granted: true,
+        user: updatedUser,
+      },
+    });
+  },
+);
+
+// POST /api/admin/users/revoke — Revoke admin role from an existing user
+adminRouter.post(
+  "/users/revoke",
+  rateLimit({ maxRequests: 10, windowMs: 60_000, prefix: "admin-revoke-user" }),
+  zValidator("json", userIdSchema, validationHook),
+  async (c) => {
+    const currentUser = c.get("user");
+    const data = c.req.valid("json");
+
+    if (currentUser.id === data.userId) {
+      throw forbidden("You cannot revoke your own admin access");
+    }
+
+    const targetUser = await getManagedUserById(data.userId);
+
+    if (!targetUser.isAdmin) {
+      return c.json({
+        ok: true,
+        data: {
+          revoked: false,
+          user: targetUser,
+        },
+      });
+    }
+
+    const [updatedUser] = await db
+      .update(user)
+      .set({
+        isAdmin: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, targetUser.id))
+      .returning(adminManagedUserSelection);
+
+    logAudit(currentUser.id, "revoke_admin", targetUser.id, { email: targetUser.email });
+
+    return c.json({
+      ok: true,
+      data: {
+        revoked: true,
+        user: updatedUser,
+      },
+    });
+  },
+);
+
+// POST /api/admin/users/super73/grant — Grant Super73 access to an existing user
+adminRouter.post(
+  "/users/super73/grant",
+  rateLimit({ maxRequests: 10, windowMs: 60_000, prefix: "admin-grant-super73" }),
+  zValidator("json", userIdSchema, validationHook),
+  async (c) => {
+    const currentUser = c.get("user");
+    const data = c.req.valid("json");
+
+    const targetUser = await getManagedUserById(data.userId);
+
+    if (targetUser.super73Enabled) {
+      return c.json({
+        ok: true,
+        data: {
+          granted: false,
+          user: targetUser,
+        },
+      });
+    }
+
+    const [updatedUser] = await db
+      .update(user)
+      .set({
+        super73Enabled: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, targetUser.id))
+      .returning(adminManagedUserSelection);
+
+    logAudit(currentUser.id, "grant_super73_access", targetUser.id, { email: targetUser.email });
+
+    return c.json({
+      ok: true,
+      data: {
+        granted: true,
+        user: updatedUser,
+      },
+    });
+  },
+);
 
 // POST /api/admin/notifications — Send push notification to users
 const sendNotificationSchema = z.object({

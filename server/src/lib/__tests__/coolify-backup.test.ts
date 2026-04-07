@@ -28,6 +28,27 @@ describe("coolify backup guard", () => {
     ).toBe("y12rxn4gjzsw1c3933wbe1wb");
   });
 
+  it("skips the pre-migration backup when Coolify backup env is fully absent", async () => {
+    const result = await ensureCoolifyBackupBeforeMigration({
+      databaseUrl: "postgresql://ecoride:secret@y12rxn4gjzsw1c3933wbe1wb:5432/ecoride",
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({ skipped: true, reason: "missing_config" });
+  });
+
+  it("fails when Coolify backup env is partially configured", async () => {
+    await expect(
+      ensureCoolifyBackupBeforeMigration({
+        databaseUrl: "postgresql://ecoride:secret@y12rxn4gjzsw1c3933wbe1wb:5432/ecoride",
+        coolifyWebhookUrl: "http://coolify:8080/api/v1/deploy?uuid=app-123",
+        fetchImpl: vi.fn() as unknown as typeof fetch,
+      }),
+    ).rejects.toThrow(
+      "COOLIFY_WEBHOOK_URL and COOLIFY_API_TOKEN must either both be configured or both be omitted",
+    );
+  });
+
   it("fails closed when no Coolify backup is configured in production", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify([]), {

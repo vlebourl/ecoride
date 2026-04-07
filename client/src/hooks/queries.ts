@@ -8,6 +8,11 @@ import type {
   UpdateUserRequest,
   StatsPeriod,
   LeaderboardCategory,
+  GrantAdminRequest,
+  GrantAdminResponse,
+  AdminUserAccessRequest,
+  RevokeAdminResponse,
+  GrantSuper73Response,
 } from "@ecoride/shared/api-contracts";
 
 // ---- Queries ----
@@ -156,6 +161,7 @@ export interface AdminStatsUser {
   totalCo2: number;
   createdAt: string;
   isAdmin: boolean;
+  super73Enabled: boolean;
 }
 
 export interface AdminStatsTrip {
@@ -188,6 +194,51 @@ export function useAdminStats() {
     queryKey: ["admin", "stats"],
     queryFn: () =>
       apiFetch<{ ok: boolean; data: AdminStatsData }>("/admin/stats").then((r) => r.data),
+  });
+}
+
+export function useGrantAdmin() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: GrantAdminRequest) =>
+      apiFetch<{ ok: boolean; data: GrantAdminResponse }>("/admin/users/grant", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
+  });
+}
+
+export function useRevokeAdmin() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: AdminUserAccessRequest) =>
+      apiFetch<{ ok: boolean; data: RevokeAdminResponse }>("/admin/users/revoke", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
+  });
+}
+
+export function useGrantSuper73Access() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: AdminUserAccessRequest) =>
+      apiFetch<{ ok: boolean; data: GrantSuper73Response }>("/admin/users/super73/grant", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
   });
 }
 

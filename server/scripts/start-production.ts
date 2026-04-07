@@ -3,8 +3,9 @@ import { ensureLegacyDrizzleBaseline } from "../src/lib/drizzle-baseline";
 import { ensureCoolifyBackupBeforeMigration } from "../src/lib/coolify-backup";
 import { logger } from "../src/lib/logger";
 
-async function run(command: string[], label: string): Promise<void> {
+async function run(command: string[], label: string, cwd?: string): Promise<void> {
   const child = Bun.spawn(command, {
+    cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
@@ -32,12 +33,18 @@ async function main() {
     coolifyWebhookUrl: process.env.COOLIFY_WEBHOOK_URL,
     coolifyApiToken: process.env.COOLIFY_API_TOKEN,
   });
+  const repoRoot = path.resolve(import.meta.dirname, "../..");
 
   await ensureLegacyDrizzleBaseline(databaseUrl, path.resolve(import.meta.dirname, "../drizzle"));
-  await run(["bunx", "drizzle-kit", "migrate"], "Database migration");
+  await run(
+    ["bunx", "drizzle-kit", "migrate", "--config", "drizzle.config.ts"],
+    "Database migration",
+    repoRoot,
+  );
   logger.info("database_migrations_finished");
 
   const server = Bun.spawn(["bun", "run", "server/src/index.ts"], {
+    cwd: repoRoot,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",

@@ -47,4 +47,4 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "bunx drizzle-kit push --force && bun run server/src/index.ts"]
+CMD ["sh", "-c", "bun --cwd server scripts/start-production.ts"]

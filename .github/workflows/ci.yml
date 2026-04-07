@@ -322,42 +322,7 @@ jobs:
             exit 0
           fi
 
-          PERF=$(jq '((.categories.performance.score // 0) * 100 | round)' "$REPORT")
-          A11Y=$(jq '((.categories.accessibility.score // 0) * 100 | round)' "$REPORT")
-          BP=$(jq '((.categories["best-practices"].score // 0) * 100 | round)' "$REPORT")
-          SEO=$(jq '((.categories.seo.score // 0) * 100 | round)' "$REPORT")
-          PWA=$(jq '((.categories.pwa.score // 0) * 100 | round)' "$REPORT")
-
-          badge() { local s=$1; if [ "$s" -ge 90 ]; then echo "🟢"; elif [ "$s" -ge 70 ]; then echo "🟡"; else echo "🔴"; fi; }
-
-          FAIL=false
-          WARN=false
-          [ "$PERF" -lt 80 ] && WARN=true
-          [ "$A11Y" -lt 90 ] && FAIL=true
-
-          if [ "$FAIL" = true ]; then
-            STATUS="❌ Accessibility below threshold"
-          elif [ "$WARN" = true ]; then
-            STATUS="⚠️ Performance below threshold (warning only)"
-          else
-            STATUS="✅ All thresholds met"
-          fi
-
-          cat > /tmp/lh-comment.md << MDEOF
-          ## Lighthouse Report — ${STATUS}
-
-          | Category | Score | |
-          |---|---:|:---:|
-          | Performance | ${PERF} | $(badge $PERF) |
-          | Accessibility | ${A11Y} | $(badge $A11Y) |
-          | Best Practices | ${BP} | $(badge $BP) |
-          | SEO | ${SEO} | $(badge $SEO) |
-          | PWA | ${PWA} | $(badge $PWA) |
-
-          > Thresholds: Performance ≥ 80 ⚠️ warn only, Accessibility ≥ 90 ❌ fails CI. [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          MDEOF
-
-          echo "fail=${FAIL}" >> "$GITHUB_OUTPUT"
+          node scripts/lighthouse-comment.mjs "$REPORT"
 
       - name: Post Lighthouse comment
         if: always()

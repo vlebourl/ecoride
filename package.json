@@ -1,6 +1,6 @@
 {
   "name": "ecoride",
-  "version": "2.15.8",
+  "version": "2.15.9",
   "private": true,
   "workspaces": [
     "shared",
@@ -14,7 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:non-destructive": "bun --cwd server scripts/db-migrate-non-destructive.ts",
-    "db:push": "drizzle-kit push",
+    "db:push:local": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "eslint .",

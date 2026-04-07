@@ -49,8 +49,8 @@ cp .env.example .env
 # 3. Lancer PostgreSQL
 docker compose up -d
 
-# 4. Pousser le schéma DB
-bun run db:push
+# 4. Initialiser le schéma local uniquement
+bun run db:push:local
 
 # 5. Lancer le dev
 bun run dev
@@ -68,17 +68,18 @@ client/     React PWA + Tailwind + Playwright e2e
 
 ## Scripts
 
-| Commande                           | Description                                |
-| ---------------------------------- | ------------------------------------------ |
-| `bun run dev`                      | Lance client + serveur en parallèle        |
-| `bun run dev:client`               | Client seul (Vite :5173)                   |
-| `bun run dev:server`               | Serveur seul (Hono :3000)                  |
-| `bun run db:push`                  | Applique le schéma Drizzle sur la DB       |
-| `bun run db:generate`              | Génère une migration Drizzle               |
-| `bun run db:studio`                | Ouvre Drizzle Studio                       |
-| `bun run typecheck`                | Vérifie les types dans tous les workspaces |
-| `cd client && bunx vitest run`     | Lance les tests unitaires                  |
-| `cd client && npx playwright test` | Lance les smoke tests e2e                  |
+| Commande                           | Description                                       |
+| ---------------------------------- | ------------------------------------------------- |
+| `bun run dev`                      | Lance client + serveur en parallèle               |
+| `bun run dev:client`               | Client seul (Vite :5173)                          |
+| `bun run dev:server`               | Serveur seul (Hono :3000)                         |
+| `bun run db:push:local`            | Applique le schéma Drizzle sur une DB locale vide |
+| `bun run db:generate`              | Génère une migration Drizzle revue avant prod     |
+| `bun run db:migrate`               | Applique les migrations SQL versionnées           |
+| `bun run db:studio`                | Ouvre Drizzle Studio                              |
+| `bun run typecheck`                | Vérifie les types dans tous les workspaces        |
+| `cd client && bunx vitest run`     | Lance les tests unitaires                         |
+| `cd client && npx playwright test` | Lance les smoke tests e2e                         |
 
 ## CI / CD
 
@@ -92,7 +93,10 @@ client/     React PWA + Tailwind + Playwright e2e
 
 1. **Auto-bump** : lit le conventional commit (`feat:` → minor, `fix:` → patch)
 2. **Deploy** : trigger Coolify après le bump
-3. **Auto-update PWA** : l'app poll `/api/health` toutes les 5 min, purge le cache si version changée
+3. **Pré-backup obligatoire** : avant toute migration prod, le conteneur déclenche un backup Coolify et attend un statut `success`
+4. **Schéma DB** : après backup réussi, le conteneur applique uniquement les migrations SQL versionnées (`drizzle-kit migrate`) — jamais `push --force`
+5. **Backups DB** : sauvegardes planifiées via Coolify pour la base PostgreSQL de production
+6. **Auto-update PWA** : l'app poll `/api/health` toutes les 5 min, purge le cache si version changée
 
 ## Deploiement
 
@@ -118,3 +122,10 @@ docker compose up --build
 | `VAPID_PUBLIC_KEY`     | Clé publique push (`bunx web-push generate-vapid-keys`)   |
 | `VAPID_PRIVATE_KEY`    | Clé privée push                                           |
 | `VAPID_SUBJECT`        | `mailto:votre-email@exemple.com`                          |
+
+### Sécurité base de données en production
+
+- Les déploiements production ne doivent jamais utiliser `drizzle-kit push` ou `--force`.
+- Toute évolution de schéma passe par `bun run db:generate`, revue du SQL généré, puis application via `bun run db:migrate`.
+- La base PostgreSQL de production est sauvegardée automatiquement par Coolify sur un planning dédié.
+- En production Coolify, l'absence de backup configuré ou l'échec du backup bloque la migration et empêche le démarrage de la nouvelle révision.

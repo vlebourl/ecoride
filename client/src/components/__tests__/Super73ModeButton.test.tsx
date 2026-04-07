@@ -13,7 +13,7 @@ describe("Super73ModeButton compact", () => {
     vi.clearAllMocks();
   });
 
-  it("renders a fixed-size disconnected button", () => {
+  it("renders a square button that stretches with the action row", () => {
     useSuper73Mock.mockReturnValue({
       status: "disconnected",
       bikeState: null,
@@ -29,8 +29,8 @@ describe("Super73ModeButton compact", () => {
     render(<Super73ModeButton enabled compact />);
 
     const button = screen.getByRole("button", { name: "Super73 déconnecté" });
-    expect(button.className).toContain("h-12");
-    expect(button.className).toContain("w-12");
+    expect(button.className).toContain("aspect-square");
+    expect(button.className).toContain("self-stretch");
   });
 
   it("renders the EPAC icon state", () => {

@@ -47,7 +47,7 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
   // Min touch target: 48×48 (iOS HIG)
   if (compact) {
     const compactBaseClass =
-      "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border active:scale-95";
+      "flex aspect-square shrink-0 self-stretch items-center justify-center rounded-2xl border active:scale-95";
 
     if (ble.status === "disconnected") {
       return (

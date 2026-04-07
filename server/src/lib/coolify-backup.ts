@@ -32,6 +32,11 @@ export interface EnsureCoolifyBackupResult {
   filename: string | null;
 }
 
+export interface SkipCoolifyBackupResult {
+  skipped: true;
+  reason: "missing_config";
+}
+
 function parseJson<T>(value: unknown): T {
   return value as T;
 }
@@ -79,22 +84,29 @@ export async function ensureCoolifyBackupBeforeMigration({
   fetchImpl = fetch,
   pollIntervalMs = 2_000,
   timeoutMs = 120_000,
-}: EnsureCoolifyBackupParams): Promise<EnsureCoolifyBackupResult> {
-  if (!coolifyWebhookUrl) {
-    throw new Error(
-      "COOLIFY_WEBHOOK_URL is required to enforce a pre-migration backup in production",
-    );
-  }
-  if (!coolifyApiToken) {
-    throw new Error(
-      "COOLIFY_API_TOKEN is required to enforce a pre-migration backup in production",
-    );
+}: EnsureCoolifyBackupParams): Promise<EnsureCoolifyBackupResult | SkipCoolifyBackupResult> {
+  const hasWebhookUrl = Boolean(coolifyWebhookUrl);
+  const hasApiToken = Boolean(coolifyApiToken);
+
+  if (!hasWebhookUrl && !hasApiToken) {
+    logger.warn("coolify_backup_check_skipped", {
+      reason: "missing_config",
+    });
+    return { skipped: true, reason: "missing_config" };
   }
 
-  const apiBaseUrl = extractCoolifyApiBaseUrl(coolifyWebhookUrl);
+  if (!hasWebhookUrl || !hasApiToken) {
+    throw new Error(
+      "COOLIFY_WEBHOOK_URL and COOLIFY_API_TOKEN must either both be configured or both be omitted",
+    );
+  }
+  const webhookUrl = coolifyWebhookUrl as string;
+  const apiToken = coolifyApiToken as string;
+
+  const apiBaseUrl = extractCoolifyApiBaseUrl(webhookUrl);
   const databaseResourceUuid = extractDatabaseResourceUuid(databaseUrl);
   const headers = {
-    Authorization: `Bearer ${coolifyApiToken}`,
+    Authorization: `Bearer ${apiToken}`,
     "Content-Type": "application/json",
   };
 

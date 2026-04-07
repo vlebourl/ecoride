@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import process from "node:process";
 
 function getCategoryScore(categories, key) {
   const score = categories?.[key]?.score;

@@ -200,7 +200,9 @@ export function LeaderboardPage() {
                       1
                     </div>
                   </div>
-                  <span className="mt-4 text-sm font-bold text-text">{top3[0].name}</span>
+                  <span className="mt-4 w-full truncate text-center text-sm font-bold text-text">
+                    {top3[0].name}
+                  </span>
                   <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
                     {formatValue(top3[0].value)} {unit}
                   </span>

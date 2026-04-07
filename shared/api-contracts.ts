@@ -26,6 +26,8 @@ export const API_ROUTES = {
   ADMIN_GRANT_USER: { method: "POST", path: "/api/admin/users/grant" },
   ADMIN_REVOKE_USER: { method: "POST", path: "/api/admin/users/revoke" },
   ADMIN_GRANT_SUPER73: { method: "POST", path: "/api/admin/users/super73/grant" },
+  ADMIN_REVOKE_SUPER73: { method: "POST", path: "/api/admin/users/super73/revoke" },
+  ADMIN_DELETE_USER: { method: "POST", path: "/api/admin/users/delete" },
 
   // Achievements
   ACHIEVEMENTS_LIST: { method: "GET", path: "/api/achievements" },
@@ -86,6 +88,16 @@ export interface RevokeAdminResponse {
 export interface GrantSuper73Response {
   user: Pick<User, "id" | "name" | "email" | "isAdmin" | "super73Enabled">;
   granted: boolean;
+}
+
+export interface RevokeSuper73Response {
+  user: Pick<User, "id" | "name" | "email" | "isAdmin" | "super73Enabled">;
+  revoked: boolean;
+}
+
+export interface DeleteAdminUserResponse {
+  deletedUserId: string;
+  deletedEmail: string;
 }
 
 export interface PushSubscribeRequest {

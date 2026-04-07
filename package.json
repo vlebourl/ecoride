@@ -13,6 +13,7 @@
     "dev:server": "bun run --filter server dev",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:non-destructive": "bun --cwd server scripts/db-migrate-non-destructive.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "typecheck": "bun run --filter '*' typecheck",

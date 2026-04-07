@@ -28,7 +28,7 @@ function StatusDot({ status, size = "md" }: { status: BleStatus; size?: "sm" | "
 }
 
 export function Super73ModeButton({ enabled, compact = false }: Props) {
-  const ble = useSuper73(enabled);
+  const ble = useSuper73();
 
   if (!enabled || ble.status === "unsupported") return null;
 

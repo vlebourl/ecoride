@@ -9,6 +9,7 @@ export interface User {
   fuelType: FuelType | null;
   consumptionL100: number | null;
   mileage: number | null;
+  timezone: string | null;
   leaderboardOptOut: boolean;
   reminderEnabled: boolean;
   reminderTime: string | null;

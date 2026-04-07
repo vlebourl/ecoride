@@ -7,6 +7,7 @@ import { HTTPException } from "hono/http-exception";
 import { env } from "./env";
 import { auth } from "./auth";
 import { authMiddleware } from "./auth/middleware";
+import { timezoneMiddleware } from "./auth/timezone";
 import { apiRouter } from "./routes";
 import { initCronJobs } from "./cron";
 import { AppError } from "./lib/errors";
@@ -77,6 +78,7 @@ app.use(
   "/api/*",
   cors({
     origin: [env.FRONTEND_URL],
+    allowHeaders: ["Content-Type", "Authorization", "x-timezone"],
     credentials: true,
   }),
 );
@@ -118,6 +120,7 @@ app.get("/api/health", async (c) => {
 
 // ---- Auth middleware for all other /api routes ----
 app.use("/api/*", authMiddleware);
+app.use("/api/*", timezoneMiddleware);
 
 // ---- API routes ----
 app.route("/api", apiRouter);
@@ -144,12 +147,23 @@ app.onError((err, c) => {
     );
   }
   const reqId = c.get("requestId") as string | undefined;
-  logger.withContext(reqId).error("unhandled_error", {
+  const userId = (c.var as Record<string, unknown>)["user"]
+    ? ((c.var as Record<string, unknown>)["user"] as { id: string }).id
+    : undefined;
+  logger.withContext(reqId, userId).error("unhandled_error", {
     error: err instanceof Error ? err.message : String(err),
     stack: err instanceof Error ? err.stack : undefined,
+    method: c.req.method,
+    path: c.req.path,
   });
   if (env.SENTRY_DSN) {
-    Sentry.captureException(err);
+    Sentry.withScope((scope) => {
+      if (reqId) scope.setTag("request_id", reqId);
+      if (userId) scope.setUser({ id: userId });
+      scope.setTag("http.method", c.req.method);
+      scope.setTag("http.path", c.req.path);
+      Sentry.captureException(err);
+    });
   }
   return c.json(
     {

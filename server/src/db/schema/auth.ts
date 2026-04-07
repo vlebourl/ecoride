@@ -1,4 +1,5 @@
-import { pgTable, text, boolean, timestamp, integer, real } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, integer } from "drizzle-orm/pg-core";
+import { numericNumber } from "./numeric";
 
 // Better Auth core table — extended with EcoRide user fields.
 // Better Auth expects: id, name, email, emailVerified, image, createdAt, updatedAt.
@@ -15,8 +16,9 @@ export const user = pgTable("user", {
   // ---- EcoRide custom fields ----
   vehicleModel: text("vehicle_model"),
   fuelType: text("fuel_type"),
-  consumptionL100: real("consumption_l100"),
+  consumptionL100: numericNumber("consumption_l100", { precision: 5, scale: 2 }),
   mileage: integer("mileage"),
+  timezone: text("timezone"),
   leaderboardOptOut: boolean("leaderboard_opt_out").notNull().default(false),
   reminderEnabled: boolean("reminder_enabled").notNull().default(false),
   reminderTime: text("reminder_time"), // HH:MM

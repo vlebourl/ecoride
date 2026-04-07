@@ -52,6 +52,7 @@ export interface UpdateUserRequest {
   fuelType?: FuelType;
   consumptionL100?: number;
   mileage?: number;
+  timezone?: string;
   leaderboardOptOut?: boolean;
   reminderEnabled?: boolean;
   reminderTime?: string; // HH:MM

@@ -46,6 +46,7 @@ export const auth = betterAuth({
       fuelType: { type: "string", required: false },
       consumptionL100: { type: "number", required: false },
       mileage: { type: "number", required: false },
+      timezone: { type: "string", required: false },
       leaderboardOptOut: { type: "boolean", required: false, defaultValue: false },
       reminderEnabled: { type: "boolean", required: false, defaultValue: false },
       reminderTime: { type: "string", required: false },

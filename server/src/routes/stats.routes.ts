@@ -11,7 +11,6 @@ import type { StatsPeriod } from "@ecoride/shared/api-contracts";
 
 const statsQuery = z.object({
   period: z.enum(["day", "week", "month", "year", "all"]).default("month"),
-  tz: z.string().optional(),
 });
 
 function getPeriodStart(period: StatsPeriod): Date | null {
@@ -37,7 +36,7 @@ const statsRouter = new Hono<AuthEnv>();
 
 // GET /api/stats/summary — Aggregated stats for current user
 statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), async (c) => {
-  const { period, tz } = c.req.valid("query");
+  const { period } = c.req.valid("query");
   const currentUser = c.get("user");
 
   const periodStart = getPeriodStart(period);
@@ -55,7 +54,7 @@ statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), asy
     .from(trips)
     .where(and(...conditions));
 
-  const streaks = await computeStreak(currentUser.id, tz);
+  const streaks = await computeStreak(currentUser.id, currentUser.timezone ?? undefined);
 
   return c.json({
     ok: true,

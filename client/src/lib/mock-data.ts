@@ -10,6 +10,7 @@ export const mockUser: User = {
   fuelType: "sp95",
   consumptionL100: 6.5,
   mileage: 45000,
+  timezone: "Europe/Paris",
   leaderboardOptOut: false,
   reminderEnabled: true,
   reminderTime: "08:00",

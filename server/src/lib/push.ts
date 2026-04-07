@@ -4,6 +4,7 @@ import { db } from "../db";
 import { pushSubscriptions } from "../db/schema";
 import { env } from "../env";
 import { logger } from "./logger";
+import { getPushEndpointHost, type PushLogContext } from "./push-context";
 
 let initialized = false;
 
@@ -31,9 +32,17 @@ export interface PushPayload {
 export async function sendPushNotification(
   subscription: { id: string; endpoint: string; p256dh: string; auth: string },
   payload: PushPayload,
+  context?: PushLogContext,
 ): Promise<boolean> {
   ensureInitialized();
   if (!initialized) return false;
+
+  const logData = {
+    subscriptionId: subscription.id,
+    endpointHost: getPushEndpointHost(subscription.endpoint),
+    ...(context?.userId ? { userId: context.userId } : {}),
+    ...(context?.source ? { source: context.source } : {}),
+  };
 
   try {
     await webpush.sendNotification(
@@ -49,11 +58,15 @@ export async function sendPushNotification(
     if (statusCode === 410 || statusCode === 404) {
       // Subscription expired or invalid — clean up
       await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscription.id));
-      logger.info("push_subscription_expired", { subscriptionId: subscription.id });
+      logger.info("push_subscription_expired", {
+        ...logData,
+        statusCode,
+      });
     } else {
       logger.error("push_send_failed", {
-        subscriptionId: subscription.id,
-        error: err instanceof Error ? (err as Error).message : String(err),
+        ...logData,
+        statusCode,
+        error: err instanceof Error ? err.message : String(err),
       });
     }
     return false;
@@ -71,7 +84,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
 
   let sent = 0;
   for (const sub of subs) {
-    const ok = await sendPushNotification(sub, payload);
+    const ok = await sendPushNotification(sub, payload, { userId, source: "user" });
     if (ok) sent++;
   }
   return sent;
@@ -92,7 +105,10 @@ export async function sendPushBroadcast(
   let sent = 0;
   let failed = 0;
   for (const sub of subs) {
-    const ok = await sendPushNotification(sub, payload);
+    const ok = await sendPushNotification(sub, payload, {
+      userId: sub.userId,
+      source: "broadcast",
+    });
     if (ok) sent++;
     else failed++;
   }

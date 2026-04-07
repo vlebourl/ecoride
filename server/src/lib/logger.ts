@@ -7,14 +7,31 @@ export interface LogEntry {
   data?: Record<string, unknown>;
 }
 
-function write(level: LogEntry["level"], message: string, data?: Record<string, unknown>): void {
-  const entry: LogEntry = {
+type LogContext = Pick<LogEntry, "requestId" | "userId">;
+
+function buildEntry(
+  level: LogEntry["level"],
+  message: string,
+  data?: Record<string, unknown>,
+  context?: LogContext,
+): LogEntry {
+  return {
     timestamp: new Date().toISOString(),
     level,
     message,
-    ...(data && { data }),
+    ...(context?.requestId ? { requestId: context.requestId } : {}),
+    ...(context?.userId ? { userId: context.userId } : {}),
+    ...(data ? { data } : {}),
   };
-  console.log(JSON.stringify(entry));
+}
+
+function write(
+  level: LogEntry["level"],
+  message: string,
+  data?: Record<string, unknown>,
+  context?: LogContext,
+): void {
+  console.log(JSON.stringify(buildEntry(level, message, data, context)));
 }
 
 export const logger = {
@@ -32,39 +49,16 @@ export const logger = {
    * in every log entry.
    */
   withContext(requestId?: string, userId?: string) {
+    const context = { requestId, userId };
     return {
       info(message: string, data?: Record<string, unknown>): void {
-        const entry: LogEntry = {
-          timestamp: new Date().toISOString(),
-          level: "info",
-          message,
-          ...(requestId && { requestId }),
-          ...(userId && { userId }),
-          ...(data && { data }),
-        };
-        console.log(JSON.stringify(entry));
+        write("info", message, data, context);
       },
       warn(message: string, data?: Record<string, unknown>): void {
-        const entry: LogEntry = {
-          timestamp: new Date().toISOString(),
-          level: "warn",
-          message,
-          ...(requestId && { requestId }),
-          ...(userId && { userId }),
-          ...(data && { data }),
-        };
-        console.log(JSON.stringify(entry));
+        write("warn", message, data, context);
       },
       error(message: string, data?: Record<string, unknown>): void {
-        const entry: LogEntry = {
-          timestamp: new Date().toISOString(),
-          level: "error",
-          message,
-          ...(requestId && { requestId }),
-          ...(userId && { userId }),
-          ...(data && { data }),
-        };
-        console.log(JSON.stringify(entry));
+        write("error", message, data, context);
       },
     };
   },

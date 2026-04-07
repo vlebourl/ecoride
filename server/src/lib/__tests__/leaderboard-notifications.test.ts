@@ -17,10 +17,12 @@ vi.mock("../logger", () => ({
 }));
 
 import { db } from "../../db";
+import { logger } from "../logger";
 import { sendPushToUser } from "../push";
 import { checkLeaderboardChanges } from "../leaderboard-notifications";
 
 const mockDb = vi.mocked(db) as { select: ReturnType<typeof vi.fn> };
+const mockLogger = vi.mocked(logger) as { error: ReturnType<typeof vi.fn> };
 const mockSendPushToUser = vi.mocked(sendPushToUser);
 
 function makeLeaderboardChain(
@@ -119,5 +121,37 @@ describe("checkLeaderboardChanges", () => {
     await checkLeaderboardChanges("user-1", 0);
     // previousTotal = 5, currentTotal = 5, range [5, 5) is empty
     expect(mockSendPushToUser).not.toHaveBeenCalled();
+  });
+
+  it("logs notification send failures without propagating", async () => {
+    mockDb.select.mockReturnValue(
+      makeLeaderboardChain([
+        { userId: "user-1", name: "Bob", totalCo2SavedKg: 25 },
+        { userId: "alice", name: "Alice", totalCo2SavedKg: 22 },
+      ]),
+    );
+    mockSendPushToUser
+      .mockRejectedValueOnce(new Error("alice push failed"))
+      .mockRejectedValueOnce(new Error("bob push failed"));
+
+    await expect(checkLeaderboardChanges("user-1", 5)).resolves.toBeUndefined();
+    await Promise.resolve();
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "leaderboard_notify_overtaken_failed",
+      expect.objectContaining({
+        userId: "user-1",
+        overtakenUserId: "alice",
+        error: "alice push failed",
+      }),
+    );
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "leaderboard_notify_current_user_failed",
+      expect.objectContaining({
+        userId: "user-1",
+        overtakenUserId: "alice",
+        error: "bob push failed",
+      }),
+    );
   });
 });

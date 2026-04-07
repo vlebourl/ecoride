@@ -2,6 +2,7 @@ import { eq, sql, sum, desc } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips } from "../db/schema";
+import { reportBackgroundError } from "./background";
 import { sendPushToUser } from "./push";
 import { logger } from "./logger";
 
@@ -50,19 +51,29 @@ export async function checkLeaderboardChanges(
 
     if (overtaken.length === 0) return;
 
-    // 4. Send notifications (fire-and-forget, errors caught per-send)
+    // 4. Send notifications (fire-and-forget, errors logged per-send)
     for (const other of overtaken) {
       // Notify the overtaken user
-      sendPushToUser(other.userId, {
-        title: "ecoRide",
-        body: `${currentEntry.name} vient de vous dépasser au classement ! 🏆`,
-      }).catch(() => {});
+      reportBackgroundError(
+        sendPushToUser(other.userId, {
+          title: "ecoRide",
+          body: `${currentEntry.name} vient de vous dépasser au classement ! 🏆`,
+        }),
+        logger,
+        "leaderboard_notify_overtaken_failed",
+        { userId, overtakenUserId: other.userId },
+      );
 
       // Notify the current user
-      sendPushToUser(userId, {
-        title: "ecoRide",
-        body: `Vous venez de dépasser ${other.name} au classement ! 💪`,
-      }).catch(() => {});
+      reportBackgroundError(
+        sendPushToUser(userId, {
+          title: "ecoRide",
+          body: `Vous venez de dépasser ${other.name} au classement ! 💪`,
+        }),
+        logger,
+        "leaderboard_notify_current_user_failed",
+        { userId, overtakenUserId: other.userId },
+      );
     }
   } catch (err) {
     // Never let leaderboard notification errors propagate

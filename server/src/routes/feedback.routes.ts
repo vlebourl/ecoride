@@ -23,6 +23,10 @@ feedbackRouter.post(
   async (c) => {
     const data = c.req.valid("json");
     const currentUser = c.get("user");
+    const requestLogger = logger.withContext(
+      c.get("requestId") as string | undefined,
+      currentUser.id,
+    );
 
     const label = data.type === "bug" ? "bug" : "enhancement";
     const prefix = data.type === "bug" ? "Bug report" : "Feature request";
@@ -45,9 +49,12 @@ feedbackRouter.post(
 
         if (!res.ok) {
           const errBody = await res.text();
-          logger.error("github_issue_creation_failed", {
+          requestLogger.error("github_issue_creation_failed", {
             status: res.status,
             body: errBody,
+            type: data.type,
+            title: data.title,
+            label,
           });
           return c.json({ ok: false, error: "Failed to create issue" }, 502);
         }
@@ -58,14 +65,23 @@ feedbackRouter.post(
           title: data.title,
           githubIssue: issue.number,
         });
+        requestLogger.info("github_issue_created", {
+          type: data.type,
+          title: data.title,
+          label,
+          githubIssue: issue.number,
+        });
 
         return c.json({
           ok: true,
           data: { issueNumber: issue.number, issueUrl: issue.html_url },
         });
       } catch (err) {
-        logger.error("github_issue_creation_error", {
+        requestLogger.error("github_issue_creation_error", {
           error: err instanceof Error ? err.message : String(err),
+          type: data.type,
+          title: data.title,
+          label,
         });
         return c.json({ ok: false, error: "Failed to create issue" }, 502);
       }
@@ -77,10 +93,10 @@ feedbackRouter.post(
       title: data.title,
       description: data.description,
     });
-    logger.info("feedback_received_no_github", {
-      userId: currentUser.id,
+    requestLogger.info("feedback_received_no_github", {
       type: data.type,
       title: data.title,
+      label,
     });
 
     return c.json({ ok: true, data: { issueNumber: null, issueUrl: null } });

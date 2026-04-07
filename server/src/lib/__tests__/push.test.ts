@@ -21,6 +21,11 @@ vi.mock("../../db/schema", () => ({ pushSubscriptions: { id: {}, userId: {} } })
 vi.mock("../logger", () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
+vi.mock("../push-context", () => ({
+  getPushEndpointHost: vi.fn((endpoint: string) =>
+    endpoint.startsWith("https://") ? "fcm.example.com" : undefined,
+  ),
+}));
 vi.mock("../../env", () => ({
   env: {
     VAPID_PUBLIC_KEY: "fake-public",
@@ -31,9 +36,15 @@ vi.mock("../../env", () => ({
 
 import webpush from "web-push";
 import { db } from "../../db";
+import { logger } from "../logger";
 import { sendPushNotification, sendPushToUser, sendPushBroadcast } from "../push";
 
 const mockWebpush = vi.mocked(webpush);
+const mockLogger = vi.mocked(logger) as {
+  warn: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+};
 const mockDb = vi.mocked(db) as {
   select: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
@@ -111,6 +122,27 @@ describe("sendPushNotification", () => {
     expect(result).toBe(false);
     expect(mockDb.delete).not.toHaveBeenCalled();
   });
+
+  it("logs structured context on unexpected failure", async () => {
+    mockWebpush.sendNotification.mockRejectedValue(
+      Object.assign(new Error("unknown error"), { statusCode: 503 }),
+    );
+
+    const result = await sendPushNotification(SUB, PAYLOAD, { userId: "user-1", source: "user" });
+
+    expect(result).toBe(false);
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "push_send_failed",
+      expect.objectContaining({
+        subscriptionId: "sub-1",
+        endpointHost: "fcm.example.com",
+        userId: "user-1",
+        source: "user",
+        statusCode: 503,
+        error: "unknown error",
+      }),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -149,6 +181,30 @@ describe("sendPushToUser", () => {
 
     const sent = await sendPushToUser("user-1", PAYLOAD);
     expect(sent).toBe(1);
+  });
+  it("logs user context when a user-scoped send fails", async () => {
+    const subs = [
+      { id: "s1", endpoint: "https://a.com", p256dh: "p1", auth: "a1", userId: "user-1" },
+    ];
+    mockDb.select.mockReturnValue(makeSelectChain(subs));
+    mockWebpush.sendNotification.mockRejectedValue(
+      Object.assign(new Error("fail"), { statusCode: 503 }),
+    );
+
+    const sent = await sendPushToUser("user-1", PAYLOAD);
+
+    expect(sent).toBe(0);
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "push_send_failed",
+      expect.objectContaining({
+        subscriptionId: "s1",
+        endpointHost: "fcm.example.com",
+        userId: "user-1",
+        source: "user",
+        statusCode: 503,
+        error: "fail",
+      }),
+    );
   });
 });
 
@@ -191,5 +247,27 @@ describe("sendPushBroadcast", () => {
     const result = await sendPushBroadcast(PAYLOAD, ["u1", "u2"]);
     expect(result.sent).toBe(1);
     expect(result.failed).toBe(1);
+  });
+  it("logs broadcast context when a broadcast send fails", async () => {
+    const subs = [{ id: "s1", endpoint: "https://a.com", p256dh: "p1", auth: "a1", userId: "u1" }];
+    mockDb.select.mockReturnValue(makeSelectChain(subs));
+    mockWebpush.sendNotification.mockRejectedValue(
+      Object.assign(new Error("fail"), { statusCode: 503 }),
+    );
+
+    const result = await sendPushBroadcast(PAYLOAD, ["u1"]);
+
+    expect(result).toEqual({ sent: 0, failed: 1 });
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "push_send_failed",
+      expect.objectContaining({
+        subscriptionId: "s1",
+        endpointHost: "fcm.example.com",
+        userId: "u1",
+        source: "broadcast",
+        statusCode: 503,
+        error: "fail",
+      }),
+    );
   });
 });

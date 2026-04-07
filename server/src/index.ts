@@ -7,14 +7,13 @@ import { HTTPException } from "hono/http-exception";
 import { env } from "./env";
 import { auth } from "./auth";
 import { authMiddleware } from "./auth/middleware";
+import { timezoneMiddleware } from "./auth/timezone";
 import { apiRouter } from "./routes";
 import { initCronJobs } from "./cron";
 import { AppError } from "./lib/errors";
+import { getHealthSnapshot } from "./lib/health";
 import { rateLimit } from "./lib/rate-limit";
 import { logger } from "./lib/logger";
-import { db } from "./db";
-import { trips, user } from "./db/schema";
-import { sql, count, gte, countDistinct } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Sentry — server-side error tracking
@@ -77,6 +76,7 @@ app.use(
   "/api/*",
   cors({
     origin: [env.FRONTEND_URL],
+    allowHeaders: ["Content-Type", "Authorization", "x-timezone"],
     credentials: true,
   }),
 );
@@ -91,33 +91,20 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => {
 });
 
 // ---- Health check + version (public) ----
-const appVersion = (() => {
-  try {
-    return require("../../package.json").version;
-  } catch {
-    return "unknown";
-  }
-})();
 app.get("/api/health", async (c) => {
-  let dbOk = false;
-  let activeUsers7d = 0;
-  try {
-    await db.execute(sql`SELECT 1`);
-    dbOk = true;
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const [result] = await db
-      .select({ value: countDistinct(trips.userId) })
-      .from(trips)
-      .where(gte(trips.startedAt, sevenDaysAgo));
-    activeUsers7d = result?.value ?? 0;
-  } catch {
-    // db queries failed — return what we have
-  }
-  return c.json({ ok: true, status: "healthy", version: appVersion, db: dbOk, activeUsers7d });
+  const snapshot = await getHealthSnapshot();
+  return c.json({
+    ok: true,
+    status: snapshot.db.connected ? "healthy" : "degraded",
+    version: snapshot.version,
+    db: snapshot.db.connected,
+    activeUsers7d: snapshot.users.active7d,
+  });
 });
 
 // ---- Auth middleware for all other /api routes ----
 app.use("/api/*", authMiddleware);
+app.use("/api/*", timezoneMiddleware);
 
 // ---- API routes ----
 app.route("/api", apiRouter);
@@ -144,12 +131,23 @@ app.onError((err, c) => {
     );
   }
   const reqId = c.get("requestId") as string | undefined;
-  logger.withContext(reqId).error("unhandled_error", {
+  const userId = (c.var as Record<string, unknown>)["user"]
+    ? ((c.var as Record<string, unknown>)["user"] as { id: string }).id
+    : undefined;
+  logger.withContext(reqId, userId).error("unhandled_error", {
     error: err instanceof Error ? err.message : String(err),
     stack: err instanceof Error ? err.stack : undefined,
+    method: c.req.method,
+    path: c.req.path,
   });
   if (env.SENTRY_DSN) {
-    Sentry.captureException(err);
+    Sentry.withScope((scope) => {
+      if (reqId) scope.setTag("request_id", reqId);
+      if (userId) scope.setUser({ id: userId });
+      scope.setTag("http.method", c.req.method);
+      scope.setTag("http.path", c.req.path);
+      Sentry.captureException(err);
+    });
   }
   return c.json(
     {

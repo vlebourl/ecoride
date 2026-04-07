@@ -1,17 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { Hono } from "hono";
 
-// Mock db to prevent real Postgres connection
-const mockExecute = vi.fn().mockResolvedValue([{ rows: [{ size_mb: "42.3" }] }]);
-const mockSelect = vi.fn();
-
-vi.mock("../../db", () => ({
-  db: {
-    execute: (...args: unknown[]) => mockExecute(...args),
-    select: (...args: unknown[]) => mockSelect(...args),
-  },
+const mocks = vi.hoisted(() => ({
+  getHealthSnapshot: vi.fn(),
 }));
-vi.mock("../../db/schema", () => ({ trips: {}, user: {} }));
+
+vi.mock("../../lib/health", () => ({
+  getHealthSnapshot: mocks.getHealthSnapshot,
+}));
+
 vi.mock("../../auth/admin", () => ({
   adminMiddleware: vi.fn(async (_c: unknown, next: () => Promise<void>) => next()),
 }));
@@ -26,13 +23,13 @@ function buildApp() {
 
 describe("GET /health/detailed", () => {
   it("returns expected shape with db, users, trips keys", async () => {
-    // selectChain: each .from().where().catch() call
-    const chain = {
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      catch: vi.fn().mockResolvedValue([{ value: 5 }]),
-    };
-    mockSelect.mockReturnValue(chain);
+    mocks.getHealthSnapshot.mockResolvedValueOnce({
+      version: "2.15.8",
+      uptime: 1234,
+      db: { connected: true, sizeMb: 42.3 },
+      users: { total: 5, active7d: 3 },
+      trips: { total: 12, last7d: 4 },
+    });
 
     const app = buildApp();
     const res = await app.request("/health/detailed");
@@ -40,28 +37,21 @@ describe("GET /health/detailed", () => {
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body).toHaveProperty("version");
-    expect(body).toHaveProperty("uptime");
-    expect(body.db).toMatchObject({ connected: expect.any(Boolean) });
-    expect(body.users).toMatchObject({
-      total: expect.any(Number),
-      active7d: expect.any(Number),
-    });
-    expect(body.trips).toMatchObject({
-      total: expect.any(Number),
-      last7d: expect.any(Number),
-    });
+    expect(body.version).toBe("2.15.8");
+    expect(body.uptime).toBe(1234);
+    expect(body.db).toEqual({ connected: true, sizeMb: 42.3 });
+    expect(body.users).toEqual({ total: 5, active7d: 3 });
+    expect(body.trips).toEqual({ total: 12, last7d: 4 });
   });
 
-  it("returns db.connected=false when db.execute throws", async () => {
-    mockExecute.mockRejectedValueOnce(new Error("db down"));
-
-    const chain = {
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      catch: vi.fn().mockResolvedValue([null]),
-    };
-    mockSelect.mockReturnValue(chain);
+  it("returns degraded detailed payload when DB is unavailable", async () => {
+    mocks.getHealthSnapshot.mockResolvedValueOnce({
+      version: "2.15.8",
+      uptime: 1234,
+      db: { connected: false, sizeMb: 0 },
+      users: { total: 0, active7d: 0 },
+      trips: { total: 0, last7d: 0 },
+    });
 
     const app = buildApp();
     const res = await app.request("/health/detailed");

@@ -3,8 +3,9 @@
  * Verifies that visibilitychange and pagehide events flush backup immediately.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { useGpsTracking } from "../useGpsTracking";
+import { createElement } from "react";
+import { render, renderHook, act, screen } from "@testing-library/react";
+import { GpsTrackingProvider, useAppGpsTracking, useGpsTracking } from "../useGpsTracking";
 
 const BACKUP_KEY = "ecoride-tracking-backup";
 
@@ -439,5 +440,107 @@ describe("useGpsTracking — pause/resume (#166)", () => {
     });
 
     expect(localStorageStub.setItem).toHaveBeenCalledWith(BACKUP_KEY, expect.any(String));
+  });
+});
+
+describe("GpsTrackingProvider — route persistence", () => {
+  let localStorageStub: ReturnType<typeof makeLocalStorageStub>;
+  let sessionStorageStub: ReturnType<typeof makeLocalStorageStub>;
+  let watchPositionCallback: ((pos: GeolocationPosition) => void) | null = null;
+  let clearWatchMock: ReturnType<typeof vi.fn>;
+
+  function TrackingConsumer() {
+    const gps = useAppGpsTracking();
+    return createElement(
+      "div",
+      null,
+      createElement("button", { onClick: () => gps.start() }, "start tracking"),
+      createElement("span", null, `tracking:${gps.state.isTracking ? "yes" : "no"}`),
+      createElement("span", null, `points:${gps.state.gpsPoints.length}`),
+    );
+  }
+
+  beforeEach(() => {
+    localStorageStub = makeLocalStorageStub();
+    sessionStorageStub = makeLocalStorageStub();
+    vi.stubGlobal("localStorage", localStorageStub);
+    vi.stubGlobal("sessionStorage", sessionStorageStub);
+
+    clearWatchMock = vi.fn();
+    watchPositionCallback = null;
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: vi.fn().mockImplementation((success) => {
+          watchPositionCallback = success;
+          return 1;
+        }),
+        clearWatch: clearWatchMock,
+      },
+      configurable: true,
+    });
+
+    Object.defineProperty(navigator, "wakeLock", {
+      value: {
+        request: vi.fn().mockResolvedValue({
+          release: vi.fn().mockResolvedValue(undefined),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }),
+      },
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    watchPositionCallback = null;
+  });
+
+  async function injectGpsPoint(lat: number, lng: number) {
+    if (!watchPositionCallback) return;
+    await act(async () => {
+      watchPositionCallback!({
+        coords: {
+          latitude: lat,
+          longitude: lng,
+          accuracy: 10,
+          speed: 5,
+          heading: 90,
+          altitude: null,
+          altitudeAccuracy: null,
+        },
+        timestamp: Date.now(),
+      } as GeolocationPosition);
+    });
+  }
+
+  it("keeps collecting GPS points while the trip page consumer is unmounted", async () => {
+    function Wrapper({ visible }: { visible: boolean }) {
+      return createElement(
+        GpsTrackingProvider,
+        null,
+        visible ? createElement(TrackingConsumer) : null,
+      );
+    }
+
+    const { rerender } = render(createElement(Wrapper, { visible: true }));
+
+    await act(async () => {
+      screen.getByText("start tracking").click();
+    });
+    await injectGpsPoint(48.8566, 2.3522);
+
+    expect(screen.getByText("tracking:yes")).toBeTruthy();
+    expect(screen.getByText("points:1")).toBeTruthy();
+
+    rerender(createElement(Wrapper, { visible: false }));
+    await injectGpsPoint(48.857, 2.353);
+
+    rerender(createElement(Wrapper, { visible: true }));
+
+    expect(screen.getByText("tracking:yes")).toBeTruthy();
+    expect(screen.getByText("points:2")).toBeTruthy();
+    expect(clearWatchMock).not.toHaveBeenCalled();
   });
 });

@@ -12,7 +12,7 @@ export function VehiclePage() {
   const { data: profileData, isLoading } = useProfile();
   const user = profileData?.user;
   const enabled = !!user?.super73Enabled;
-  const ble = useSuper73(enabled);
+  const ble = useSuper73();
 
   if (isLoading) {
     return (

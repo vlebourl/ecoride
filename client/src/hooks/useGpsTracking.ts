@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useReducer,
+  useRef,
+  type ReactNode,
+} from "react";
 import { haversineDistance } from "@/lib/haversine";
 import { useWakeLock } from "./useWakeLock";
 import type { GpsPoint } from "@ecoride/shared/types";
@@ -36,6 +45,16 @@ export interface TrackingBackup {
   distanceKm: number;
   durationSec: number;
   startedAt: string;
+}
+
+export interface UseGpsTrackingResult {
+  state: TrackingState;
+  start: () => void;
+  stop: () => TrackingSession;
+  reset: () => void;
+  restore: (backup: TrackingBackup) => void;
+  pause: () => void;
+  resume: () => void;
 }
 
 type Action =
@@ -447,4 +466,17 @@ export function useGpsTracking() {
   // Cleanup is now handled by the isTracking/isPaused effect above
 
   return { state, start, stop, reset, restore, pause, resume };
+}
+
+const GpsTrackingContext = createContext<UseGpsTrackingResult | null>(null);
+
+export function GpsTrackingProvider({ children }: { children: ReactNode }) {
+  const gps = useGpsTracking();
+  return createElement(GpsTrackingContext.Provider, { value: gps }, children);
+}
+
+export function useAppGpsTracking(): UseGpsTrackingResult {
+  const gps = useContext(GpsTrackingContext);
+  if (!gps) throw new Error("useAppGpsTracking must be used within GpsTrackingProvider");
+  return gps;
 }

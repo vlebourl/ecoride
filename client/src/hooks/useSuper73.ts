@@ -1,4 +1,13 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  createContext,
+  createElement,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useContext,
+  type ReactNode,
+} from "react";
 import {
   isBleSupported,
   scanAndConnect,
@@ -56,7 +65,9 @@ const NOOP_RESULT: UseSuper73Result = {
   toggleMode: async () => {},
 };
 
-export function useSuper73(enabled: boolean): UseSuper73Result {
+const Super73Context = createContext<UseSuper73Result>(NOOP_RESULT);
+
+function useSuper73Controller(enabled: boolean): UseSuper73Result {
   const [status, setStatus] = useState<BleStatus>(() =>
     !enabled ? "disconnected" : isBleSupported() ? "disconnected" : "unsupported",
   );
@@ -230,4 +241,13 @@ export function useSuper73(enabled: boolean): UseSuper73Result {
     setLight,
     toggleMode,
   };
+}
+
+export function Super73Provider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  const ble = useSuper73Controller(enabled);
+  return createElement(Super73Context.Provider, { value: ble }, children);
+}
+
+export function useSuper73(): UseSuper73Result {
+  return useContext(Super73Context);
 }

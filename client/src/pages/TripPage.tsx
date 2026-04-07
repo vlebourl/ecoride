@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useCreateTrip, useProfile } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import {
-  useGpsTracking,
+  useAppGpsTracking,
   getTrackingBackup,
   clearTrackingBackup,
   getTrackingSession,
@@ -43,7 +43,7 @@ export function TripPage() {
   const idleFlyToRef = useRef(0);
   const createTrip = useCreateTrip();
   const { data: profileData } = useProfile();
-  const gps = useGpsTracking();
+  const gps = useAppGpsTracking();
 
   // On mount: check for an active trip backup.
   // If sessionStorage shows this tab had an active trip (user navigated away),
@@ -60,6 +60,10 @@ export function TripPage() {
       } catch {
         sessionStorage.removeItem("ecoride-stopped-session");
       }
+      return;
+    }
+    if (gps.state.isTracking) {
+      setUiState("tracking");
       return;
     }
     const backup = getTrackingBackup();

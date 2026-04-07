@@ -22,6 +22,11 @@ export const API_ROUTES = {
   USER_PROFILE: { method: "GET", path: "/api/user/profile" },
   USER_UPDATE: { method: "PATCH", path: "/api/user/profile" },
 
+  // Admin
+  ADMIN_GRANT_USER: { method: "POST", path: "/api/admin/users/grant" },
+  ADMIN_REVOKE_USER: { method: "POST", path: "/api/admin/users/revoke" },
+  ADMIN_GRANT_SUPER73: { method: "POST", path: "/api/admin/users/super73/grant" },
+
   // Achievements
   ACHIEVEMENTS_LIST: { method: "GET", path: "/api/achievements" },
 
@@ -58,6 +63,29 @@ export interface UpdateUserRequest {
   reminderTime?: string; // HH:MM
   reminderDays?: WeekDay[];
   super73Enabled?: boolean;
+}
+
+export interface GrantAdminRequest {
+  email: string;
+}
+
+export interface GrantAdminResponse {
+  user: Pick<User, "id" | "name" | "email" | "isAdmin" | "super73Enabled">;
+  granted: boolean;
+}
+
+export interface AdminUserAccessRequest {
+  userId: string;
+}
+
+export interface RevokeAdminResponse {
+  user: Pick<User, "id" | "name" | "email" | "isAdmin" | "super73Enabled">;
+  revoked: boolean;
+}
+
+export interface GrantSuper73Response {
+  user: Pick<User, "id" | "name" | "email" | "isAdmin" | "super73Enabled">;
+  granted: boolean;
 }
 
 export interface PushSubscribeRequest {

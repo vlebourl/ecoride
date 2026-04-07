@@ -13,7 +13,9 @@ import { notFound, forbidden } from "../lib/errors";
 import { paginationToOffset, buildPagination } from "../lib/pagination";
 import { rateLimit } from "../lib/rate-limit";
 import { evaluateAndUnlockBadges, reevaluateBadges } from "../lib/badges";
+import { reportBackgroundError } from "../lib/background";
 import { logAudit } from "../lib/audit";
+import { logger } from "../lib/logger";
 import { sendPushToUser } from "../lib/push";
 import { checkLeaderboardChanges } from "../lib/leaderboard-notifications";
 import { BADGES } from "@ecoride/shared/types";
@@ -116,20 +118,38 @@ tripsRouter.post(
       })
       .returning();
 
+    if (!trip) {
+      throw new Error("Trip creation failed: insert returned no row");
+    }
+
     // Evaluate badge thresholds and unlock any newly earned achievements
     const newBadges = await evaluateAndUnlockBadges(currentUser.id);
+    const requestLogger = logger.withContext(
+      c.get("requestId") as string | undefined,
+      currentUser.id,
+    );
 
     // Fire-and-forget: push notifications for newly unlocked badges
     for (const badgeId of newBadges) {
       const badge = BADGES[badgeId as BadgeId];
-      sendPushToUser(currentUser.id, {
-        title: "ecoRide",
-        body: `Badge débloqué : ${badge.label} ${badge.icon}`,
-      }).catch(() => {});
+      reportBackgroundError(
+        sendPushToUser(currentUser.id, {
+          title: "ecoRide",
+          body: `Badge débloqué : ${badge.label} ${badge.icon}`,
+        }),
+        requestLogger,
+        "badge_push_failed",
+        { badgeId },
+      );
     }
 
     // Fire-and-forget: check leaderboard overtakes
-    checkLeaderboardChanges(currentUser.id, savings.co2SavedKg).catch(() => {});
+    reportBackgroundError(
+      checkLeaderboardChanges(currentUser.id, savings.co2SavedKg),
+      requestLogger,
+      "leaderboard_check_failed",
+      { tripId: trip.id },
+    );
 
     return c.json({ ok: true, data: { trip, newBadges } }, 201);
   },

@@ -1,4 +1,13 @@
-import type { User, Trip, Achievement, GpsPoint, FuelType, WeekDay, Super73Mode } from "./types";
+import type {
+  User,
+  Trip,
+  TripPreset,
+  Achievement,
+  GpsPoint,
+  FuelType,
+  WeekDay,
+  Super73Mode,
+} from "./types";
 
 // ---- Route definitions ----
 
@@ -13,6 +22,10 @@ export const API_ROUTES = {
   TRIPS_CREATE: { method: "POST", path: "/api/trips" },
   TRIPS_GET: { method: "GET", path: "/api/trips/:id" },
   TRIPS_DELETE: { method: "DELETE", path: "/api/trips/:id" },
+  TRIP_PRESETS_LIST: { method: "GET", path: "/api/trip-presets" },
+  TRIP_PRESETS_CREATE: { method: "POST", path: "/api/trip-presets" },
+  TRIP_PRESETS_CREATE_FROM_TRIP: { method: "POST", path: "/api/trip-presets/from-trip/:id" },
+  TRIP_PRESETS_DELETE: { method: "DELETE", path: "/api/trip-presets/:id" },
 
   // Stats
   STATS_SUMMARY: { method: "GET", path: "/api/stats/summary" },
@@ -54,6 +67,13 @@ export interface CreateTripRequest {
   idempotencyKey?: string;
 }
 
+export interface CreateTripPresetRequest {
+  label: string;
+  distanceKm: number;
+  durationSec?: number | null;
+  gpsPoints?: GpsPoint[] | null;
+}
+
 export interface UpdateUserRequest {
   vehicleModel?: string;
   fuelType?: FuelType;
@@ -84,6 +104,10 @@ export interface GrantAdminResponse {
 
 export interface AdminUserAccessRequest {
   userId: string;
+}
+
+export interface CreateTripPresetFromTripRequest {
+  label: string;
 }
 
 export interface RevokeAdminResponse {
@@ -130,6 +154,14 @@ export interface TripListResponse {
 
 export interface TripResponse {
   trip: Trip;
+}
+
+export interface TripPresetListResponse {
+  tripPresets: TripPreset[];
+}
+
+export interface TripPresetResponse {
+  tripPreset: TripPreset;
 }
 
 export interface StatsSummaryResponse {

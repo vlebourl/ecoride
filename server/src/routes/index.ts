@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { tripsRouter } from "./trips.routes";
+import { tripPresetsRouter } from "./trip-presets.routes";
 import { usersRouter } from "./users.routes";
 import { leaderboardRouter } from "./leaderboard.routes";
 import { statsRouter } from "./stats.routes";
@@ -34,6 +35,7 @@ apiRouter.get("/announcements/active", async (c) => {
 
 apiRouter.route("/health", healthRouter);
 apiRouter.route("/trips", tripsRouter);
+apiRouter.route("/trip-presets", tripPresetsRouter);
 apiRouter.route("/user", usersRouter);
 apiRouter.route("/stats/leaderboard", leaderboardRouter);
 apiRouter.route("/stats", statsRouter);

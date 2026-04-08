@@ -3,7 +3,7 @@ import { Play, Square, Pause, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } 
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useCreateTrip, useProfile } from "@/hooks/queries";
+import { useCreateTrip, useProfile, useTripPresets } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import {
   useAppGpsTracking,
@@ -44,6 +44,7 @@ export function TripPage() {
   const idleFlyToRef = useRef(0);
   const createTrip = useCreateTrip();
   const { data: profileData } = useProfile();
+  const { data: tripPresetsData } = useTripPresets();
   const gps = useAppGpsTracking();
 
   // On mount: check for an active trip backup.
@@ -338,6 +339,21 @@ export function TripPage() {
         }, 3000);
       },
     });
+  };
+
+  const tripPresets = tripPresetsData ?? [];
+
+  const handleApplyTripPreset = (tripPreset: {
+    distanceKm: number;
+    durationSec: number | null;
+  }) => {
+    setManualKm(String(tripPreset.distanceKm));
+    setManualMinutes(
+      tripPreset.durationSec == null
+        ? ""
+        : String(Math.max(1, Math.round(tripPreset.durationSec / 60))),
+    );
+    setUiState("manual");
   };
 
   return (
@@ -723,6 +739,38 @@ export function TripPage() {
             }}
           >
             <h2 className="mb-4 text-lg font-bold">Saisie manuelle</h2>
+            {tripPresets.length > 0 && (
+              <div className="mb-4">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-text-muted">
+                  Trajets pré-enregistrés
+                </p>
+                <div className="space-y-2">
+                  {tripPresets.map((tripPreset) => (
+                    <button
+                      key={tripPreset.id}
+                      type="button"
+                      onClick={() => handleApplyTripPreset(tripPreset)}
+                      className="flex w-full items-center justify-between rounded-lg bg-surface-high px-4 py-3 text-left active:scale-[0.99]"
+                    >
+                      <span>
+                        <span className="block text-sm font-bold text-text">
+                          {tripPreset.label}
+                        </span>
+                        <span className="block text-xs text-text-muted">
+                          {tripPreset.distanceKm.toFixed(1)} km
+                          {tripPreset.durationSec != null
+                            ? ` · ${Math.round(tripPreset.durationSec / 60)} min`
+                            : ""}
+                        </span>
+                      </span>
+                      <span className="text-xs font-bold uppercase tracking-widest text-primary-light">
+                        Utiliser
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted">
               Distance (km)
             </label>
@@ -785,6 +833,35 @@ export function TripPage() {
               {createTrip.isPending ? "Enregistrement..." : "Démarrer"}
             </span>
           </button>
+          {tripPresets.length > 0 && (
+            <div className="rounded-xl bg-surface-container p-4">
+              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-text-muted">
+                Trajets pré-enregistrés
+              </p>
+              <div className="space-y-2">
+                {tripPresets.slice(0, 3).map((tripPreset) => (
+                  <button
+                    key={tripPreset.id}
+                    onClick={() => handleApplyTripPreset(tripPreset)}
+                    className="flex w-full items-center justify-between rounded-lg bg-surface-high px-4 py-3 text-left active:scale-[0.99]"
+                  >
+                    <span>
+                      <span className="block text-sm font-bold text-text">{tripPreset.label}</span>
+                      <span className="block text-xs text-text-muted">
+                        {tripPreset.distanceKm.toFixed(1)} km
+                        {tripPreset.durationSec != null
+                          ? ` · ${Math.round(tripPreset.durationSec / 60)} min`
+                          : ""}
+                      </span>
+                    </span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-primary-light">
+                      Utiliser
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <button
             onClick={() => setUiState("manual")}
             className="flex w-full items-center justify-center gap-3 rounded-xl bg-surface-container py-4 active:scale-95"

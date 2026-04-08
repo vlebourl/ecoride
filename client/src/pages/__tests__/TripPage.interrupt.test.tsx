@@ -31,6 +31,7 @@ vi.mock("@/hooks/queries", () => ({
       },
     },
   }),
+  useTripPresets: () => ({ data: [] }),
 }));
 
 vi.mock("@/hooks/useGpsTracking", () => ({

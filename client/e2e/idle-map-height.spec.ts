@@ -23,8 +23,8 @@ test("#122 regression: idle map fills available space with no gap below buttons"
   const startBtn = page.getByText("Démarrer");
   await expect(startBtn).toBeVisible({ timeout: 5000 });
 
-  // Map must be visible
-  const mapContainer = page.locator(".maplibregl-map");
+  // Map area must be visible with or without WebGL
+  const mapContainer = page.locator('[data-testid="idle-map"]');
   await expect(mapContainer).toBeVisible({ timeout: 3000 });
   const mapBox = await mapContainer.boundingBox();
   expect(mapBox).not.toBeNull();

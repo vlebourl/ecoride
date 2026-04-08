@@ -372,7 +372,7 @@ export function TripPage() {
   };
 
   return (
-    <div className="relative flex h-[calc(100dvh_-_6rem)] flex-col">
+    <div className="relative flex h-[calc(100dvh_-_6rem)] flex-col overflow-hidden">
       {/* Header with persistent GPS indicator */}
       <header
         role="banner"
@@ -606,7 +606,7 @@ export function TripPage() {
 
       {/* === IDLE / STOPPED / MANUAL: full map === */}
       {uiState !== "tracking" && (
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1" data-testid="idle-map">
           {webGLSupported ? (
             <>
               <Map
@@ -739,7 +739,7 @@ export function TripPage() {
 
       {/* Manual entry */}
       {uiState === "manual" && (
-        <div className="space-y-4 px-6 pb-4">
+        <div className="min-h-0 overflow-y-auto px-6 pb-4">
           <form
             className="rounded-xl bg-surface-container p-6"
             onSubmit={(e) => {

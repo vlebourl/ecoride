@@ -1,6 +1,8 @@
 import { z } from "zod";
-import { FUEL_TYPES, WEEK_DAYS } from "@ecoride/shared/types";
+import { FUEL_TYPES, WEEK_DAYS, type Super73Mode } from "@ecoride/shared/types";
 import { isValidIanaTimezone } from "../lib/timezone";
+
+const SUPER73_MODES = ["eco", "tour", "sport", "race"] as const satisfies readonly Super73Mode[];
 
 export const updateUserSchema = z.object({
   vehicleModel: z.string().max(100).optional(),
@@ -16,6 +18,10 @@ export const updateUserSchema = z.object({
     .optional(),
   reminderDays: z.array(z.enum(WEEK_DAYS as unknown as [string, ...string[]])).optional(),
   super73Enabled: z.boolean().optional(),
+  super73AutoModeEnabled: z.boolean().optional(),
+  super73DefaultMode: z.enum(SUPER73_MODES).nullable().optional(),
+  super73DefaultAssist: z.number().int().min(0).max(4).nullable().optional(),
+  super73DefaultLight: z.boolean().nullable().optional(),
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

@@ -16,6 +16,10 @@ export interface User {
   reminderDays: WeekDay[] | null;
   isAdmin: boolean;
   super73Enabled: boolean;
+  super73AutoModeEnabled: boolean;
+  super73DefaultMode: Super73Mode | null;
+  super73DefaultAssist: number | null;
+  super73DefaultLight: boolean | null;
   createdAt: string;
 }
 
@@ -51,6 +55,8 @@ export interface PushSubscriptionRecord {
   userId: string;
   endpoint: string;
 }
+
+export type Super73Mode = "eco" | "tour" | "sport" | "race";
 
 // ---- Enums & constants ----
 

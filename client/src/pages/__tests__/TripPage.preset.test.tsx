@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { TripPage } from "../TripPage";
 
 const mutateMock = vi.fn();
+const deleteTripPresetMock = vi.fn();
 const startMock = vi.fn();
 const resetMock = vi.fn();
 
@@ -17,6 +18,10 @@ vi.mock("react-map-gl/maplibre", () => ({
 vi.mock("@/hooks/queries", () => ({
   useCreateTrip: () => ({
     mutate: mutateMock,
+    isPending: false,
+  }),
+  useDeleteTripPreset: () => ({
+    mutate: deleteTripPresetMock,
     isPending: false,
   }),
   useProfile: () => ({
@@ -77,19 +82,17 @@ vi.mock("@/components/Super73ModeButton", () => ({ Super73ModeButton: () => null
 describe("TripPage trip preset selection", () => {
   beforeEach(() => {
     mutateMock.mockReset();
+    deleteTripPresetMock.mockReset();
     startMock.mockReset();
     resetMock.mockReset();
   });
 
-  it("prefills manual entry from a trip preset and saves using preset values", () => {
+  it("creates a trip directly from a preset and can prefill manual entry", () => {
     render(<TripPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Domicile → Travail/i }));
+    expect(screen.getByRole("region", { name: "Trajets pré-enregistrés" })).toBeTruthy();
 
-    expect(screen.getByDisplayValue("8.4")).toBeTruthy();
-    expect(screen.getByDisplayValue("25")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Créer" }));
 
     expect(mutateMock).toHaveBeenCalledOnce();
     expect(mutateMock).toHaveBeenCalledWith(
@@ -99,5 +102,23 @@ describe("TripPage trip preset selection", () => {
       }),
       expect.any(Object),
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
+
+    expect(screen.getByDisplayValue("8.4")).toBeTruthy();
+    expect(screen.getByDisplayValue("25")).toBeTruthy();
+  });
+
+  it("deletes a preset from the management section", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<TripPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Supprimer le trajet pré-enregistré « Domicile → Travail » ?",
+    );
+    expect(deleteTripPresetMock).toHaveBeenCalledWith("preset-1");
   });
 });

@@ -142,6 +142,26 @@ function makeMockGATT(stateBytes: number[]) {
   return { server, registerIdChar, registerChar };
 }
 
+function makeLocalStorageStub() {
+  const store: Record<string, string> = {};
+  return {
+    getItem: vi.fn((key: string) => store[key] ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value;
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: vi.fn(() => {
+      for (const k in store) delete store[k];
+    }),
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: vi.fn((index: number) => Object.keys(store)[index] ?? null),
+  };
+}
+
 describe("isBleSupported", () => {
   const originalBluetooth = Object.getOwnPropertyDescriptor(navigator, "bluetooth");
 
@@ -165,13 +185,18 @@ describe("isBleSupported", () => {
 });
 
 describe("scanAndConnect", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+  });
+
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("requests device with correct filters and connects", async () => {
+  it("requests device with correct filters, connects, and remembers the selected device", async () => {
     const gatt = { connect: vi.fn().mockResolvedValue(undefined) };
-    const device = { gatt };
+    const device = { id: "bike-123", gatt } as BluetoothDevice;
     Object.defineProperty(navigator, "bluetooth", {
       value: { requestDevice: vi.fn().mockResolvedValue(device) },
       configurable: true,
@@ -180,14 +205,20 @@ describe("scanAndConnect", () => {
     const result = await scanAndConnect();
     expect(result).toBe(device);
     expect(navigator.bluetooth.requestDevice).toHaveBeenCalledWith({
-      filters: [{ namePrefix: "SUPER73" }, { namePrefix: "S73" }],
+      filters: [
+        { namePrefix: "SUPER73" },
+        { namePrefix: "S73" },
+        { namePrefix: "super73" },
+        { namePrefix: "s73" },
+      ],
       optionalServices: ["00001554-1212-efde-1523-785feabcd123"],
     });
     expect(gatt.connect).toHaveBeenCalled();
+    expect(localStorage.setItem).toHaveBeenCalledWith("ecoride-super73-device-id", "bike-123");
   });
 
   it("throws when GATT is not available", async () => {
-    const device = { gatt: null };
+    const device = { id: "bike-123", gatt: null };
     Object.defineProperty(navigator, "bluetooth", {
       value: { requestDevice: vi.fn().mockResolvedValue(device) },
       configurable: true,
@@ -198,7 +229,12 @@ describe("scanAndConnect", () => {
 });
 
 describe("reconnectPairedDevice", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+  });
+
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -211,9 +247,42 @@ describe("reconnectPairedDevice", () => {
     expect(result).toBeNull();
   });
 
-  it("reconnects to a previously paired Super73 device", async () => {
+  it("reconnects to the stored preferred device id", async () => {
+    const storedGatt = { connect: vi.fn().mockResolvedValue(undefined) };
+    const otherGatt = { connect: vi.fn().mockResolvedValue(undefined) };
+    localStorage.setItem("ecoride-super73-device-id", "bike-123");
+
+    const preferredDevice = { id: "bike-123", name: "Custom bike label", gatt: storedGatt };
+    const otherDevice = { id: "bike-999", name: "SUPER73-RX", gatt: otherGatt };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([otherDevice, preferredDevice]) },
+      configurable: true,
+    });
+
+    const result = await reconnectPairedDevice();
+
+    expect(result).toBe(preferredDevice);
+    expect(storedGatt.connect).toHaveBeenCalled();
+    expect(otherGatt.connect).not.toHaveBeenCalled();
+  });
+
+  it("returns null when the stored preferred device is no longer available", async () => {
+    localStorage.setItem("ecoride-super73-device-id", "bike-123");
+    const otherDevice = { id: "bike-999", name: "SUPER73-RX", gatt: { connect: vi.fn() } };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([otherDevice]) },
+      configurable: true,
+    });
+
+    const result = await reconnectPairedDevice();
+
+    expect(result).toBeNull();
+    expect(otherDevice.gatt.connect).not.toHaveBeenCalled();
+  });
+
+  it("reconnects to a previously paired Super73 device when no preferred id is stored", async () => {
     const gatt = { connect: vi.fn().mockResolvedValue(undefined) };
-    const device = { name: "SUPER73-RX", gatt };
+    const device = { id: "bike-123", name: "SUPER73-RX", gatt };
     Object.defineProperty(navigator, "bluetooth", {
       value: { getDevices: vi.fn().mockResolvedValue([device]) },
       configurable: true,
@@ -222,10 +291,25 @@ describe("reconnectPairedDevice", () => {
     const result = await reconnectPairedDevice();
     expect(result).toBe(device);
     expect(gatt.connect).toHaveBeenCalled();
+    expect(localStorage.setItem).toHaveBeenCalledWith("ecoride-super73-device-id", "bike-123");
+  });
+
+  it("reconnects to a previously paired lowercase s73 device", async () => {
+    const gatt = { connect: vi.fn().mockResolvedValue(undefined) };
+    const device = { id: "bike-123", name: "s73 adventure series", gatt };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([device]) },
+      configurable: true,
+    });
+
+    const result = await reconnectPairedDevice();
+
+    expect(result).toBe(device);
+    expect(gatt.connect).toHaveBeenCalled();
   });
 
   it("returns null when no Super73 is among paired devices", async () => {
-    const otherDevice = { name: "SomeOtherDevice", gatt: { connect: vi.fn() } };
+    const otherDevice = { id: "other-1", name: "SomeOtherDevice", gatt: { connect: vi.fn() } };
     Object.defineProperty(navigator, "bluetooth", {
       value: { getDevices: vi.fn().mockResolvedValue([otherDevice]) },
       configurable: true,
@@ -237,7 +321,7 @@ describe("reconnectPairedDevice", () => {
 
   it("returns null when connect fails (device out of range)", async () => {
     const gatt = { connect: vi.fn().mockRejectedValue(new Error("connection failed")) };
-    const device = { name: "S73 FTEX", gatt };
+    const device = { id: "bike-123", name: "S73 FTEX", gatt };
     Object.defineProperty(navigator, "bluetooth", {
       value: { getDevices: vi.fn().mockResolvedValue([device]) },
       configurable: true,

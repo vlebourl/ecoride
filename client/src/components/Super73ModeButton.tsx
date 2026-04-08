@@ -1,5 +1,5 @@
-import { BluetoothOff, Loader2 } from "lucide-react";
-import { useSuper73, type BleStatus } from "@/hooks/useSuper73";
+import { BluetoothOff, Loader2, Star } from "lucide-react";
+import { useSuper73, type BleStatus, type Super73TripModeSelection } from "@/hooks/useSuper73";
 
 interface Props {
   enabled: boolean;
@@ -26,8 +26,12 @@ function StatusDot({ status, size = "md" }: { status: BleStatus; size?: "sm" | "
   return <span className={`inline-block rounded-full ${px} ${color}`} />;
 }
 
-function CompactModeIcon({ offRoad }: { offRoad: boolean }) {
-  if (offRoad) {
+function CompactModeIcon({ selection }: { selection: Super73TripModeSelection }) {
+  if (selection === "auto") {
+    return <Star size={18} className="text-emerald-400" fill="currentColor" aria-hidden="true" />;
+  }
+
+  if (selection === "race") {
     return (
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <path d="M9 2 L16 15 H2 Z" fill="#60A5FA" />
@@ -84,16 +88,23 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
       );
     }
 
-    const isOffRoad = ble.bikeState?.mode === "race";
+    const selection = ble.tripModeSelection;
+    const compactClassBySelection =
+      selection === "auto"
+        ? "border-emerald-400/40 bg-emerald-400/10"
+        : selection === "race"
+          ? "border-[#60A5FA]/40 bg-[#60A5FA]/10"
+          : "border-warning/40 bg-warning/10";
+    const labelBySelection =
+      selection === "auto" ? "Mode Auto" : selection === "race" ? "Mode Off-Road" : "Mode EPAC";
+
     return (
       <button
-        onClick={ble.toggleMode}
-        className={`${compactBaseClass} ${
-          isOffRoad ? "border-[#60A5FA]/40 bg-[#60A5FA]/10" : "border-warning/40 bg-warning/10"
-        }`}
-        aria-label={isOffRoad ? "Mode Off-Road" : "Mode EPAC"}
+        onClick={() => void ble.cycleTripModeSelection()}
+        className={`${compactBaseClass} ${compactClassBySelection}`}
+        aria-label={labelBySelection}
       >
-        <CompactModeIcon offRoad={isOffRoad} />
+        <CompactModeIcon selection={selection} />
       </button>
     );
   }

@@ -1,4 +1,4 @@
-import type { User, Trip, Achievement, GpsPoint, FuelType, WeekDay } from "./types";
+import type { User, Trip, Achievement, GpsPoint, FuelType, WeekDay, Super73Mode } from "./types";
 
 // ---- Route definitions ----
 
@@ -65,6 +65,12 @@ export interface UpdateUserRequest {
   reminderTime?: string; // HH:MM
   reminderDays?: WeekDay[];
   super73Enabled?: boolean;
+  super73AutoModeEnabled?: boolean;
+  super73DefaultMode?: Super73Mode | null;
+  super73DefaultAssist?: number | null;
+  super73DefaultLight?: boolean | null;
+  super73AutoModeLowSpeedKmh?: number | null;
+  super73AutoModeHighSpeedKmh?: number | null;
 }
 
 export interface GrantAdminRequest {

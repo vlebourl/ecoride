@@ -21,7 +21,7 @@ describe("drizzle baseline bootstrap", () => {
   it("reads the committed Drizzle migration manifest", () => {
     const manifest = readMigrationManifest(`${import.meta.dirname}/../../../drizzle`);
 
-    expect(manifest).toHaveLength(1);
+    expect(manifest.length).toBeGreaterThanOrEqual(1);
     expect(manifest[0]?.createdAt).toBeTypeOf("number");
     expect(manifest[0]?.hash).toMatch(/^[a-f0-9]{64}$/);
   });

@@ -25,6 +25,18 @@ export const user = pgTable("user", {
   reminderDays: text("reminder_days").array(), // ["mon","tue",...]
   isAdmin: boolean("is_admin").notNull().default(false),
   super73Enabled: boolean("super73_enabled").notNull().default(false),
+  super73AutoModeEnabled: boolean("super73_auto_mode_enabled").notNull().default(false),
+  super73DefaultMode: text("super73_default_mode"),
+  super73DefaultAssist: integer("super73_default_assist"),
+  super73DefaultLight: boolean("super73_default_light"),
+  super73AutoModeLowSpeedKmh: numericNumber("super73_auto_mode_low_speed_kmh", {
+    precision: 5,
+    scale: 2,
+  }),
+  super73AutoModeHighSpeedKmh: numericNumber("super73_auto_mode_high_speed_kmh", {
+    precision: 5,
+    scale: 2,
+  }),
 });
 
 // Better Auth session table

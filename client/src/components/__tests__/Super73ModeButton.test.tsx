@@ -18,12 +18,14 @@ describe("Super73ModeButton compact", () => {
       status: "disconnected",
       bikeState: null,
       error: null,
+      tripModeSelection: "eco",
       connect: vi.fn(),
       disconnect: vi.fn(),
       setMode: vi.fn(),
       setAssist: vi.fn(),
       setLight: vi.fn(),
       toggleMode: vi.fn(),
+      cycleTripModeSelection: vi.fn(),
     });
 
     render(<Super73ModeButton enabled compact />);
@@ -38,12 +40,14 @@ describe("Super73ModeButton compact", () => {
       status: "connected",
       bikeState: { mode: "eco", assist: 2, light: false, region: "eu" },
       error: null,
+      tripModeSelection: "eco",
       connect: vi.fn(),
       disconnect: vi.fn(),
       setMode: vi.fn(),
       setAssist: vi.fn(),
       setLight: vi.fn(),
       toggleMode: vi.fn(),
+      cycleTripModeSelection: vi.fn(),
     });
 
     render(<Super73ModeButton enabled compact />);
@@ -56,16 +60,38 @@ describe("Super73ModeButton compact", () => {
       status: "connected",
       bikeState: { mode: "race", assist: 4, light: false, region: "us" },
       error: null,
+      tripModeSelection: "race",
       connect: vi.fn(),
       disconnect: vi.fn(),
       setMode: vi.fn(),
       setAssist: vi.fn(),
       setLight: vi.fn(),
       toggleMode: vi.fn(),
+      cycleTripModeSelection: vi.fn(),
     });
 
     render(<Super73ModeButton enabled compact />);
 
     expect(screen.getByRole("button", { name: "Mode Off-Road" })).toBeTruthy();
+  });
+
+  it("renders the Auto icon state", () => {
+    useSuper73Mock.mockReturnValue({
+      status: "connected",
+      bikeState: { mode: "eco", assist: 2, light: false, region: "eu" },
+      error: null,
+      tripModeSelection: "auto",
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      setMode: vi.fn(),
+      setAssist: vi.fn(),
+      setLight: vi.fn(),
+      toggleMode: vi.fn(),
+      cycleTripModeSelection: vi.fn(),
+    });
+
+    render(<Super73ModeButton enabled compact />);
+
+    expect(screen.getByRole("button", { name: "Mode Auto" })).toBeTruthy();
   });
 });

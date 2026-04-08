@@ -23,6 +23,7 @@ vi.mock("@/hooks/queries", () => ({
     mutate: mutateMock,
     isPending: false,
   }),
+  useDeleteTripPreset: () => ({ mutate: vi.fn(), isPending: false }),
   useProfile: () => ({
     data: {
       user: {

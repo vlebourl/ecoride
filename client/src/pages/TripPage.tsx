@@ -3,7 +3,7 @@ import { Play, Square, Pause, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } 
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useCreateTrip, useProfile, useTripPresets } from "@/hooks/queries";
+import { useCreateTrip, useDeleteTripPreset, useProfile, useTripPresets } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import {
   useAppGpsTracking,
@@ -43,6 +43,7 @@ export function TripPage() {
   const trackingFlyToRef = useRef(0);
   const idleFlyToRef = useRef(0);
   const createTrip = useCreateTrip();
+  const deleteTripPreset = useDeleteTripPreset();
   const { data: profileData } = useProfile();
   const { data: tripPresetsData } = useTripPresets();
   const gps = useAppGpsTracking();
@@ -343,6 +344,9 @@ export function TripPage() {
 
   const tripPresets = tripPresetsData ?? [];
 
+  const presetDurationSec = (tripPreset: { distanceKm: number; durationSec: number | null }) =>
+    tripPreset.durationSec ?? Math.round((tripPreset.distanceKm / 15) * 3600);
+
   const handleApplyTripPreset = (tripPreset: {
     distanceKm: number;
     durationSec: number | null;
@@ -354,6 +358,18 @@ export function TripPage() {
         : String(Math.max(1, Math.round(tripPreset.durationSec / 60))),
     );
     setUiState("manual");
+  };
+
+  const handleCreateTripFromPreset = (tripPreset: {
+    distanceKm: number;
+    durationSec: number | null;
+  }) => {
+    handleSaveTrip(tripPreset.distanceKm, presetDurationSec(tripPreset));
+  };
+
+  const handleDeleteTripPreset = (tripPreset: { id: string; label: string }) => {
+    if (!window.confirm(`Supprimer le trajet pré-enregistré « ${tripPreset.label} » ?`)) return;
+    deleteTripPreset.mutate(tripPreset.id);
   };
 
   return (
@@ -739,38 +755,10 @@ export function TripPage() {
             }}
           >
             <h2 className="mb-4 text-lg font-bold">Saisie manuelle</h2>
-            {tripPresets.length > 0 && (
-              <div className="mb-4">
-                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-text-muted">
-                  Trajets pré-enregistrés
-                </p>
-                <div className="space-y-2">
-                  {tripPresets.map((tripPreset) => (
-                    <button
-                      key={tripPreset.id}
-                      type="button"
-                      onClick={() => handleApplyTripPreset(tripPreset)}
-                      className="flex w-full items-center justify-between rounded-lg bg-surface-high px-4 py-3 text-left active:scale-[0.99]"
-                    >
-                      <span>
-                        <span className="block text-sm font-bold text-text">
-                          {tripPreset.label}
-                        </span>
-                        <span className="block text-xs text-text-muted">
-                          {tripPreset.distanceKm.toFixed(1)} km
-                          {tripPreset.durationSec != null
-                            ? ` · ${Math.round(tripPreset.durationSec / 60)} min`
-                            : ""}
-                        </span>
-                      </span>
-                      <span className="text-xs font-bold uppercase tracking-widest text-primary-light">
-                        Utiliser
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <p className="mb-4 text-sm text-text-muted">
+              Saisissez librement votre trajet, ou revenez à l'écran précédent pour utiliser un
+              trajet pré-enregistré en un tap.
+            </p>
             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted">
               Distance (km)
             </label>
@@ -834,33 +822,59 @@ export function TripPage() {
             </span>
           </button>
           {tripPresets.length > 0 && (
-            <div className="rounded-xl bg-surface-container p-4">
-              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-text-muted">
-                Trajets pré-enregistrés
-              </p>
-              <div className="space-y-2">
-                {tripPresets.slice(0, 3).map((tripPreset) => (
-                  <button
-                    key={tripPreset.id}
-                    onClick={() => handleApplyTripPreset(tripPreset)}
-                    className="flex w-full items-center justify-between rounded-lg bg-surface-high px-4 py-3 text-left active:scale-[0.99]"
-                  >
-                    <span>
-                      <span className="block text-sm font-bold text-text">{tripPreset.label}</span>
-                      <span className="block text-xs text-text-muted">
-                        {tripPreset.distanceKm.toFixed(1)} km
-                        {tripPreset.durationSec != null
-                          ? ` · ${Math.round(tripPreset.durationSec / 60)} min`
-                          : ""}
-                      </span>
-                    </span>
-                    <span className="text-xs font-bold uppercase tracking-widest text-primary-light">
-                      Utiliser
-                    </span>
-                  </button>
+            <section
+              className="rounded-xl bg-surface-container p-4"
+              aria-label="Trajets pré-enregistrés"
+            >
+              <div className="mb-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-text-muted">
+                  Trajets pré-enregistrés
+                </p>
+                <p className="mt-1 text-sm text-text-muted">
+                  Créez un trajet manuel en un tap, préremplissez la saisie, ou supprimez un preset
+                  que vous n'utilisez plus.
+                </p>
+              </div>
+              <div className="space-y-3">
+                {tripPresets.map((tripPreset) => (
+                  <div key={tripPreset.id} className="rounded-xl bg-surface-high p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-text">{tripPreset.label}</p>
+                        <p className="text-xs text-text-muted">
+                          {tripPreset.distanceKm.toFixed(1)} km
+                          {tripPreset.durationSec != null
+                            ? ` · ${Math.round(tripPreset.durationSec / 60)} min`
+                            : " · durée libre"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => handleCreateTripFromPreset(tripPreset)}
+                        disabled={createTrip.isPending}
+                        className="rounded-lg bg-primary px-3 py-2 text-xs font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
+                      >
+                        Créer
+                      </button>
+                      <button
+                        onClick={() => handleApplyTripPreset(tripPreset)}
+                        className="rounded-lg bg-surface-container px-3 py-2 text-xs font-bold uppercase tracking-widest text-text active:scale-95"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTripPreset(tripPreset)}
+                        disabled={deleteTripPreset.isPending}
+                        className="rounded-lg bg-danger/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-danger active:scale-95 disabled:opacity-50"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
           <button
             onClick={() => setUiState("manual")}

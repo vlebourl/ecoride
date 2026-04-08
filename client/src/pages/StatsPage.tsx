@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Bike, BarChart3, Trash2, X } from "lucide-react";
+import { Bike, BarChart3, Trash2, X, Save } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
@@ -14,6 +14,7 @@ import {
   useChartTrips,
   useAchievements,
   useDeleteTrip,
+  useCreateTripPresetFromTrip,
 } from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
 import { isWebGLSupported } from "@/lib/webgl";
@@ -166,6 +167,7 @@ export function StatsPage() {
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
   const { data: tripDetail } = useTrip(selectedTrip?.id ?? null);
   const deleteTrip = useDeleteTrip();
+  const createTripPresetFromTrip = useCreateTripPresetFromTrip();
 
   // Fix 3.7: Android back button closes the bottom sheet
   useEffect(() => {
@@ -181,6 +183,18 @@ export function StatsPage() {
   const displayTrip = tripDetail ?? selectedTrip;
   const gpsPoints = displayTrip?.gpsPoints;
   const hasGpsTrack = Array.isArray(gpsPoints) && gpsPoints.length > 1;
+
+  const handleSaveTripPreset = () => {
+    if (!selectedTrip) return;
+    const suggestedLabel = tripLabel(selectedTrip.startedAt).replace(/^Trajet /, "");
+    const label = window.prompt("Nom du trajet pré-enregistré", suggestedLabel);
+    if (!label || !label.trim()) return;
+
+    createTripPresetFromTrip.mutate({
+      tripId: selectedTrip.id,
+      label: label.trim(),
+    });
+  };
 
   const isPending = summaryLoading || tripsLoading || chartLoading || achievementsLoading;
 
@@ -569,19 +583,30 @@ export function StatsPage() {
                 </div>
               </div>
 
-              {/* Delete button */}
-              <button
-                onClick={() => {
-                  deleteTrip.mutate(selectedTrip.id, {
-                    onSuccess: () => setSelectedTrip(null),
-                  });
-                }}
-                disabled={deleteTrip.isPending}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-danger/10 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
-              >
-                <Trash2 size={16} />
-                {deleteTrip.isPending ? "Suppression..." : "Supprimer ce trajet"}
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleSaveTripPreset}
+                  disabled={createTripPresetFromTrip.isPending}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 py-3 text-sm font-bold text-primary-light active:scale-95 disabled:opacity-50"
+                >
+                  <Save size={16} />
+                  {createTripPresetFromTrip.isPending
+                    ? "Enregistrement..."
+                    : "Créer un trajet pré-enregistré"}
+                </button>
+                <button
+                  onClick={() => {
+                    deleteTrip.mutate(selectedTrip.id, {
+                      onSuccess: () => setSelectedTrip(null),
+                    });
+                  }}
+                  disabled={deleteTrip.isPending || createTripPresetFromTrip.isPending}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-danger/10 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                  {deleteTrip.isPending ? "Suppression..." : "Supprimer ce trajet"}
+                </button>
+              </div>
             </div>
           </div>,
           document.body,

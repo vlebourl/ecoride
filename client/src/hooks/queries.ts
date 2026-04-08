@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import type { Trip, Achievement } from "@ecoride/shared/types";
+import type { Trip, Achievement, TripPreset } from "@ecoride/shared/types";
 import type {
   StatsSummaryResponse,
   LeaderboardEntry,
   CreateTripRequest,
+  CreateTripPresetRequest,
+  CreateTripPresetFromTripRequest,
   UpdateUserRequest,
   StatsPeriod,
   LeaderboardCategory,
@@ -35,6 +37,16 @@ export function useTrip(tripId: string | null) {
     queryFn: () =>
       apiFetch<{ ok: boolean; data: { trip: Trip } }>(`/trips/${tripId}`).then((r) => r.data.trip),
     enabled: !!tripId,
+  });
+}
+
+export function useTripPresets() {
+  return useQuery({
+    queryKey: ["trip-presets"],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: { tripPresets: TripPreset[] } }>("/trip-presets").then(
+        (r) => r.data.tripPresets,
+      ),
   });
 }
 
@@ -421,6 +433,48 @@ export function useCreateTrip() {
       qc.invalidateQueries({ queryKey: ["stats"] });
       qc.invalidateQueries({ queryKey: ["achievements"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}
+
+export function useCreateTripPreset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateTripPresetRequest) =>
+      apiFetch<{ ok: boolean; data: { tripPreset: TripPreset } }>("/trip-presets", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data.tripPreset),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trip-presets"] });
+    },
+  });
+}
+
+export function useCreateTripPresetFromTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, ...data }: CreateTripPresetFromTripRequest & { tripId: string }) =>
+      apiFetch<{ ok: boolean; data: { tripPreset: TripPreset } }>(
+        `/trip-presets/from-trip/${tripId}`,
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        },
+      ).then((r) => r.data.tripPreset),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trip-presets"] });
+    },
+  });
+}
+
+export function useDeleteTripPreset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tripPresetId: string) =>
+      apiFetch<{ ok: boolean }>(`/trip-presets/${tripPresetId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trip-presets"] });
     },
   });
 }

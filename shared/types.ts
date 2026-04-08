@@ -39,6 +39,18 @@ export interface Trip {
   gpsPoints: GpsPoint[] | null;
 }
 
+export interface TripPreset {
+  id: string;
+  userId: string;
+  label: string;
+  distanceKm: number;
+  durationSec: number | null;
+  gpsPoints: GpsPoint[] | null;
+  sourceTripId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GpsPoint {
   lat: number;
   lng: number;

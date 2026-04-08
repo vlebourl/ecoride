@@ -211,7 +211,7 @@ export function TripPage() {
     setUiState("tracking");
   };
 
-  const stopTracking = () => {
+  const stopTracking = (showStoppedPanel = true) => {
     const session = gps.stop();
     sessionRef.current = session;
     trackingFlyToRef.current = 0;
@@ -230,7 +230,8 @@ export function TripPage() {
       // to close the tab before saving. sessionRef.current is still valid.
       setSessionPersistFailed(true);
     }
-    setUiState("stopped");
+    if (showStoppedPanel) setUiState("stopped");
+    return session;
   };
 
   // Fix 1.3: Restore tracking from backup
@@ -262,7 +263,19 @@ export function TripPage() {
   };
 
   const handleStopFromInterrupt = () => {
-    stopTracking();
+    const session = gps.stop();
+    sessionRef.current = session;
+    trackingFlyToRef.current = 0;
+    idleFlyToRef.current = 0;
+    mapStyleReadyRef.current = false;
+    setWebglLost(false);
+    setMapLoadError(false);
+    setInterruptMenuOpen(false);
+    setPendingBackup(null);
+    setSessionPersistFailed(false);
+    sessionStorage.removeItem("ecoride-stopped-session");
+    setUiState("idle");
+    handleSaveTrip(session.distanceKm, session.durationSec, session);
   };
 
   const handleAbandonFromInterrupt = () => {
@@ -764,11 +777,13 @@ export function TripPage() {
           {/* Fix 1.6: Disable start button during tracking */}
           <button
             onClick={startTracking}
-            disabled={uiState !== "idle"}
+            disabled={uiState !== "idle" || createTrip.isPending}
             className="flex w-full items-center justify-center gap-4 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 disabled:opacity-50"
           >
             <Play size={28} className="text-bg" fill="currentColor" />
-            <span className="text-xl font-black uppercase tracking-widest text-bg">Démarrer</span>
+            <span className="text-xl font-black uppercase tracking-widest text-bg">
+              {createTrip.isPending ? "Enregistrement..." : "Démarrer"}
+            </span>
           </button>
           <button
             onClick={() => setUiState("manual")}

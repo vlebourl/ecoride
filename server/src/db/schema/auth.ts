@@ -29,6 +29,14 @@ export const user = pgTable("user", {
   super73DefaultMode: text("super73_default_mode"),
   super73DefaultAssist: integer("super73_default_assist"),
   super73DefaultLight: boolean("super73_default_light"),
+  super73AutoModeLowSpeedKmh: numericNumber("super73_auto_mode_low_speed_kmh", {
+    precision: 5,
+    scale: 2,
+  }),
+  super73AutoModeHighSpeedKmh: numericNumber("super73_auto_mode_high_speed_kmh", {
+    precision: 5,
+    scale: 2,
+  }),
 });
 
 // Better Auth session table

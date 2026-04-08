@@ -57,6 +57,8 @@ export const auth = betterAuth({
       super73DefaultMode: { type: "string", required: false },
       super73DefaultAssist: { type: "number", required: false },
       super73DefaultLight: { type: "boolean", required: false },
+      super73AutoModeLowSpeedKmh: { type: "number", required: false },
+      super73AutoModeHighSpeedKmh: { type: "number", required: false },
     },
   },
 });

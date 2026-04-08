@@ -21,6 +21,8 @@ export const mockUser: User = {
   super73DefaultMode: null,
   super73DefaultAssist: null,
   super73DefaultLight: null,
+  super73AutoModeLowSpeedKmh: null,
+  super73AutoModeHighSpeedKmh: null,
   createdAt: "2026-01-15T10:00:00Z",
 };
 

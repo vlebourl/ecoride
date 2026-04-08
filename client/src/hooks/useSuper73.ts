@@ -23,8 +23,8 @@ export type BleStatus = "disconnected" | "connecting" | "connected" | "unsupport
 const STATE_KEY = "ecoride-super73-state";
 const RECONNECT_DELAY = 2_000;
 const MAX_RECONNECT_ATTEMPTS = 1;
-const AUTO_MODE_LOW_SPEED_KMH = 10;
-const AUTO_MODE_HIGH_SPEED_KMH = 17;
+const DEFAULT_AUTO_MODE_LOW_SPEED_KMH = 10;
+const DEFAULT_AUTO_MODE_HIGH_SPEED_KMH = 17;
 
 type AutoModeZone = "low" | "high" | null;
 
@@ -50,6 +50,8 @@ export interface Super73Preferences {
   defaultMode: Super73Mode | null;
   defaultAssist: number | null;
   defaultLight: boolean | null;
+  autoModeLowSpeedKmh?: number | null;
+  autoModeHighSpeedKmh?: number | null;
 }
 
 export interface Super73TrackingInput {
@@ -62,6 +64,8 @@ const DEFAULT_PREFERENCES: Super73Preferences = {
   defaultMode: null,
   defaultAssist: null,
   defaultLight: null,
+  autoModeLowSpeedKmh: DEFAULT_AUTO_MODE_LOW_SPEED_KMH,
+  autoModeHighSpeedKmh: DEFAULT_AUTO_MODE_HIGH_SPEED_KMH,
 };
 
 const DEFAULT_TRACKING_INPUT: Super73TrackingInput = {
@@ -102,10 +106,14 @@ export function buildStateFromPreferences(
     : next;
 }
 
-export function resolveAutoModeZone(speedKmh: number | null): AutoModeZone {
+export function resolveAutoModeZone(
+  speedKmh: number | null,
+  lowSpeedThresholdKmh = DEFAULT_AUTO_MODE_LOW_SPEED_KMH,
+  highSpeedThresholdKmh = DEFAULT_AUTO_MODE_HIGH_SPEED_KMH,
+): AutoModeZone {
   if (speedKmh == null || !Number.isFinite(speedKmh)) return null;
-  if (speedKmh <= AUTO_MODE_LOW_SPEED_KMH) return "low";
-  if (speedKmh >= AUTO_MODE_HIGH_SPEED_KMH) return "high";
+  if (speedKmh <= lowSpeedThresholdKmh) return "low";
+  if (speedKmh >= highSpeedThresholdKmh) return "high";
   return null;
 }
 
@@ -330,7 +338,15 @@ function useSuper73Controller(
 
     if (nextSelection === "auto") {
       if (!tracking.isTracking) return;
-      const zone = resolveAutoModeZone(tracking.speedKmh);
+      const lowSpeedThresholdKmh =
+        preferences.autoModeLowSpeedKmh ?? DEFAULT_AUTO_MODE_LOW_SPEED_KMH;
+      const highSpeedThresholdKmh =
+        preferences.autoModeHighSpeedKmh ?? DEFAULT_AUTO_MODE_HIGH_SPEED_KMH;
+      const zone = resolveAutoModeZone(
+        tracking.speedKmh,
+        lowSpeedThresholdKmh,
+        highSpeedThresholdKmh,
+      );
       const targetMode = resolveAutoSuper73Mode(zone);
       if (targetMode && targetMode !== bikeState?.mode) {
         await setMode(targetMode);
@@ -358,7 +374,14 @@ function useSuper73Controller(
     if (!tracking.isTracking || !bikeState || status !== "connected") return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
 
-    const zone = resolveAutoModeZone(tracking.speedKmh);
+    const lowSpeedThresholdKmh = preferences.autoModeLowSpeedKmh ?? DEFAULT_AUTO_MODE_LOW_SPEED_KMH;
+    const highSpeedThresholdKmh =
+      preferences.autoModeHighSpeedKmh ?? DEFAULT_AUTO_MODE_HIGH_SPEED_KMH;
+    const zone = resolveAutoModeZone(
+      tracking.speedKmh,
+      lowSpeedThresholdKmh,
+      highSpeedThresholdKmh,
+    );
     if (zone === null) return;
     if (zone === lastAutoModeZoneRef.current) return;
 
@@ -370,7 +393,16 @@ function useSuper73Controller(
 
     lastAutoModeZoneRef.current = zone;
     void setMode(targetMode);
-  }, [tripModeSelection, tracking.isTracking, tracking.speedKmh, bikeState, status, setMode]);
+  }, [
+    tripModeSelection,
+    tracking.isTracking,
+    tracking.speedKmh,
+    bikeState,
+    status,
+    setMode,
+    preferences.autoModeLowSpeedKmh,
+    preferences.autoModeHighSpeedKmh,
+  ]);
 
   if (!enabled) return NOOP_RESULT;
   if (!isBleSupported()) return NOOP_RESULT;

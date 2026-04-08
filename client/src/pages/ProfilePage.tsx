@@ -62,6 +62,8 @@ export function ProfilePage() {
   const [super73DefaultAssist, setSuper73DefaultAssist] =
     useState<(typeof SUPER73_ASSIST_LEVELS)[number]>(0);
   const [super73DefaultLight, setSuper73DefaultLight] = useState(false);
+  const [super73AutoModeLowSpeedKmh, setSuper73AutoModeLowSpeedKmh] = useState("10");
+  const [super73AutoModeHighSpeedKmh, setSuper73AutoModeHighSpeedKmh] = useState("17");
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackType, setFeedbackType] = useState<"bug" | "feature">("bug");
   const [feedbackTitle, setFeedbackTitle] = useState("");
@@ -82,6 +84,8 @@ export function ProfilePage() {
         (user.super73DefaultAssist ?? 0) as (typeof SUPER73_ASSIST_LEVELS)[number],
       );
       setSuper73DefaultLight(user.super73DefaultLight ?? false);
+      setSuper73AutoModeLowSpeedKmh(String(user.super73AutoModeLowSpeedKmh ?? 10));
+      setSuper73AutoModeHighSpeedKmh(String(user.super73AutoModeHighSpeedKmh ?? 17));
     }
   }, [user]);
 
@@ -116,12 +120,24 @@ export function ProfilePage() {
     );
   };
 
+  const parsedLowSpeed = Number(super73AutoModeLowSpeedKmh);
+  const parsedHighSpeed = Number(super73AutoModeHighSpeedKmh);
+  const invalidSuper73Thresholds =
+    !Number.isFinite(parsedLowSpeed) ||
+    !Number.isFinite(parsedHighSpeed) ||
+    parsedLowSpeed <= 0 ||
+    parsedHighSpeed <= 0 ||
+    parsedLowSpeed >= parsedHighSpeed;
+
   const handleSaveSuper73Defaults = () => {
+    if (invalidSuper73Thresholds) return;
     updateProfile.mutate(
       {
         super73DefaultMode,
         super73DefaultAssist,
         super73DefaultLight,
+        super73AutoModeLowSpeedKmh: parsedLowSpeed,
+        super73AutoModeHighSpeedKmh: parsedHighSpeed,
       },
       {
         onSuccess: () => {
@@ -612,10 +628,53 @@ export function ProfilePage() {
                     </button>
                   </label>
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-dim">
+                        Seuil Off-Road
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="80"
+                        step="0.5"
+                        value={super73AutoModeLowSpeedKmh}
+                        onChange={(e) => setSuper73AutoModeLowSpeedKmh(e.target.value)}
+                        className="w-full rounded-lg bg-surface-high p-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      <span className="mt-1 block text-xs text-text-dim">
+                        Passage EPAC → Off-Road si vitesse ≤ ce seuil.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-dim">
+                        Seuil EPAC
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="80"
+                        step="0.5"
+                        value={super73AutoModeHighSpeedKmh}
+                        onChange={(e) => setSuper73AutoModeHighSpeedKmh(e.target.value)}
+                        className="w-full rounded-lg bg-surface-high p-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      <span className="mt-1 block text-xs text-text-dim">
+                        Passage Off-Road → EPAC si vitesse ≥ ce seuil.
+                      </span>
+                    </label>
+                  </div>
+
+                  {invalidSuper73Thresholds && (
+                    <p className="text-xs text-danger">
+                      Le seuil Off-Road doit être strictement inférieur au seuil EPAC.
+                    </p>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleSaveSuper73Defaults}
-                    disabled={updateProfile.isPending}
+                    disabled={updateProfile.isPending || invalidSuper73Thresholds}
                     className="w-full rounded-lg bg-primary py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
                   >
                     {updateProfile.isPending ? "Sauvegarde..." : "Enregistrer les réglages S73"}

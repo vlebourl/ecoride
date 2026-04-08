@@ -69,6 +69,8 @@ export interface UpdateUserRequest {
   super73DefaultMode?: Super73Mode | null;
   super73DefaultAssist?: number | null;
   super73DefaultLight?: boolean | null;
+  super73AutoModeLowSpeedKmh?: number | null;
+  super73AutoModeHighSpeedKmh?: number | null;
 }
 
 export interface GrantAdminRequest {

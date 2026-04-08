@@ -161,6 +161,9 @@ export function StatsPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("km");
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [tripPresetFormOpen, setTripPresetFormOpen] = useState(false);
+  const [tripPresetLabel, setTripPresetLabel] = useState("");
+  const [tripPresetSaved, setTripPresetSaved] = useState(false);
   const { data: s, isPending: summaryLoading } = useDashboardSummary("month");
   const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
   const { data: chartTripsData, isPending: chartLoading } = useChartTrips(period);
@@ -179,21 +182,38 @@ export function StatsPage() {
     }
   }, [selectedTrip]);
 
+  useEffect(() => {
+    if (!selectedTrip) {
+      setTripPresetFormOpen(false);
+      setTripPresetLabel("");
+      setTripPresetSaved(false);
+      return;
+    }
+
+    setTripPresetLabel(tripLabel(selectedTrip.startedAt).replace(/^Trajet /, ""));
+    setTripPresetSaved(false);
+  }, [selectedTrip]);
+
   // Use detailed trip data (with gpsPoints) when available, otherwise fall back to list data
   const displayTrip = tripDetail ?? selectedTrip;
   const gpsPoints = displayTrip?.gpsPoints;
   const hasGpsTrack = Array.isArray(gpsPoints) && gpsPoints.length > 1;
 
   const handleSaveTripPreset = () => {
-    if (!selectedTrip) return;
-    const suggestedLabel = tripLabel(selectedTrip.startedAt).replace(/^Trajet /, "");
-    const label = window.prompt("Nom du trajet pré-enregistré", suggestedLabel);
-    if (!label || !label.trim()) return;
+    if (!selectedTrip || !tripPresetLabel.trim()) return;
 
-    createTripPresetFromTrip.mutate({
-      tripId: selectedTrip.id,
-      label: label.trim(),
-    });
+    createTripPresetFromTrip.mutate(
+      {
+        tripId: selectedTrip.id,
+        label: tripPresetLabel.trim(),
+      },
+      {
+        onSuccess: () => {
+          setTripPresetSaved(true);
+          setTripPresetFormOpen(false);
+        },
+      },
+    );
   };
 
   const isPending = summaryLoading || tripsLoading || chartLoading || achievementsLoading;
@@ -585,15 +605,57 @@ export function StatsPage() {
 
               <div className="space-y-3">
                 <button
-                  onClick={handleSaveTripPreset}
+                  onClick={() => {
+                    setTripPresetSaved(false);
+                    setTripPresetFormOpen((open) => !open);
+                  }}
                   disabled={createTripPresetFromTrip.isPending}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 py-3 text-sm font-bold text-primary-light active:scale-95 disabled:opacity-50"
                 >
                   <Save size={16} />
-                  {createTripPresetFromTrip.isPending
-                    ? "Enregistrement..."
-                    : "Créer un trajet pré-enregistré"}
+                  {tripPresetFormOpen ? "Masquer le formulaire" : "Créer un trajet pré-enregistré"}
                 </button>
+
+                {tripPresetFormOpen && (
+                  <div className="rounded-xl bg-surface-low p-4">
+                    <label
+                      htmlFor="trip-preset-label-input"
+                      className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted"
+                    >
+                      Nom du trajet pré-enregistré
+                    </label>
+                    <input
+                      id="trip-preset-label-input"
+                      type="text"
+                      value={tripPresetLabel}
+                      onChange={(e) => setTripPresetLabel(e.target.value)}
+                      className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <div className="mt-3 flex gap-3">
+                      <button
+                        onClick={handleSaveTripPreset}
+                        disabled={createTripPresetFromTrip.isPending || !tripPresetLabel.trim()}
+                        className="flex-1 rounded-lg bg-primary py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
+                      >
+                        {createTripPresetFromTrip.isPending ? "Enregistrement..." : "Enregistrer"}
+                      </button>
+                      <button
+                        onClick={() => setTripPresetFormOpen(false)}
+                        disabled={createTripPresetFromTrip.isPending}
+                        className="flex-1 rounded-lg bg-surface-high py-3 text-sm font-bold text-text-muted active:scale-95 disabled:opacity-50"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {tripPresetSaved && (
+                  <div className="rounded-xl bg-primary/10 p-4 text-sm font-medium text-primary-light">
+                    Trajet pré-enregistré créé.
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
                     deleteTrip.mutate(selectedTrip.id, {

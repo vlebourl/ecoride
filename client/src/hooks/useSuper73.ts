@@ -23,10 +23,27 @@ export type BleStatus = "disconnected" | "connecting" | "connected" | "unsupport
 const STATE_KEY = "ecoride-super73-state";
 const RECONNECT_DELAY = 2_000;
 const MAX_RECONNECT_ATTEMPTS = 1;
-const AUTO_MODE_LOW_SPEED_KMH = 12;
-const AUTO_MODE_HIGH_SPEED_KMH = 20;
+const AUTO_MODE_LOW_SPEED_KMH = 10;
+const AUTO_MODE_HIGH_SPEED_KMH = 17;
 
 type AutoModeZone = "low" | "high" | null;
+
+export type Super73TripModeSelection = "eco" | "race" | "auto";
+
+function deriveTripModeSelection(
+  state: Super73State | null,
+  preferences: Super73Preferences,
+  tracking: Super73TrackingInput,
+  currentSelection: Super73TripModeSelection | null = null,
+): Super73TripModeSelection {
+  if (currentSelection === "auto" && tracking.isTracking) return "auto";
+  if (preferences.autoModeEnabled && tracking.isTracking) return "auto";
+  return state?.mode === "race" ? "race" : "eco";
+}
+
+function nextTripModeSelection(current: Super73TripModeSelection): Super73TripModeSelection {
+  return current === "eco" ? "race" : current === "race" ? "auto" : "eco";
+}
 
 export interface Super73Preferences {
   autoModeEnabled: boolean;
@@ -102,24 +119,28 @@ export interface UseSuper73Result {
   status: BleStatus;
   bikeState: Super73State | null;
   error: string | null;
+  tripModeSelection: Super73TripModeSelection;
   connect: () => Promise<void>;
   disconnect: () => void;
   setMode: (mode: Super73Mode) => Promise<void>;
   setAssist: (level: number) => Promise<void>;
   setLight: (on: boolean) => Promise<void>;
   toggleMode: () => Promise<void>;
+  cycleTripModeSelection: () => Promise<void>;
 }
 
 const NOOP_RESULT: UseSuper73Result = {
   status: "unsupported",
   bikeState: null,
   error: null,
+  tripModeSelection: "eco",
   connect: async () => {},
   disconnect: () => {},
   setMode: async () => {},
   setAssist: async () => {},
   setLight: async () => {},
   toggleMode: async () => {},
+  cycleTripModeSelection: async () => {},
 };
 
 const Super73Context = createContext<UseSuper73Result>(NOOP_RESULT);
@@ -134,6 +155,7 @@ function useSuper73Controller(
   );
   const [bikeState, setBikeState] = useState<Super73State | null>(loadCachedState);
   const [error, setError] = useState<string | null>(null);
+  const [tripModeSelection, setTripModeSelection] = useState<Super73TripModeSelection>("eco");
 
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
@@ -297,11 +319,39 @@ function useSuper73Controller(
   const toggleMode = useCallback(async () => {
     if (!bikeState) return;
     const nextMode: Super73Mode = bikeState.mode === "race" ? "eco" : "race";
+    setTripModeSelection(nextMode === "race" ? "race" : "eco");
     await setMode(nextMode);
   }, [bikeState, setMode]);
 
+  const cycleTripModeSelection = useCallback(async () => {
+    const nextSelection = nextTripModeSelection(tripModeSelection);
+    setTripModeSelection(nextSelection);
+    lastAutoModeZoneRef.current = null;
+
+    if (nextSelection === "auto") {
+      if (!tracking.isTracking) return;
+      const zone = resolveAutoModeZone(tracking.speedKmh);
+      const targetMode = resolveAutoSuper73Mode(zone);
+      if (targetMode && targetMode !== bikeState?.mode) {
+        await setMode(targetMode);
+      }
+      return;
+    }
+
+    const targetMode: Super73Mode = nextSelection === "race" ? "race" : "eco";
+    if (targetMode !== bikeState?.mode) {
+      await setMode(targetMode);
+    }
+  }, [bikeState?.mode, setMode, tracking.isTracking, tracking.speedKmh, tripModeSelection]);
+
   useEffect(() => {
-    if (!preferences.autoModeEnabled) {
+    setTripModeSelection((current) =>
+      deriveTripModeSelection(bikeState, preferences, tracking, current),
+    );
+  }, [bikeState, preferences.autoModeEnabled, tracking.isTracking]);
+
+  useEffect(() => {
+    if (tripModeSelection !== "auto") {
       lastAutoModeZoneRef.current = null;
       return;
     }
@@ -309,10 +359,7 @@ function useSuper73Controller(
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
 
     const zone = resolveAutoModeZone(tracking.speedKmh);
-    if (zone === null) {
-      lastAutoModeZoneRef.current = null;
-      return;
-    }
+    if (zone === null) return;
     if (zone === lastAutoModeZoneRef.current) return;
 
     const targetMode = resolveAutoSuper73Mode(zone);
@@ -323,14 +370,7 @@ function useSuper73Controller(
 
     lastAutoModeZoneRef.current = zone;
     void setMode(targetMode);
-  }, [
-    preferences.autoModeEnabled,
-    tracking.isTracking,
-    tracking.speedKmh,
-    bikeState,
-    status,
-    setMode,
-  ]);
+  }, [tripModeSelection, tracking.isTracking, tracking.speedKmh, bikeState, status, setMode]);
 
   if (!enabled) return NOOP_RESULT;
   if (!isBleSupported()) return NOOP_RESULT;
@@ -339,12 +379,14 @@ function useSuper73Controller(
     status,
     bikeState,
     error,
+    tripModeSelection,
     connect,
     disconnect,
     setMode,
     setAssist,
     setLight,
     toggleMode,
+    cycleTripModeSelection,
   };
 }
 

@@ -336,6 +336,77 @@ adminRouter.post(
   },
 );
 
+// POST /api/admin/users/super73/revoke — Revoke Super73 access from an existing user
+adminRouter.post(
+  "/users/super73/revoke",
+  rateLimit({ maxRequests: 10, windowMs: 60_000, prefix: "admin-revoke-super73" }),
+  zValidator("json", userIdSchema, validationHook),
+  async (c) => {
+    const currentUser = c.get("user");
+    const data = c.req.valid("json");
+
+    const targetUser = await getManagedUserById(data.userId);
+
+    if (!targetUser.super73Enabled) {
+      return c.json({
+        ok: true,
+        data: {
+          revoked: false,
+          user: targetUser,
+        },
+      });
+    }
+
+    const [updatedUser] = await db
+      .update(user)
+      .set({
+        super73Enabled: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, targetUser.id))
+      .returning(adminManagedUserSelection);
+
+    logAudit(currentUser.id, "revoke_super73_access", targetUser.id, { email: targetUser.email });
+
+    return c.json({
+      ok: true,
+      data: {
+        revoked: true,
+        user: updatedUser,
+      },
+    });
+  },
+);
+
+// POST /api/admin/users/delete — Delete an existing user
+adminRouter.post(
+  "/users/delete",
+  rateLimit({ maxRequests: 5, windowMs: 60_000, prefix: "admin-delete-user" }),
+  zValidator("json", userIdSchema, validationHook),
+  async (c) => {
+    const currentUser = c.get("user");
+    const data = c.req.valid("json");
+
+    if (currentUser.id === data.userId) {
+      throw forbidden("You cannot delete your own account from the admin panel");
+    }
+
+    const targetUser = await getManagedUserById(data.userId);
+
+    logAudit(currentUser.id, "admin_delete_user", targetUser.id, { email: targetUser.email });
+
+    await db.delete(user).where(eq(user.id, targetUser.id));
+
+    return c.json({
+      ok: true,
+      data: {
+        deletedUserId: targetUser.id,
+        deletedEmail: targetUser.email,
+      },
+    });
+  },
+);
+
 // POST /api/admin/notifications — Send push notification to users
 const sendNotificationSchema = z.object({
   title: z.string().min(1).max(100),

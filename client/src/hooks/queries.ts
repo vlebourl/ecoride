@@ -13,6 +13,8 @@ import type {
   AdminUserAccessRequest,
   RevokeAdminResponse,
   GrantSuper73Response,
+  RevokeSuper73Response,
+  DeleteAdminUserResponse,
 } from "@ecoride/shared/api-contracts";
 
 // ---- Queries ----
@@ -238,6 +240,37 @@ export function useGrantSuper73Access() {
       }).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
+  });
+}
+
+export function useRevokeSuper73Access() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: AdminUserAccessRequest) =>
+      apiFetch<{ ok: boolean; data: RevokeSuper73Response }>("/admin/users/super73/revoke", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    },
+  });
+}
+
+export function useDeleteAdminUser() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: AdminUserAccessRequest) =>
+      apiFetch<{ ok: boolean; data: DeleteAdminUserResponse }>("/admin/users/delete", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+      qc.invalidateQueries({ queryKey: ["admin", "audit-logs"] });
     },
   });
 }

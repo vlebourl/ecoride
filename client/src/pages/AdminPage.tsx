@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, Link } from "react-router";
 import {
   Shield,
@@ -17,6 +18,7 @@ import {
   Trash2,
   Rocket,
   Activity,
+  X,
 } from "lucide-react";
 import {
   useAdminHealth,
@@ -32,6 +34,8 @@ import {
   useGrantAdmin,
   useRevokeAdmin,
   useGrantSuper73Access,
+  useRevokeSuper73Access,
+  useDeleteAdminUser,
 } from "@/hooks/queries";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -59,6 +63,17 @@ function formatDuration(sec: number): string {
   return `${m}min`;
 }
 
+type AdminManagedUser = {
+  id: string;
+  name: string;
+  email: string;
+  tripCount: number;
+  totalCo2: number;
+  createdAt: string;
+  isAdmin: boolean;
+  super73Enabled: boolean;
+};
+
 export function AdminPage() {
   const navigate = useNavigate();
   const { data: profileData, isPending: profilePending } = useProfile();
@@ -68,8 +83,10 @@ export function AdminPage() {
   const grantAdmin = useGrantAdmin();
   const revokeAdmin = useRevokeAdmin();
   const grantSuper73Access = useGrantSuper73Access();
+  const revokeSuper73Access = useRevokeSuper73Access();
+  const deleteAdminUser = useDeleteAdminUser();
   const [deployStatus, setDeployStatus] = useState<"idle" | "success" | "error">("idle");
-  const [grantEmail, setGrantEmail] = useState("");
+  const [selectedUser, setSelectedUser] = useState<AdminManagedUser | null>(null);
 
   const isAdmin = profileData?.user?.isAdmin === true;
 
@@ -95,6 +112,19 @@ export function AdminPage() {
   if (!isAdmin) {
     return null;
   }
+
+  const userActionBusy =
+    grantAdmin.isPending ||
+    revokeAdmin.isPending ||
+    grantSuper73Access.isPending ||
+    revokeSuper73Access.isPending ||
+    deleteAdminUser.isPending;
+
+  const mergeSelectedUser = (
+    userPatch: Pick<AdminManagedUser, "id" | "name" | "email" | "isAdmin" | "super73Enabled">,
+  ) => {
+    setSelectedUser((current) => (current ? { ...current, ...userPatch } : current));
+  };
 
   const chartData = stats?.dailyTripCounts.map((d) => ({
     date: new Date(d.date + "T00:00:00").toLocaleDateString("fr-FR", {
@@ -268,59 +298,16 @@ export function AdminPage() {
           )}
         </section>
 
-        <section className="rounded-xl bg-surface-low p-5">
-          <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
-            Promouvoir un admin
-          </h2>
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              grantAdmin.mutate(
-                { email: grantEmail.trim().toLowerCase() },
-                {
-                  onSuccess: () => setGrantEmail(""),
-                },
-              );
-            }}
-          >
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="email"
-                value={grantEmail}
-                onChange={(e) => setGrantEmail(e.target.value)}
-                placeholder="utilisateur@exemple.com"
-                required
-                className="flex-1 rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              <button
-                type="submit"
-                disabled={grantAdmin.isPending}
-                className="rounded-lg bg-primary/20 px-4 py-3 text-sm font-bold text-primary-light transition-colors active:scale-95 disabled:opacity-50"
-              >
-                {grantAdmin.isPending ? "Ajout..." : "Ajouter admin"}
-              </button>
-            </div>
-            {grantAdmin.isError && (
-              <p className="text-sm text-danger">
-                Échec de la promotion admin. Vérifiez l’email et vos droits.
-              </p>
-            )}
-            {grantAdmin.isSuccess && (
-              <p className="text-sm text-primary-light">
-                {grantAdmin.data.granted
-                  ? `${grantAdmin.data.user.email} est désormais admin.`
-                  : `${grantAdmin.data.user.email} est déjà admin.`}
-              </p>
-            )}
-          </form>
-        </section>
-
         {/* Users Table */}
         <section className="rounded-xl bg-surface-low p-5">
-          <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
-            Utilisateurs
-          </h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-text-muted">
+              Utilisateurs
+            </h2>
+            <p className="text-xs text-text-dim">
+              Touchez un utilisateur pour ouvrir le panneau d’administration.
+            </p>
+          </div>
           {statsPending ? (
             <div className="flex justify-center py-4">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -340,7 +327,11 @@ export function AdminPage() {
                 </thead>
                 <tbody>
                   {stats.users.map((u) => (
-                    <tr key={u.id} className="border-b border-white/5 last:border-0">
+                    <tr
+                      key={u.id}
+                      className="cursor-pointer border-b border-white/5 transition-colors hover:bg-surface-high last:border-0"
+                      onClick={() => setSelectedUser(u)}
+                    >
                       <td className="py-3 pr-4 font-medium text-text">
                         {u.name}
                         {u.isAdmin && (
@@ -359,35 +350,14 @@ export function AdminPage() {
                       <td className="py-3 pr-4 text-right text-text">
                         {typeof u.totalCo2 === "number" ? u.totalCo2.toFixed(1) : "0.0"}
                       </td>
-                      <td className="py-3 pr-4 text-right">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <button
-                            type="button"
-                            disabled={grantSuper73Access.isPending || u.super73Enabled}
-                            onClick={() => grantSuper73Access.mutate({ userId: u.id })}
-                            className="rounded-md bg-sky-500/20 px-2 py-1 text-xs font-bold text-sky-300 disabled:opacity-50"
-                          >
-                            {u.super73Enabled ? "S73 ok" : "Accorder S73"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={grantAdmin.isPending || revokeAdmin.isPending || u.isAdmin}
-                            onClick={() => grantAdmin.mutate({ email: u.email })}
-                            className="rounded-md bg-primary/20 px-2 py-1 text-xs font-bold text-primary-light disabled:opacity-50"
-                          >
-                            {u.isAdmin ? "Admin" : "Rendre admin"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={
-                              revokeAdmin.isPending || !u.isAdmin || u.id === profileData?.user?.id
-                            }
-                            onClick={() => revokeAdmin.mutate({ userId: u.id })}
-                            className="rounded-md bg-danger/15 px-2 py-1 text-xs font-bold text-danger disabled:opacity-50"
-                          >
-                            Retirer admin
-                          </button>
-                        </div>
+                      <td className="py-3 pr-4 text-right text-text-dim">
+                        {u.isAdmin && u.super73Enabled
+                          ? "admin · s73"
+                          : u.isAdmin
+                            ? "admin"
+                            : u.super73Enabled
+                              ? "s73"
+                              : "standard"}
                       </td>
                       <td className="py-3 text-right text-text-muted">{formatDate(u.createdAt)}</td>
                     </tr>
@@ -450,6 +420,137 @@ export function AdminPage() {
         {/* Push Notifications */}
         <NotificationSection users={stats?.users} />
       </div>
+      {selectedUser &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/50 sm:items-stretch">
+            <div className="absolute inset-0" onClick={() => setSelectedUser(null)} />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Administration de ${selectedUser.name}`}
+              className="relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface-container p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] animate-[slideUp_0.2s_ease-out] sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-2xl"
+            >
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                    Utilisateur
+                  </p>
+                  <h2 className="mt-1 text-xl font-black tracking-tight text-text">
+                    {selectedUser.name}
+                  </h2>
+                  <p className="mt-1 text-sm text-text-muted">{selectedUser.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUser(null)}
+                  className="rounded-lg p-2 text-text-dim transition-colors hover:bg-surface-high hover:text-text"
+                  aria-label="Fermer le panneau utilisateur"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4 overflow-y-auto">
+                <section className="rounded-xl bg-surface-low p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-text-muted">
+                    Résumé
+                  </h3>
+                  <div className="mt-3 space-y-2 text-sm text-text-muted">
+                    <div className="flex items-center justify-between">
+                      <span>Trajets</span>
+                      <span className="font-bold text-text">{selectedUser.tripCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>CO2 cumulé</span>
+                      <span className="font-bold text-text">
+                        {selectedUser.totalCo2.toFixed(1)} kg
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Inscription</span>
+                      <span className="font-bold text-text">
+                        {formatDate(selectedUser.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-xl bg-surface-low p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-text-muted">
+                    Actions
+                  </h3>
+                  <div className="mt-3 grid gap-3">
+                    <button
+                      type="button"
+                      disabled={userActionBusy}
+                      onClick={() =>
+                        selectedUser.isAdmin
+                          ? revokeAdmin.mutate(
+                              { userId: selectedUser.id },
+                              { onSuccess: (data) => mergeSelectedUser(data.user) },
+                            )
+                          : grantAdmin.mutate(
+                              { email: selectedUser.email },
+                              { onSuccess: (data) => mergeSelectedUser(data.user) },
+                            )
+                      }
+                      className={`rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors disabled:opacity-50 ${
+                        selectedUser.isAdmin
+                          ? "bg-danger/15 text-danger"
+                          : "bg-primary/20 text-primary-light"
+                      }`}
+                    >
+                      {selectedUser.isAdmin ? "Retirer admin" : "Rendre admin"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={userActionBusy}
+                      onClick={() =>
+                        selectedUser.super73Enabled
+                          ? revokeSuper73Access.mutate(
+                              { userId: selectedUser.id },
+                              { onSuccess: (data) => mergeSelectedUser(data.user) },
+                            )
+                          : grantSuper73Access.mutate(
+                              { userId: selectedUser.id },
+                              { onSuccess: (data) => mergeSelectedUser(data.user) },
+                            )
+                      }
+                      className={`rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors disabled:opacity-50 ${
+                        selectedUser.super73Enabled
+                          ? "bg-surface-high text-text"
+                          : "bg-sky-500/20 text-sky-300"
+                      }`}
+                    >
+                      {selectedUser.super73Enabled ? "Retirer accès S73" : "Accorder accès S73"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={userActionBusy || selectedUser.id === profileData?.user?.id}
+                      onClick={() => {
+                        if (!window.confirm(`Supprimer définitivement ${selectedUser.email} ?`))
+                          return;
+                        deleteAdminUser.mutate(
+                          { userId: selectedUser.id },
+                          { onSuccess: () => setSelectedUser(null) },
+                        );
+                      }}
+                      className="rounded-xl bg-danger/15 px-4 py-3 text-left text-sm font-bold text-danger transition-colors disabled:opacity-50"
+                    >
+                      Supprimer l’utilisateur
+                    </button>
+                    {selectedUser.id === profileData?.user?.id && (
+                      <p className="text-xs text-text-dim">
+                        Vous ne pouvez pas vous supprimer ni vous rétrograder depuis ce panneau.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

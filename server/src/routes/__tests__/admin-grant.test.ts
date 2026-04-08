@@ -24,6 +24,7 @@ const mockUpdatedUser = vi.hoisted(() => ({
 }));
 
 const mockUpdate = vi.hoisted(() => vi.fn());
+const mockDelete = vi.hoisted(() => vi.fn());
 const mockLogAudit = vi.hoisted(() => vi.fn());
 const mockAdminMiddleware = vi.hoisted(() => vi.fn());
 
@@ -42,6 +43,12 @@ vi.mock("../../db", () => ({
             returning: () => Promise.resolve([mockUpdatedUser.value]),
           }),
         }),
+      };
+    },
+    delete: (...args: unknown[]) => {
+      mockDelete(...args);
+      return {
+        where: () => Promise.resolve(),
       };
     },
   },
@@ -96,6 +103,7 @@ describe("admin user access endpoints", () => {
       super73Enabled: false,
     };
     mockUpdate.mockClear();
+    mockDelete.mockClear();
     mockLogAudit.mockClear();
     mockAdminMiddleware.mockReset();
     mockAdminMiddleware.mockImplementation(
@@ -319,16 +327,112 @@ describe("admin user access endpoints", () => {
       expect(mockUpdate).not.toHaveBeenCalled();
       expect(mockLogAudit).not.toHaveBeenCalled();
     });
+  });
 
-    it("returns 404 when the target user does not exist", async () => {
-      const res = await buildApp().request("/admin/users/super73/grant", {
+  describe("POST /admin/users/super73/revoke", () => {
+    it("revokes super73 access and records an audit log", async () => {
+      mockSelectedUser.value = {
+        id: "user-6",
+        name: "Bike Rider",
+        email: "bike@example.com",
+        isAdmin: false,
+        super73Enabled: true,
+      };
+      mockUpdatedUser.value = {
+        ...mockSelectedUser.value,
+        super73Enabled: false,
+      };
+
+      const res = await buildApp().request("/admin/users/super73/revoke", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId: "missing-user" }),
+        body: JSON.stringify({ userId: "user-6" }),
       });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        ok: boolean;
+        data: { revoked: boolean; user: ManagedUser };
+      };
+
+      expect(body.ok).toBe(true);
+      expect(body.data.revoked).toBe(true);
+      expect(body.data.user.super73Enabled).toBe(false);
+      expect(mockUpdate).toHaveBeenCalledOnce();
+      expect(mockLogAudit).toHaveBeenCalledWith("admin-1", "revoke_super73_access", "user-6", {
+        email: "bike@example.com",
+      });
+    });
+
+    it("is idempotent when super73 access is already disabled", async () => {
+      mockSelectedUser.value = {
+        id: "user-7",
+        name: "No S73",
+        email: "nos73@example.com",
+        isAdmin: false,
+        super73Enabled: false,
+      };
+
+      const res = await buildApp().request("/admin/users/super73/revoke", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: "user-7" }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        ok: boolean;
+        data: { revoked: boolean; user: ManagedUser };
+      };
+
+      expect(body.ok).toBe(true);
+      expect(body.data.revoked).toBe(false);
+      expect(body.data.user.super73Enabled).toBe(false);
       expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockLogAudit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("POST /admin/users/delete", () => {
+    it("deletes another user and records an audit log", async () => {
+      mockSelectedUser.value = {
+        id: "user-8",
+        name: "Delete Me",
+        email: "delete@example.com",
+        isAdmin: false,
+        super73Enabled: false,
+      };
+
+      const res = await buildApp().request("/admin/users/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: "user-8" }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        ok: boolean;
+        data: { deletedUserId: string; deletedEmail: string };
+      };
+
+      expect(body.ok).toBe(true);
+      expect(body.data.deletedUserId).toBe("user-8");
+      expect(body.data.deletedEmail).toBe("delete@example.com");
+      expect(mockDelete).toHaveBeenCalledOnce();
+      expect(mockLogAudit).toHaveBeenCalledWith("admin-1", "admin_delete_user", "user-8", {
+        email: "delete@example.com",
+      });
+    });
+
+    it("rejects self-deletion from the admin panel", async () => {
+      const res = await buildApp().request("/admin/users/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: "admin-1" }),
+      });
+
+      expect(res.status).toBe(403);
+      expect(mockDelete).not.toHaveBeenCalled();
       expect(mockLogAudit).not.toHaveBeenCalled();
     });
   });

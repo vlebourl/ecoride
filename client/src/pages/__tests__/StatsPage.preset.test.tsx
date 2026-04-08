@@ -67,6 +67,7 @@ vi.mock("@/components/MapNoWebGL", () => ({ MapNoWebGL: () => <div>Map fallback<
 describe("StatsPage preset creation flow", () => {
   beforeEach(() => {
     createTripPresetFromTripMutate.mockReset();
+    createTripPresetFromTripMutate.mockImplementation((_vars, options) => options?.onSuccess?.());
     deleteTripMutate.mockReset();
   });
 
@@ -94,5 +95,10 @@ describe("StatsPage preset creation flow", () => {
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Détail du trajet" })).toBeNull();
+      expect(screen.getByText("Trajet pré-enregistré créé.")).toBeTruthy();
+    });
   });
 });

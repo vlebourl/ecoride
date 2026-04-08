@@ -445,7 +445,8 @@ export function useCreateTripPreset() {
         method: "POST",
         body: JSON.stringify(data),
       }).then((r) => r.data.tripPreset),
-    onSuccess: () => {
+    onSuccess: (tripPreset) => {
+      qc.setQueryData<TripPreset[]>(["trip-presets"], (current = []) => [tripPreset, ...current]);
       qc.invalidateQueries({ queryKey: ["trip-presets"] });
     },
   });
@@ -462,7 +463,8 @@ export function useCreateTripPresetFromTrip() {
           body: JSON.stringify(data),
         },
       ).then((r) => r.data.tripPreset),
-    onSuccess: () => {
+    onSuccess: (tripPreset) => {
+      qc.setQueryData<TripPreset[]>(["trip-presets"], (current = []) => [tripPreset, ...current]);
       qc.invalidateQueries({ queryKey: ["trip-presets"] });
     },
   });
@@ -473,7 +475,10 @@ export function useDeleteTripPreset() {
   return useMutation({
     mutationFn: (tripPresetId: string) =>
       apiFetch<{ ok: boolean }>(`/trip-presets/${tripPresetId}`, { method: "DELETE" }),
-    onSuccess: () => {
+    onSuccess: (_result, tripPresetId) => {
+      qc.setQueryData<TripPreset[]>(["trip-presets"], (current = []) =>
+        current.filter((tripPreset) => tripPreset.id !== tripPresetId),
+      );
       qc.invalidateQueries({ queryKey: ["trip-presets"] });
     },
   });

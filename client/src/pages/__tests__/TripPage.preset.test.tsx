@@ -3,7 +3,6 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { TripPage } from "../TripPage";
 
 const mutateMock = vi.fn();
-const deleteTripPresetMock = vi.fn();
 const startMock = vi.fn();
 const resetMock = vi.fn();
 
@@ -18,10 +17,6 @@ vi.mock("react-map-gl/maplibre", () => ({
 vi.mock("@/hooks/queries", () => ({
   useCreateTrip: () => ({
     mutate: mutateMock,
-    isPending: false,
-  }),
-  useDeleteTripPreset: () => ({
-    mutate: deleteTripPresetMock,
     isPending: false,
   }),
   useProfile: () => ({
@@ -82,17 +77,22 @@ vi.mock("@/components/Super73ModeButton", () => ({ Super73ModeButton: () => null
 describe("TripPage trip preset selection", () => {
   beforeEach(() => {
     mutateMock.mockReset();
-    deleteTripPresetMock.mockReset();
     startMock.mockReset();
     resetMock.mockReset();
   });
 
-  it("creates a trip directly from a preset and can prefill manual entry", () => {
+  it("creates a manual trip from the manual dropdown preset selection", () => {
     render(<TripPage />);
 
-    expect(screen.getByRole("region", { name: "Trajets pré-enregistrés" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Saisie manuelle" }));
+    fireEvent.change(screen.getByLabelText("Trajet pré-enregistré"), {
+      target: { value: "preset-1" },
+    });
 
-    fireEvent.click(screen.getByRole("button", { name: "Créer" }));
+    expect(screen.getByDisplayValue("8.4")).toBeTruthy();
+    expect(screen.getByDisplayValue("25")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     expect(mutateMock).toHaveBeenCalledOnce();
     expect(mutateMock).toHaveBeenCalledWith(
@@ -102,23 +102,20 @@ describe("TripPage trip preset selection", () => {
       }),
       expect.any(Object),
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
-
-    expect(screen.getByDisplayValue("8.4")).toBeTruthy();
-    expect(screen.getByDisplayValue("25")).toBeTruthy();
   });
 
-  it("deletes a preset from the management section", () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
+  it("resets the fields when switching back to custom mode", () => {
     render(<TripPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Saisie manuelle" }));
+    fireEvent.change(screen.getByLabelText("Trajet pré-enregistré"), {
+      target: { value: "preset-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Trajet pré-enregistré"), {
+      target: { value: "custom" },
+    });
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Supprimer le trajet pré-enregistré « Domicile → Travail » ?",
-    );
-    expect(deleteTripPresetMock).toHaveBeenCalledWith("preset-1");
+    expect((screen.getByLabelText("Distance (km)") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Durée (minutes)") as HTMLInputElement).value).toBe("");
   });
 });

@@ -22,9 +22,11 @@ import type { FuelType, BadgeId } from "@ecoride/shared/types";
 import {
   useProfile,
   useAchievements,
+  useTripPresets,
   useUpdateProfile,
   useFuelPrice,
   useDeleteAccount,
+  useDeleteTripPreset,
   useExportData,
   useSubmitFeedback,
 } from "@/hooks/queries";
@@ -41,10 +43,12 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const { data: profileData, isPending: profileLoading } = useProfile();
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
+  const { data: tripPresetsData } = useTripPresets();
   const updateProfile = useUpdateProfile();
 
   const push = usePushNotifications();
   const deleteAccount = useDeleteAccount();
+  const deleteTripPreset = useDeleteTripPreset();
   const exportData = useExportData();
   const submitFeedback = useSubmitFeedback();
 
@@ -73,6 +77,7 @@ export function ProfilePage() {
   const user = profileData?.user;
   const stats = profileData?.stats;
 
+  const tripPresets = tripPresetsData ?? [];
   // Sync form state when profile loads
   useEffect(() => {
     if (user) {
@@ -165,6 +170,12 @@ export function ProfilePage() {
 
   const handleExportData = () => {
     exportData.mutate();
+  };
+
+  const handleDeleteTripPreset = (tripPresetId: string, label: string) => {
+    const confirmed = window.confirm(`Supprimer le trajet pré-enregistré « ${label} » ?`);
+    if (!confirmed) return;
+    deleteTripPreset.mutate(tripPresetId);
   };
 
   return (
@@ -308,6 +319,49 @@ export function ProfilePage() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">Trajets pré-enregistrés</h2>
+              <p className="mt-1 text-sm text-text-muted">
+                Gérez ici votre liste de trajets favoris. Pour en créer un nouveau, ouvrez un trajet
+                dans l'onglet Stats puis choisissez « Créer un trajet pré-enregistré ».
+              </p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {tripPresets.length === 0 ? (
+              <div className="rounded-lg bg-surface-low p-5 text-sm text-text-muted">
+                Aucun trajet pré-enregistré pour le moment.
+              </div>
+            ) : (
+              tripPresets.map((tripPreset) => (
+                <div
+                  key={tripPreset.id}
+                  className="flex items-center justify-between gap-4 rounded-lg bg-surface-low p-5"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-text">{tripPreset.label}</p>
+                    <p className="mt-1 text-xs text-text-muted">
+                      {tripPreset.distanceKm.toFixed(1)} km
+                      {tripPreset.durationSec != null
+                        ? ` · ${Math.round(tripPreset.durationSec / 60)} min`
+                        : " · durée personnalisable"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteTripPreset(tripPreset.id, tripPreset.label)}
+                    disabled={deleteTripPreset.isPending}
+                    className="rounded-lg bg-danger/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-danger active:scale-95 disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </section>
 

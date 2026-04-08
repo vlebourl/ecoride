@@ -66,6 +66,8 @@ export function isBleSupported(): boolean {
 // ---- BLE operations ----
 
 const BLE_TIMEOUT = 5_000;
+const SUPER73_NAME_PREFIXES = ["SUPER73", "S73", "super73", "s73"] as const;
+const SELECTED_DEVICE_ID_KEY = "ecoride-super73-device-id";
 
 function withTimeout<T>(promise: Promise<T>, ms = BLE_TIMEOUT): Promise<T> {
   return Promise.race([
@@ -74,14 +76,38 @@ function withTimeout<T>(promise: Promise<T>, ms = BLE_TIMEOUT): Promise<T> {
   ]);
 }
 
+function loadSelectedDeviceId(): string | null {
+  try {
+    return localStorage.getItem(SELECTED_DEVICE_ID_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveSelectedDeviceId(device: BluetoothDevice): void {
+  if (!device.id) return;
+  try {
+    localStorage.setItem(SELECTED_DEVICE_ID_KEY, device.id);
+  } catch {
+    // localStorage unavailable — reconnect falls back to fresh selection
+  }
+}
+
+function isSuper73DeviceName(name: string | undefined): boolean {
+  if (!name) return false;
+  const normalizedName = name.trim().toLowerCase();
+  return normalizedName.startsWith("super73") || normalizedName.startsWith("s73");
+}
+
 /** Open the browser device picker, let the user select a Super73, and connect. */
 export async function scanAndConnect(): Promise<BluetoothDevice> {
   const device = await navigator.bluetooth.requestDevice({
-    filters: [{ namePrefix: "SUPER73" }, { namePrefix: "S73" }],
+    filters: SUPER73_NAME_PREFIXES.map((namePrefix) => ({ namePrefix })),
     optionalServices: [METRICS_SERVICE],
   });
   if (!device.gatt) throw new Error("GATT not available");
   await withTimeout(device.gatt.connect());
+  saveSelectedDeviceId(device);
   return device;
 }
 
@@ -93,10 +119,18 @@ export async function scanAndConnect(): Promise<BluetoothDevice> {
 export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
   if (!navigator.bluetooth.getDevices) return null;
   const devices = await navigator.bluetooth.getDevices();
-  const super73 = devices.find((d) => d.name?.startsWith("SUPER73") || d.name?.startsWith("S73"));
+  const preferredDeviceId = loadSelectedDeviceId();
+  const preferredDevice = preferredDeviceId
+    ? (devices.find((device) => device.id === preferredDeviceId) ?? null)
+    : null;
+
+  if (preferredDeviceId && !preferredDevice?.gatt) return null;
+
+  const super73 = preferredDevice ?? devices.find((device) => isSuper73DeviceName(device.name));
   if (!super73?.gatt) return null;
   try {
     await withTimeout(super73.gatt.connect());
+    saveSelectedDeviceId(super73);
     return super73;
   } catch {
     return null;

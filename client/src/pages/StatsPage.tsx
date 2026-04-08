@@ -163,7 +163,10 @@ export function StatsPage() {
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [tripPresetFormOpen, setTripPresetFormOpen] = useState(false);
   const [tripPresetLabel, setTripPresetLabel] = useState("");
-  const [tripPresetSaved, setTripPresetSaved] = useState(false);
+  const [tripPresetFeedback, setTripPresetFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const { data: s, isPending: summaryLoading } = useDashboardSummary("month");
   const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
   const { data: chartTripsData, isPending: chartLoading } = useChartTrips(period);
@@ -186,12 +189,10 @@ export function StatsPage() {
     if (!selectedTrip) {
       setTripPresetFormOpen(false);
       setTripPresetLabel("");
-      setTripPresetSaved(false);
       return;
     }
 
     setTripPresetLabel(tripLabel(selectedTrip.startedAt).replace(/^Trajet /, ""));
-    setTripPresetSaved(false);
   }, [selectedTrip]);
 
   // Use detailed trip data (with gpsPoints) when available, otherwise fall back to list data
@@ -202,6 +203,7 @@ export function StatsPage() {
   const handleSaveTripPreset = () => {
     if (!selectedTrip || !tripPresetLabel.trim()) return;
 
+    setTripPresetFeedback(null);
     createTripPresetFromTrip.mutate(
       {
         tripId: selectedTrip.id,
@@ -209,8 +211,15 @@ export function StatsPage() {
       },
       {
         onSuccess: () => {
-          setTripPresetSaved(true);
           setTripPresetFormOpen(false);
+          setSelectedTrip(null);
+          setTripPresetFeedback({ type: "success", message: "Trajet pré-enregistré créé." });
+        },
+        onError: () => {
+          setTripPresetFeedback({
+            type: "error",
+            message: "Impossible de créer le trajet pré-enregistré.",
+          });
         },
       },
     );
@@ -288,6 +297,18 @@ export function StatsPage() {
 
   return (
     <>
+      {tripPresetFeedback && (
+        <div
+          className={`mx-6 mt-4 rounded-xl p-4 text-sm font-medium ${
+            tripPresetFeedback.type === "success"
+              ? "bg-primary/10 text-primary-light"
+              : "bg-danger/10 text-danger"
+          }`}
+        >
+          {tripPresetFeedback.message}
+        </div>
+      )}
+
       {/* Header */}
       <header
         role="banner"
@@ -606,7 +627,7 @@ export function StatsPage() {
               <div className="space-y-3">
                 <button
                   onClick={() => {
-                    setTripPresetSaved(false);
+                    setTripPresetFeedback(null);
                     setTripPresetFormOpen((open) => !open);
                   }}
                   disabled={createTripPresetFromTrip.isPending}
@@ -647,12 +668,6 @@ export function StatsPage() {
                         Annuler
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {tripPresetSaved && (
-                  <div className="rounded-xl bg-primary/10 p-4 text-sm font-medium text-primary-light">
-                    Trajet pré-enregistré créé.
                   </div>
                 )}
 

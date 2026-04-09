@@ -179,4 +179,32 @@ describe("POST /trips", () => {
       expect.objectContaining({ tripId: "trip-1", error: "leaderboard timeout" }),
     );
   });
+
+  it("accepts legacy GPS points without timestamps and normalizes them", async () => {
+    const app = buildApp();
+    const res = await app.request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 10,
+        durationSec: 600,
+        startedAt: "2026-04-07T10:00:00.000Z",
+        endedAt: "2026-04-07T10:10:00.000Z",
+        gpsPoints: [
+          { lat: "48.8566", lng: "2.3522" },
+          { lat: 48.857, lng: 2.353, ts: "1712484600000" },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gpsPoints: [
+          { lat: 48.8566, lng: 2.3522, ts: 0 },
+          { lat: 48.857, lng: 2.353, ts: 1712484600000 },
+        ],
+      }),
+    );
+  });
 });

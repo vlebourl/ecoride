@@ -1,28 +1,76 @@
 import type { CreateTripRequest } from "@ecoride/shared/api-contracts";
 
 const STORAGE_KEY = "ecoride-pending-trips";
+const REJECTED_STORAGE_KEY = "ecoride-rejected-trips";
 
-export function queueTrip(data: CreateTripRequest): void {
-  const pending = getPendingTrips();
-  const key = crypto.randomUUID();
-  pending.push({ ...data, idempotencyKey: key });
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
+export interface RejectedTripRecord {
+  trip: CreateTripRequest;
+  rejectedAt: string;
+  status: number | null;
+  reason: string;
 }
 
-export function getPendingTrips(): CreateTripRequest[] {
+function readQueue<T>(key: string): T[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
-    return JSON.parse(raw) as CreateTripRequest[];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
     return [];
   }
 }
 
+function writeQueue<T>(key: string, items: T[]): void {
+  localStorage.setItem(key, JSON.stringify(items));
+}
+
+function sameTripIdentity(a: CreateTripRequest, b: CreateTripRequest): boolean {
+  if (a.idempotencyKey && b.idempotencyKey) return a.idempotencyKey === b.idempotencyKey;
+  return (
+    a.startedAt === b.startedAt &&
+    a.endedAt === b.endedAt &&
+    a.distanceKm === b.distanceKm &&
+    a.durationSec === b.durationSec
+  );
+}
+
+export function queueTrip(data: CreateTripRequest): void {
+  const pending = getPendingTrips();
+  const key = crypto.randomUUID();
+  pending.push({ ...data, idempotencyKey: key });
+  writeQueue(STORAGE_KEY, pending);
+}
+
+export function getPendingTrips(): CreateTripRequest[] {
+  return readQueue<CreateTripRequest>(STORAGE_KEY);
+}
+
 export function removePendingTrip(index: number): void {
   const pending = getPendingTrips();
   pending.splice(index, 1);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
+  writeQueue(STORAGE_KEY, pending);
+}
+
+export function recordRejectedTrip(
+  trip: CreateTripRequest,
+  meta: { status: number | null; reason: string },
+): void {
+  const rejected = getRejectedTrips();
+  const next: RejectedTripRecord = {
+    trip,
+    rejectedAt: new Date().toISOString(),
+    status: meta.status,
+    reason: meta.reason,
+  };
+
+  const deduped = rejected.filter((entry) => !sameTripIdentity(entry.trip, trip));
+  deduped.unshift(next);
+  writeQueue(REJECTED_STORAGE_KEY, deduped);
+}
+
+export function getRejectedTrips(): RejectedTripRecord[] {
+  return readQueue<RejectedTripRecord>(REJECTED_STORAGE_KEY);
 }
 
 export function hasPendingTrips(): boolean {

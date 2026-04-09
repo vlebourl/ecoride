@@ -1,6 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hono } from "hono";
-import { rateLimit } from "../rate-limit";
+import {
+  rateLimit,
+  _getStoreSize,
+  _clearStore,
+  _setStoreEntry,
+  _MAX_STORE_SIZE,
+} from "../rate-limit";
 
 function makeApp(maxRequests: number, windowMs = 60_000, prefix?: string) {
   const app = new Hono();
@@ -15,7 +21,13 @@ async function req(app: Hono, headers: Record<string, string> = {}): Promise<Res
 
 describe("rateLimit middleware", () => {
   beforeEach(() => {
+    _clearStore();
     vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    _clearStore();
+    vi.useRealTimers();
   });
 
   it("allows requests under the limit", async () => {
@@ -86,5 +98,78 @@ describe("rateLimit middleware", () => {
     await req(app, {});
     const res = await req(app, {});
     expect(res.status).toBe(429);
+  });
+});
+
+describe("rate-limit store eviction", () => {
+  beforeEach(() => {
+    _clearStore();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    _clearStore();
+    vi.useRealTimers();
+  });
+
+  it("evicts expired entries when store exceeds max size", async () => {
+    const now = Date.now();
+
+    // Fill the store to MAX_STORE_SIZE with expired entries
+    for (let i = 0; i < _MAX_STORE_SIZE; i++) {
+      _setStoreEntry(`expired:${i}`, {
+        count: 1,
+        resetAt: now - 1000, // expired
+      });
+    }
+
+    expect(_getStoreSize()).toBe(_MAX_STORE_SIZE);
+
+    // Trigger eviction by making a request through the middleware
+    const app = new Hono();
+    app.use("*", rateLimit({ maxRequests: 100, prefix: "evict-test-1" }));
+    app.get("/", (c) => c.json({ ok: true }));
+
+    const res = await app.request("http://localhost/", {
+      headers: { "x-real-ip": "evict-1.2.3.4" },
+    });
+
+    expect(res.status).toBe(200);
+    // All expired entries should have been evicted, only the new one remains
+    expect(_getStoreSize()).toBe(1);
+  });
+
+  it("evicts oldest 10% when store exceeds max size with non-expired entries", async () => {
+    const now = Date.now();
+
+    // Fill the store to MAX_STORE_SIZE with still-valid entries
+    for (let i = 0; i < _MAX_STORE_SIZE; i++) {
+      _setStoreEntry(`valid:${i}`, {
+        count: 1,
+        resetAt: now + 60_000 + i, // all still valid, ascending resetAt
+      });
+    }
+
+    expect(_getStoreSize()).toBe(_MAX_STORE_SIZE);
+
+    // Trigger eviction by making a request
+    const app = new Hono();
+    app.use("*", rateLimit({ maxRequests: 100, prefix: "evict-test-2" }));
+    app.get("/", (c) => c.json({ ok: true }));
+
+    await app.request("http://localhost/", {
+      headers: { "x-real-ip": "evict-5.6.7.8" },
+    });
+
+    // Should have evicted 10% of entries + added the new one
+    const expectedAfterEviction = _MAX_STORE_SIZE - Math.ceil(_MAX_STORE_SIZE * 0.1) + 1;
+    expect(_getStoreSize()).toBe(expectedAfterEviction);
+  });
+
+  it("does not evict when store is below max size", () => {
+    _setStoreEntry("key1", { count: 1, resetAt: Date.now() + 60_000 });
+    _setStoreEntry("key2", { count: 1, resetAt: Date.now() + 60_000 });
+
+    expect(_getStoreSize()).toBe(2);
   });
 });

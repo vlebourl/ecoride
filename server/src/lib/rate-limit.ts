@@ -9,7 +9,35 @@ interface RateLimitEntry {
 
 const store = new Map<string, RateLimitEntry>();
 
-// Clean up expired entries every 5 minutes
+const MAX_STORE_SIZE = 10_000;
+
+/**
+ * Evict entries when the store exceeds MAX_STORE_SIZE.
+ * 1. Delete all expired entries (resetAt <= now)
+ * 2. If still over, delete oldest 10% by resetAt
+ */
+function evictIfNeeded(): void {
+  if (store.size < MAX_STORE_SIZE) return;
+
+  const now = Date.now();
+  // Pass 1: delete expired entries
+  for (const [key, entry] of store) {
+    if (entry.resetAt <= now) {
+      store.delete(key);
+    }
+  }
+
+  // Pass 2: if still over, delete oldest 10% by resetAt
+  if (store.size >= MAX_STORE_SIZE) {
+    const entries = [...store.entries()].sort((a, b) => a[1].resetAt - b[1].resetAt);
+    const toDelete = Math.ceil(store.size * 0.1);
+    for (let i = 0; i < toDelete; i++) {
+      store.delete(entries[i]![0]);
+    }
+  }
+}
+
+// Clean up expired entries every 1 minute
 setInterval(
   () => {
     const now = Date.now();
@@ -19,7 +47,7 @@ setInterval(
       }
     }
   },
-  5 * 60 * 1000,
+  1 * 60 * 1000,
 );
 
 /**
@@ -70,6 +98,7 @@ export function rateLimit(opts: {
     if (!entry || entry.resetAt <= now) {
       // First request in window or window expired — start fresh
       entry = { count: 1, resetAt: now + windowMs };
+      evictIfNeeded();
       store.set(key, entry);
     } else {
       entry.count++;
@@ -99,3 +128,21 @@ export function rateLimit(opts: {
     await next();
   };
 }
+
+/** @internal Exposed for testing only */
+export function _getStoreSize(): number {
+  return store.size;
+}
+
+/** @internal Exposed for testing only — clear all entries */
+export function _clearStore(): void {
+  store.clear();
+}
+
+/** @internal Exposed for testing only — directly insert a store entry */
+export function _setStoreEntry(key: string, entry: RateLimitEntry): void {
+  store.set(key, entry);
+}
+
+/** @internal Exposed for testing only */
+export const _MAX_STORE_SIZE = MAX_STORE_SIZE;

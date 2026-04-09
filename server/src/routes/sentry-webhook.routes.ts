@@ -49,9 +49,21 @@ sentryWebhookRouter.post("/", async (c) => {
     return c.json({ ok: false, error: "Webhook not configured" }, 500);
   }
 
+  // Reject oversized payloads (max 1 MB)
+  const contentLength = parseInt(c.req.header("content-length") ?? "0", 10);
+  if (contentLength > 1_048_576) {
+    webhookLogger.error("sentry_webhook_body_too_large", { contentLength });
+    return c.json({ ok: false, error: "Payload too large" }, 413);
+  }
+
   // Verify signature
   const signature = c.req.header("sentry-hook-signature");
   const rawBody = await c.req.text();
+
+  if (rawBody.length > 1_048_576) {
+    webhookLogger.error("sentry_webhook_body_too_large", { actualLength: rawBody.length });
+    return c.json({ ok: false, error: "Payload too large" }, 413);
+  }
 
   if (signature) {
     if (!verifySentrySignature(rawBody, signature, sentrySecret)) {

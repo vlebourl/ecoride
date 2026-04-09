@@ -18,7 +18,6 @@ export function buildLighthouseReport(report, runUrl) {
   const accessibility = getCategoryScore(report.categories, "accessibility") ?? 0;
   const bestPractices = getCategoryScore(report.categories, "best-practices") ?? 0;
   const seo = getCategoryScore(report.categories, "seo") ?? 0;
-  const pwa = getCategoryScore(report.categories, "pwa");
 
   const fail = accessibility < 90;
   const warn = performance < 80;
@@ -28,12 +27,6 @@ export function buildLighthouseReport(report, runUrl) {
   else if (warn) status = "⚠️ Performance below threshold (warning only)";
   else status = "✅ All thresholds met";
 
-  const pwaScore = pwa === null ? "N/A" : String(pwa);
-  const pwaNote =
-    pwa === null
-      ? "\n> PWA is `N/A` because recent Lighthouse versions no longer expose a `pwa` category."
-      : "";
-
   const markdown = `## Lighthouse Report — ${status}
 
 | Category | Score | |
@@ -42,8 +35,7 @@ export function buildLighthouseReport(report, runUrl) {
 | Accessibility | ${accessibility} | ${badge(accessibility)} |
 | Best Practices | ${bestPractices} | ${badge(bestPractices)} |
 | SEO | ${seo} | ${badge(seo)} |
-| PWA | ${pwaScore} | ${badge(pwa)} |
-${pwaNote}
+
 > Thresholds: Performance ≥ 80 ⚠️ warn only, Accessibility ≥ 90 ❌ fails CI. [View run](${runUrl})
 `;
 

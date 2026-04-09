@@ -4,7 +4,8 @@ import { Bike, BarChart3, Trash2, X, Save } from "lucide-react";
 import type { Trip, GpsPoint } from "@ecoride/shared/types";
 import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
-import "maplibre-gl/dist/maplibre-gl.css";
+import type { LayerProps } from "react-map-gl/maplibre";
+// maplibre-gl.css imported in app.css to avoid orphan CSS chunks
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
 import {
@@ -133,7 +134,10 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
             }}
           >
             <Source id="trace-stats" type="geojson" data={traceGeoJSON}>
-              <Layer {...(hasSpeedData ? speedTraceLayer : solidTraceLayer)} id="trace-stats" />
+              <Layer
+                {...((hasSpeedData ? speedTraceLayer : solidTraceLayer) as LayerProps)}
+                id="trace-stats"
+              />
             </Source>
             <FitBoundsOnLoad bounds={bounds} />
           </Map>

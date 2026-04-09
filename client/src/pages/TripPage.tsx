@@ -16,7 +16,7 @@ import { queueTrip } from "@/lib/offline-queue";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
-import { buildSpeedGeoJSON, SPEED_COLOR_EXPR } from "@/lib/speedGeoJSON";
+import { buildSpeedGeoJSON, speedTraceLayer } from "@/lib/speedGeoJSON";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -545,16 +545,8 @@ export function TripPage() {
                   }}
                 >
                   {positions.length > 1 && (
-                    <Source type="geojson" data={speedGeoJSON}>
-                      <Layer
-                        type="line"
-                        paint={{
-                          "line-color": SPEED_COLOR_EXPR,
-                          "line-width": 4,
-                          "line-opacity": 0.9,
-                        }}
-                        layout={{ "line-cap": "round", "line-join": "round" }}
-                      />
+                    <Source id="speed-trace-tracking" type="geojson" data={speedGeoJSON}>
+                      <Layer {...speedTraceLayer} />
                     </Source>
                   )}
                   <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
@@ -634,16 +626,8 @@ export function TripPage() {
                 }}
               >
                 {positions.length > 1 && (
-                  <Source type="geojson" data={speedGeoJSON}>
-                    <Layer
-                      type="line"
-                      paint={{
-                        "line-color": SPEED_COLOR_EXPR,
-                        "line-width": 4,
-                        "line-opacity": 0.9,
-                      }}
-                      layout={{ "line-cap": "round", "line-join": "round" }}
-                    />
+                  <Source id="speed-trace-idle" type="geojson" data={speedGeoJSON}>
+                    <Layer {...speedTraceLayer} id="speed-trace-idle" />
                   </Source>
                 )}
                 <Marker longitude={currentPos[1]} latitude={currentPos[0]}>

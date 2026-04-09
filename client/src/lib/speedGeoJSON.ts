@@ -1,4 +1,5 @@
 import type { GpsPoint } from "@ecoride/shared/types";
+import type { LayerProps } from "react-map-gl/maplibre";
 import { haversineDistance } from "./haversine";
 
 /**
@@ -49,26 +50,34 @@ export function buildSpeedGeoJSON(points: GpsPoint[]): {
   };
 }
 
-/**
- * MapLibre line-color expression: interpolate speed → color.
- * 0 km/h = blue, 10 = green, 20 = yellow, 30 = orange, 45+ = red.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const SPEED_COLOR_EXPR: any = [
-  "interpolate",
-  ["linear"],
-  ["get", "speed"],
-  0,
-  "#3b82f6",
-  10,
-  "#22c55e",
-  20,
-  "#eab308",
-  30,
-  "#f97316",
-  45,
-  "#ef4444",
-];
+/** Layer style for speed-colored trace — define once, spread into <Layer>. */
+export const speedTraceLayer: LayerProps = {
+  id: "speed-trace",
+  type: "line",
+  paint: {
+    "line-color": [
+      "interpolate",
+      ["linear"],
+      ["get", "speed"],
+      0,
+      "#3b82f6", // blue — stopped/slow
+      10,
+      "#22c55e", // green — moderate
+      20,
+      "#eab308", // yellow — brisk
+      30,
+      "#f97316", // orange — fast
+      45,
+      "#ef4444", // red — very fast
+    ],
+    "line-width": 4,
+    "line-opacity": 0.9,
+  },
+  layout: {
+    "line-cap": "round",
+    "line-join": "round",
+  },
+};
 
 /** Speed thresholds and colors for the legend. */
 export const SPEED_LEGEND = [

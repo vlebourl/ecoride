@@ -18,7 +18,7 @@ import {
 } from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
 import { isWebGLSupported } from "@/lib/webgl";
-import { buildSpeedGeoJSON, SPEED_COLOR_EXPR, SPEED_LEGEND } from "@/lib/speedGeoJSON";
+import { buildSpeedGeoJSON, speedTraceLayer, SPEED_LEGEND } from "@/lib/speedGeoJSON";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type Period = "week" | "month" | "year";
@@ -126,12 +126,8 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
               if (!mapStyleReadyRef.current) setMapLoadError(true);
             }}
           >
-            <Source type="geojson" data={speedGeoJSON}>
-              <Layer
-                type="line"
-                paint={{ "line-color": SPEED_COLOR_EXPR, "line-width": 4, "line-opacity": 0.9 }}
-                layout={{ "line-cap": "round", "line-join": "round" }}
-              />
+            <Source id="speed-trace-stats" type="geojson" data={speedGeoJSON}>
+              <Layer {...speedTraceLayer} id="speed-trace-stats" />
             </Source>
             <FitBoundsOnLoad bounds={bounds} />
           </Map>

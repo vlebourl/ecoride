@@ -2,39 +2,32 @@ import { eq, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { trips } from "../db/schema";
 
-/**
- * Get "today" as YYYY-MM-DD in the given IANA timezone.
- */
-function todayInTz(tz?: string): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: tz ?? "UTC" });
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 /**
- * Compute the current streak (consecutive days with at least one trip)
+ * Compute the current streak (consecutive UTC calendar days with at least one trip)
  * and the longest streak ever recorded for a user.
  *
+ * Backend calculations stay UTC-only. User timezone is a presentation concern
+ * handled in the frontend from the saved profile setting.
+ *
  * @param userId - The user to compute streaks for
- * @param tz - Optional IANA timezone (e.g. "Europe/Paris") used to determine
- *   "today" and to bucket trip timestamps into local calendar days.
- *   Falls back to UTC when omitted (backward compatible).
  */
-export async function computeStreak(
-  userId: string,
-  tz?: string,
-): Promise<{ current: number; longest: number }> {
-  // Get distinct trip dates ordered descending via GROUP BY DATE
+export async function computeStreak(userId: string): Promise<{ current: number; longest: number }> {
+  // Get distinct UTC trip dates ordered descending via GROUP BY DATE
   const rows = await db
-    .select({ day: sql<string>`DATE(${trips.startedAt} AT TIME ZONE ${tz ?? "UTC"})`.as("day") })
+    .select({ day: sql<string>`DATE(${trips.startedAt} AT TIME ZONE 'UTC')`.as("day") })
     .from(trips)
     .where(eq(trips.userId, userId))
-    .groupBy(sql`DATE(${trips.startedAt} AT TIME ZONE ${tz ?? "UTC"})`)
+    .groupBy(sql`DATE(${trips.startedAt} AT TIME ZONE 'UTC')`)
     .orderBy(desc(sql`day`));
 
   if (rows.length === 0) return { current: 0, longest: 0 };
 
   const dates = rows.map((r) => r.day);
-
-  const today = todayInTz(tz);
+  const today = todayUtc();
 
   let current = 0;
   let longest = 0;
@@ -64,13 +57,11 @@ export async function computeStreak(
       } else {
         longest = Math.max(longest, streak);
         streak = 1;
-        if (!currentStreakEnded) {
-          currentStreakEnded = true;
-        }
+        if (!currentStreakEnded) currentStreakEnded = true;
       }
     }
   }
-  longest = Math.max(longest, streak);
 
+  longest = Math.max(longest, streak);
   return { current, longest };
 }

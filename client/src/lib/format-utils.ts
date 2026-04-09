@@ -1,3 +1,14 @@
+function formatWithTimezone(
+  value: Date | string,
+  options: Intl.DateTimeFormatOptions,
+  timeZone?: string | null,
+): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    ...options,
+    ...(timeZone ? { timeZone } : {}),
+  }).format(typeof value === "string" ? new Date(value) : value);
+}
+
 export function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
@@ -7,12 +18,55 @@ export function formatUptime(seconds: number): string {
   return `${m}m`;
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+export function formatDate(iso: string, timeZone?: string | null): string {
+  return formatWithTimezone(
+    iso,
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    },
+    timeZone,
+  );
+}
+
+export function formatMonthYear(date: Date, timeZone?: string | null): string {
+  return formatWithTimezone(date, { month: "long", year: "numeric" }, timeZone);
+}
+
+export function formatDayMonth(iso: string, timeZone?: string | null): string {
+  return formatWithTimezone(
+    iso,
+    {
+      day: "numeric",
+      month: "short",
+    },
+    timeZone,
+  );
+}
+
+export function formatLongDate(iso: string, timeZone?: string | null): string {
+  return formatWithTimezone(
+    iso,
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    },
+    timeZone,
+  );
+}
+
+export function formatFullDate(iso: string, timeZone?: string | null): string {
+  return formatWithTimezone(
+    iso,
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+    timeZone,
+  );
 }
 
 export function formatDuration(sec: number): string {

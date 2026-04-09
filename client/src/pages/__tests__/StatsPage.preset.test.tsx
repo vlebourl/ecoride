@@ -50,6 +50,7 @@ vi.mock("@/hooks/queries", () => ({
   useTrip: () => ({ data: null }),
   useChartTrips: () => ({ data: [], isPending: false }),
   useAchievements: () => ({ data: [], isPending: false }),
+  useProfile: () => ({ data: { user: { timezone: "Europe/Paris" } } }),
   useDeleteTrip: () => ({ mutate: deleteTripMutate, isPending: false }),
   useCreateTripPresetFromTrip: () => ({
     mutate: createTripPresetFromTripMutate,

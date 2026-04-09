@@ -66,6 +66,49 @@ test.describe("Trip map bounds in bottom sheet (#103)", () => {
         });
       }
 
+      if (url.includes("/api/user/profile")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              user: {
+                id: "u",
+                name: "Test",
+                email: "t@t.com",
+                image: null,
+                vehicleModel: null,
+                fuelType: null,
+                consumptionL100: null,
+                mileage: null,
+                timezone: "Europe/Paris",
+                leaderboardOptOut: false,
+                reminderEnabled: false,
+                reminderTime: null,
+                reminderDays: null,
+                isAdmin: false,
+                super73Enabled: false,
+                super73AutoModeEnabled: false,
+                super73DefaultMode: null,
+                super73DefaultAssist: null,
+                super73DefaultLight: null,
+                super73AutoModeLowSpeedKmh: null,
+                super73AutoModeHighSpeedKmh: null,
+                createdAt: new Date().toISOString(),
+              },
+              stats: {
+                totalDistanceKm: 120,
+                totalCo2SavedKg: 18,
+                totalMoneySavedEur: 25,
+                totalFuelSavedL: 10,
+                tripCount: 5,
+              },
+            },
+          }),
+        });
+      }
+
       if (url.includes("/stats/summary")) {
         return route.fulfill({
           status: 200,
@@ -89,7 +132,7 @@ test.describe("Trip map bounds in bottom sheet (#103)", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ ok: true, data: tripWithGps }),
+          body: JSON.stringify({ ok: true, data: { trip: tripWithGps } }),
         });
       }
 

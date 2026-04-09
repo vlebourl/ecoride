@@ -27,13 +27,74 @@ const PAGES = [
 for (const { path, name } of PAGES) {
   test(`${name} (${path}) loads without crash`, async ({ page }) => {
     // Stub API calls to prevent network errors from crashing React
-    await page.route("**/api/**", (route) =>
-      route.fulfill({
+    await page.route("**/api/**", (route) => {
+      const url = route.request().url();
+
+      if (url.includes("/api/user/profile")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              user: {
+                id: "u",
+                name: "Test",
+                email: "test@example.com",
+                image: null,
+                vehicleModel: null,
+                fuelType: null,
+                consumptionL100: null,
+                mileage: null,
+                timezone: "Europe/Paris",
+                leaderboardOptOut: false,
+                reminderEnabled: false,
+                reminderTime: null,
+                reminderDays: null,
+                isAdmin: false,
+                super73Enabled: false,
+                super73AutoModeEnabled: false,
+                super73DefaultMode: null,
+                super73DefaultAssist: null,
+                super73DefaultLight: null,
+                super73AutoModeLowSpeedKmh: null,
+                super73AutoModeHighSpeedKmh: null,
+                createdAt: new Date().toISOString(),
+              },
+              stats: {
+                totalDistanceKm: 0,
+                totalCo2SavedKg: 0,
+                totalMoneySavedEur: 0,
+                totalFuelSavedL: 0,
+                tripCount: 0,
+              },
+            },
+          }),
+        });
+      }
+
+      if (url.includes("/api/fuel-price")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              priceEur: 1.75,
+              fuelType: "sp95",
+              stationName: "Prix moyen national",
+              updatedAt: new Date().toISOString(),
+            },
+          }),
+        });
+      }
+
+      return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ ok: true, data: {} }),
-      }),
-    );
+      });
+    });
 
     await page.goto(path, { waitUntil: "networkidle" });
 

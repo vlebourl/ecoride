@@ -32,6 +32,7 @@ import {
 } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
+import { formatFullDate } from "@/lib/format-utils";
 import { isBleSupported, scanAndConnect } from "@/lib/super73-ble";
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
@@ -426,11 +427,7 @@ export function ProfilePage() {
                     Membre depuis
                   </label>
                   <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
-                    {new Date(user.createdAt).toLocaleDateString("fr-FR", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    {formatFullDate(user.createdAt, user.timezone)}
                   </div>
                 </div>
               </div>

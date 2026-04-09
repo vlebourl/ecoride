@@ -69,7 +69,7 @@ describe("GET /stats/summary", () => {
     mocks.mockComputeStreak.mockResolvedValue({ current: 4, longest: 9 });
   });
 
-  it("uses the persisted user timezone instead of a query parameter", async () => {
+  it("computes streaks in UTC and ignores timezone-like query noise", async () => {
     const res = await buildApp().request("/stats/summary?period=week&tz=UTC");
     const body = (await res.json()) as {
       ok: boolean;
@@ -80,6 +80,6 @@ describe("GET /stats/summary", () => {
     expect(body.ok).toBe(true);
     expect(body.data.currentStreak).toBe(4);
     expect(body.data.longestStreak).toBe(9);
-    expect(mocks.mockComputeStreak).toHaveBeenCalledWith("user-1", "Europe/Paris");
+    expect(mocks.mockComputeStreak).toHaveBeenCalledWith("user-1");
   });
 });

@@ -130,14 +130,14 @@ describe("computeStreak", () => {
     expect(result.longest).toBe(6);
   });
 
-  it("respects timezone parameter (timezone is now handled by DB query)", async () => {
-    // The tz parameter is now passed to the SQL DATE() function,
-    // so the mock just returns the already-converted day strings
+  it("uses UTC day strings from the backend query", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T23:30:00Z"));
-    // DB would return "2025-06-15" for UTC timezone
     mockRows = [{ day: "2025-06-15" }];
-    const utcResult = await computeStreak("user-1");
-    expect(utcResult).toEqual({ current: 1, longest: 1 });
+
+    await expect(computeStreak("user-1")).resolves.toEqual({
+      current: 1,
+      longest: 1,
+    });
   });
 });

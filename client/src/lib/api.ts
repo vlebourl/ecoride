@@ -1,5 +1,4 @@
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
-const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export class ApiError extends Error {
   status: number;
@@ -18,7 +17,6 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(browserTimezone ? { "x-timezone": browserTimezone } : {}),
       ...options?.headers,
     },
     ...options,

@@ -91,22 +91,19 @@ export function DashboardPage() {
   );
   const push = usePushNotifications();
   const { data: announcement } = useActiveAnnouncement();
-  const [annDismissed, setAnnDismissed] = useState(
-    () => !!localStorage.getItem("ecoride:ann-dismissed"),
+  const [dismissedAnnouncementId, setDismissedAnnouncementId] = useState<string | null>(() =>
+    localStorage.getItem("ecoride:ann-dismissed"),
   );
   const annSwipeRef = useRef<{ startX: number; currentX: number }>({ startX: 0, currentX: 0 });
   const annRef = useRef<HTMLDivElement>(null);
 
   const dismissAnn = useCallback(() => {
-    if (announcement) {
-      localStorage.setItem("ecoride:ann-dismissed", announcement.id);
-      setAnnDismissed(true);
-    }
+    if (!announcement) return;
+    localStorage.setItem("ecoride:ann-dismissed", announcement.id);
+    setDismissedAnnouncementId(announcement.id);
   }, [announcement]);
 
-  // Reset dismiss when announcement changes
-  const dismissedId = localStorage.getItem("ecoride:ann-dismissed");
-  const showAnn = announcement && !annDismissed && dismissedId !== announcement.id;
+  const showAnn = !!announcement && dismissedAnnouncementId !== announcement.id;
 
   const pendingTrips = getPendingTrips();
 

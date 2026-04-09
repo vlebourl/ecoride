@@ -5,8 +5,10 @@ import { useProfile, useUpdateProfile } from "@/hooks/queries";
 import { useSuper73 } from "@/hooks/useSuper73";
 import { isBleSupported } from "@/lib/super73-ble";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
+import type { Super73Mode } from "@ecoride/shared/types";
 
 const ASSIST_LEVELS = [0, 1, 2, 3, 4] as const;
+const SUPER73_DEFAULT_MODES: Super73Mode[] = ["eco", "tour", "sport", "race"];
 
 export function VehiclePage() {
   const navigate = useNavigate();
@@ -17,10 +19,21 @@ export function VehiclePage() {
   const ble = useSuper73();
   const [autoModeEnabled, setAutoModeEnabled] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [defaultsSaved, setDefaultsSaved] = useState(false);
+  const [defaultMode, setDefaultMode] = useState<Super73Mode>("eco");
+  const [defaultAssist, setDefaultAssist] = useState<(typeof ASSIST_LEVELS)[number]>(0);
+  const [defaultLight, setDefaultLight] = useState(false);
+  const [autoModeLowSpeed, setAutoModeLowSpeed] = useState("10");
+  const [autoModeHighSpeed, setAutoModeHighSpeed] = useState("17");
 
   useEffect(() => {
     if (!user) return;
     setAutoModeEnabled(user.super73AutoModeEnabled ?? false);
+    setDefaultMode(user.super73DefaultMode ?? "eco");
+    setDefaultAssist((user.super73DefaultAssist ?? 0) as (typeof ASSIST_LEVELS)[number]);
+    setDefaultLight(user.super73DefaultLight ?? false);
+    setAutoModeLowSpeed(String(user.super73AutoModeLowSpeedKmh ?? 10));
+    setAutoModeHighSpeed(String(user.super73AutoModeHighSpeedKmh ?? 17));
   }, [user]);
 
   if (isLoading) {
@@ -36,6 +49,15 @@ export function VehiclePage() {
     return null;
   }
 
+  const parsedLowSpeed = Number(autoModeLowSpeed);
+  const parsedHighSpeed = Number(autoModeHighSpeed);
+  const invalidThresholds =
+    !Number.isFinite(parsedLowSpeed) ||
+    !Number.isFinite(parsedHighSpeed) ||
+    parsedLowSpeed <= 0 ||
+    parsedHighSpeed <= 0 ||
+    parsedLowSpeed >= parsedHighSpeed;
+
   const handleSaveAutoMode = () => {
     updateProfile.mutate(
       {
@@ -45,6 +67,25 @@ export function VehiclePage() {
         onSuccess: () => {
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 1500);
+        },
+      },
+    );
+  };
+
+  const handleSaveDefaults = () => {
+    if (invalidThresholds) return;
+    updateProfile.mutate(
+      {
+        super73DefaultMode: defaultMode,
+        super73DefaultAssist: defaultAssist,
+        super73DefaultLight: defaultLight,
+        super73AutoModeLowSpeedKmh: parsedLowSpeed,
+        super73AutoModeHighSpeedKmh: parsedHighSpeed,
+      },
+      {
+        onSuccess: () => {
+          setDefaultsSaved(true);
+          setTimeout(() => setDefaultsSaved(false), 1500);
         },
       },
     );
@@ -138,6 +179,144 @@ export function VehiclePage() {
             className="w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
           >
             {updateProfile.isPending ? "Sauvegarde..." : "Enregistrer le mode auto"}
+          </button>
+        </div>
+      </section>
+
+      {/* Default settings */}
+      <section className="rounded-2xl bg-surface-container p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-text-muted">
+              Réglages par défaut
+            </h2>
+            <p className="mt-1 text-xs text-text-dim">Appliqués automatiquement à la connexion.</p>
+          </div>
+          {defaultsSaved && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary-light">
+              <Check size={12} />
+              Sauvé
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
+                Mode
+              </span>
+              <select
+                value={defaultMode}
+                onChange={(e) => setDefaultMode(e.target.value as Super73Mode)}
+                className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {SUPER73_DEFAULT_MODES.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {mode === "race" ? "Off-Road" : mode === "eco" ? "EPAC" : mode}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
+                Assistance
+              </span>
+              <select
+                value={defaultAssist}
+                onChange={(e) =>
+                  setDefaultAssist(Number(e.target.value) as (typeof ASSIST_LEVELS)[number])
+                }
+                className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {ASSIST_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="flex items-center justify-between gap-3 rounded-lg bg-surface-high px-3 py-2.5">
+            <div className="min-w-0">
+              <span className="block text-sm font-medium text-text">Lumières</span>
+              <span className="block text-xs text-text-dim">Auto à la connexion</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDefaultLight((current) => !current)}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                defaultLight ? "bg-primary" : "bg-surface"
+              }`}
+              aria-label={
+                defaultLight
+                  ? "Désactiver les lumières par défaut"
+                  : "Activer les lumières par défaut"
+              }
+            >
+              <span
+                className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
+                  defaultLight ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </label>
+
+          <div className="rounded-lg bg-surface-high p-3">
+            <div>
+              <p className="text-sm font-medium text-text">Seuils mode auto</p>
+              <p className="text-xs text-text-dim">Bascule de mode selon la vitesse</p>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
+                  Off-Road
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  max="80"
+                  step="0.5"
+                  value={autoModeLowSpeed}
+                  onChange={(e) => setAutoModeLowSpeed(e.target.value)}
+                  className="w-full rounded-lg bg-surface px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
+                  EPAC
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  max="80"
+                  step="0.5"
+                  value={autoModeHighSpeed}
+                  onChange={(e) => setAutoModeHighSpeed(e.target.value)}
+                  className="w-full rounded-lg bg-surface px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </label>
+            </div>
+            <p className="mt-2 text-xs text-text-dim">
+              Off-Road si vitesse ≤ seuil bas, EPAC si vitesse ≥ seuil haut.
+            </p>
+          </div>
+
+          {invalidThresholds && (
+            <p className="text-xs text-danger">
+              Le seuil Off-Road doit être strictement inférieur au seuil EPAC.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSaveDefaults}
+            disabled={updateProfile.isPending || invalidThresholds}
+            className="w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
+          >
+            {updateProfile.isPending ? "Sauvegarde..." : "Enregistrer les réglages"}
           </button>
         </div>
       </section>

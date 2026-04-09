@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate, Link } from "react-router";
 import {
   User as UserIcon,
@@ -17,9 +16,8 @@ import {
   Shield,
   MessageSquarePlus,
   Bluetooth,
-  X,
 } from "lucide-react";
-import { BADGES, FUEL_TYPES, type Super73Mode } from "@ecoride/shared/types";
+import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
 import {
   useProfile,
@@ -35,9 +33,6 @@ import {
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
 import { isBleSupported, scanAndConnect } from "@/lib/super73-ble";
-
-const SUPER73_DEFAULT_MODES: Super73Mode[] = ["eco", "tour", "sport", "race"];
-const SUPER73_ASSIST_LEVELS = [0, 1, 2, 3, 4] as const;
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
@@ -63,15 +58,7 @@ export function ProfilePage() {
   const [fuelType, setFuelType] = useState<FuelType>("sp95");
   const [consumption, setConsumption] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [super73DefaultsSaved, setSuper73DefaultsSaved] = useState(false);
-  const [super73DefaultMode, setSuper73DefaultMode] = useState<Super73Mode>("eco");
-  const [super73DefaultAssist, setSuper73DefaultAssist] =
-    useState<(typeof SUPER73_ASSIST_LEVELS)[number]>(0);
-  const [super73DefaultLight, setSuper73DefaultLight] = useState(false);
-  const [super73AutoModeLowSpeedKmh, setSuper73AutoModeLowSpeedKmh] = useState("10");
-  const [super73AutoModeHighSpeedKmh, setSuper73AutoModeHighSpeedKmh] = useState("17");
   const [showFeedback, setShowFeedback] = useState(false);
-  const [showSuper73Settings, setShowSuper73Settings] = useState(false);
   const [feedbackType, setFeedbackType] = useState<"bug" | "feature">("bug");
   const [feedbackTitle, setFeedbackTitle] = useState("");
   const [feedbackDesc, setFeedbackDesc] = useState("");
@@ -87,13 +74,6 @@ export function ProfilePage() {
       setVehicleModel(user.vehicleModel ?? "");
       setFuelType(user.fuelType ?? "sp95");
       setConsumption(String(user.consumptionL100 ?? ""));
-      setSuper73DefaultMode(user.super73DefaultMode ?? "eco");
-      setSuper73DefaultAssist(
-        (user.super73DefaultAssist ?? 0) as (typeof SUPER73_ASSIST_LEVELS)[number],
-      );
-      setSuper73DefaultLight(user.super73DefaultLight ?? false);
-      setSuper73AutoModeLowSpeedKmh(String(user.super73AutoModeLowSpeedKmh ?? 10));
-      setSuper73AutoModeHighSpeedKmh(String(user.super73AutoModeHighSpeedKmh ?? 17));
     }
   }, [user]);
 
@@ -123,35 +103,6 @@ export function ProfilePage() {
             setSaveSuccess(false);
             setShowVehicle(false);
           }, 500);
-        },
-      },
-    );
-  };
-
-  const parsedLowSpeed = Number(super73AutoModeLowSpeedKmh);
-  const parsedHighSpeed = Number(super73AutoModeHighSpeedKmh);
-  const invalidSuper73Thresholds =
-    !Number.isFinite(parsedLowSpeed) ||
-    !Number.isFinite(parsedHighSpeed) ||
-    parsedLowSpeed <= 0 ||
-    parsedHighSpeed <= 0 ||
-    parsedLowSpeed >= parsedHighSpeed;
-
-  const handleSaveSuper73Defaults = () => {
-    if (invalidSuper73Thresholds) return;
-    updateProfile.mutate(
-      {
-        super73DefaultMode,
-        super73DefaultAssist,
-        super73DefaultLight,
-        super73AutoModeLowSpeedKmh: parsedLowSpeed,
-        super73AutoModeHighSpeedKmh: parsedHighSpeed,
-      },
-      {
-        onSuccess: () => {
-          setSuper73DefaultsSaved(true);
-          setShowSuper73Settings(false);
-          setTimeout(() => setSuper73DefaultsSaved(false), 1500);
         },
       },
     );
@@ -609,38 +560,6 @@ export function ProfilePage() {
                 />
               </button>
             </div>
-
-            {user?.super73Enabled && (
-              <>
-                <div className="mx-4 h-px bg-white/5" />
-                <button
-                  type="button"
-                  onClick={() => setShowSuper73Settings(true)}
-                  className="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-surface-high"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <span className="text-sm font-medium">Réglages par défaut du vélo</span>
-                        <p className="mt-1 text-xs text-text-dim">
-                          Mode, assistance et lumières appliqués automatiquement à la connexion.
-                        </p>
-                      </div>
-                      {super73DefaultsSaved && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary-light">
-                          <Check size={12} />
-                          Sauvé
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-3 text-xs text-text-dim">
-                      {`Mode ${super73DefaultMode === "race" ? "Off-Road" : super73DefaultMode === "eco" ? "EPAC" : super73DefaultMode} · Assist ${super73DefaultAssist} · Lumières ${super73DefaultLight ? "on" : "off"}`}
-                    </p>
-                  </div>
-                  <ChevronRight size={18} className="shrink-0 text-text-dim" />
-                </button>
-              </>
-            )}
           </div>
 
           {/* Feedback form */}
@@ -795,163 +714,6 @@ export function ProfilePage() {
           <p className="mt-4 text-center text-xs text-text-dim">v{__APP_VERSION__}</p>
         </section>
       </div>
-      {showSuper73Settings &&
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Réglages par défaut du vélo"
-            className="fixed inset-0 z-[60] flex items-end justify-center px-3 pb-3 sm:items-center"
-            onClick={() => setShowSuper73Settings(false)}
-          >
-            <div className="absolute inset-0 bg-black/50" />
-            <div
-              className="relative max-h-[82vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface-container p-4 shadow-[0_24px_80px_rgba(0,0,0,0.45)] animate-[slideUp_0.2s_ease-out] sm:max-h-[75vh]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-surface-highest" />
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-text">Réglages par défaut du vélo</h2>
-                  <p className="mt-1 text-xs text-text-muted">
-                    Appliqués automatiquement à la connexion.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSuper73Settings(false)}
-                  className="rounded-lg p-2 text-text-dim transition-colors hover:bg-surface-high hover:text-text"
-                  aria-label="Fermer les réglages du vélo"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
-                      Mode
-                    </span>
-                    <select
-                      value={super73DefaultMode}
-                      onChange={(e) => setSuper73DefaultMode(e.target.value as Super73Mode)}
-                      className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                      {SUPER73_DEFAULT_MODES.map((mode) => (
-                        <option key={mode} value={mode}>
-                          {mode === "race" ? "Off-Road" : mode === "eco" ? "EPAC" : mode}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
-                      Assistance
-                    </span>
-                    <select
-                      value={super73DefaultAssist}
-                      onChange={(e) =>
-                        setSuper73DefaultAssist(
-                          Number(e.target.value) as (typeof SUPER73_ASSIST_LEVELS)[number],
-                        )
-                      }
-                      className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                      {SUPER73_ASSIST_LEVELS.map((level) => (
-                        <option key={level} value={level}>
-                          {level}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <label className="flex items-center justify-between gap-3 rounded-lg bg-surface-high px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="block text-sm font-medium text-text">Lumières</span>
-                    <span className="block text-xs text-text-dim">Auto à la connexion</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSuper73DefaultLight((current) => !current)}
-                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                      super73DefaultLight ? "bg-primary" : "bg-surface"
-                    }`}
-                    aria-label={
-                      super73DefaultLight
-                        ? "Désactiver les lumières par défaut"
-                        : "Activer les lumières par défaut"
-                    }
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
-                        super73DefaultLight ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </label>
-
-                <div className="rounded-lg bg-surface-high p-3">
-                  <div>
-                    <p className="text-sm font-medium text-text">Mode auto</p>
-                    <p className="text-xs text-text-dim">Seuils de bascule vitesse</p>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
-                        Off-Road
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="80"
-                        step="0.5"
-                        value={super73AutoModeLowSpeedKmh}
-                        onChange={(e) => setSuper73AutoModeLowSpeedKmh(e.target.value)}
-                        className="w-full rounded-lg bg-surface px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
-                        EPAC
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="80"
-                        step="0.5"
-                        value={super73AutoModeHighSpeedKmh}
-                        onChange={(e) => setSuper73AutoModeHighSpeedKmh(e.target.value)}
-                        className="w-full rounded-lg bg-surface px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      />
-                    </label>
-                  </div>
-                  <p className="mt-2 text-xs text-text-dim">
-                    Off-Road si vitesse ≤ seuil bas, EPAC si vitesse ≥ seuil haut.
-                  </p>
-                </div>
-
-                {invalidSuper73Thresholds && (
-                  <p className="text-xs text-danger">
-                    Le seuil Off-Road doit être strictement inférieur au seuil EPAC.
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleSaveSuper73Defaults}
-                  disabled={updateProfile.isPending || invalidSuper73Thresholds}
-                  className="w-full rounded-lg bg-primary py-2.5 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
-                >
-                  {updateProfile.isPending ? "Sauvegarde..." : "Enregistrer les réglages S73"}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
     </>
   );
 }

@@ -95,6 +95,9 @@ export function DashboardPage() {
   const [dismissedAnnouncementId, setDismissedAnnouncementId] = useState<string | null>(() =>
     localStorage.getItem("ecoride:ann-dismissed"),
   );
+  const [dismissedRejectedSyncSignature, setDismissedRejectedSyncSignature] = useState<
+    string | null
+  >(() => localStorage.getItem("ecoride:rejected-sync-dismissed"));
   const annSwipeRef = useRef<{ startX: number; currentX: number }>({ startX: 0, currentX: 0 });
   const annRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +111,15 @@ export function DashboardPage() {
 
   const pendingTrips = getPendingTrips();
   const rejectedTrips = getRejectedTrips();
+  const rejectedSyncSignature =
+    rejectedTrips.length > 0 ? `${rejectedTrips[0]!.rejectedAt}:${rejectedTrips.length}` : null;
+  const dismissRejectedSync = useCallback(() => {
+    if (!rejectedSyncSignature) return;
+    localStorage.setItem("ecoride:rejected-sync-dismissed", rejectedSyncSignature);
+    setDismissedRejectedSyncSignature(rejectedSyncSignature);
+  }, [rejectedSyncSignature]);
+  const showRejectedSync =
+    rejectedSyncSignature !== null && dismissedRejectedSyncSignature !== rejectedSyncSignature;
 
   const isPending = todayPending || allTimePending;
 
@@ -232,13 +244,20 @@ export function DashboardPage() {
           </span>
         </div>
       )}
-      {rejectedTrips.length > 0 && (
+      {showRejectedSync && (
         <div className="mx-6 flex items-center gap-3 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
           <AlertTriangle size={18} className="shrink-0 text-warning" />
           <span className="flex-1 text-xs font-medium text-text">
             {rejectedTrips.length} trajet{rejectedTrips.length > 1 ? "s" : ""} rejeté
             {rejectedTrips.length > 1 ? "s" : ""} lors de la synchronisation
           </span>
+          <button
+            onClick={dismissRejectedSync}
+            aria-label="Fermer l'avertissement de synchronisation"
+            className="shrink-0 rounded p-2 text-text-muted hover:text-text"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 

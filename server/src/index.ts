@@ -7,7 +7,6 @@ import { HTTPException } from "hono/http-exception";
 import { env } from "./env";
 import { auth } from "./auth";
 import { authMiddleware } from "./auth/middleware";
-import { timezoneMiddleware } from "./auth/timezone";
 import { apiRouter } from "./routes";
 import { initCronJobs } from "./cron";
 import { AppError } from "./lib/errors";
@@ -77,7 +76,7 @@ app.use(
   "/api/*",
   cors({
     origin: [env.FRONTEND_URL],
-    allowHeaders: ["Content-Type", "Authorization", "x-timezone"],
+    allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
@@ -108,7 +107,6 @@ app.route("/api/sentry-webhook", sentryWebhookRouter);
 
 // ---- Auth middleware for all other /api routes ----
 app.use("/api/*", authMiddleware);
-app.use("/api/*", timezoneMiddleware);
 
 // ---- API routes ----
 app.route("/api", apiRouter);

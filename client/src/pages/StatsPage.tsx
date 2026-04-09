@@ -16,7 +16,9 @@ import {
   useAchievements,
   useDeleteTrip,
   useCreateTripPresetFromTrip,
+  useProfile,
 } from "@/hooks/queries";
+import { formatDayMonth, formatLongDate, formatMonthYear } from "@/lib/format-utils";
 import { tripLabel } from "@/lib/trip-utils";
 import { isWebGLSupported } from "@/lib/webgl";
 import {
@@ -180,6 +182,7 @@ export function StatsPage() {
   const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
   const { data: chartTripsData, isPending: chartLoading } = useChartTrips(period);
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
+  const { data: profileData } = useProfile();
   const { data: tripDetail } = useTrip(selectedTrip?.id ?? null);
   const deleteTrip = useDeleteTrip();
   const createTripPresetFromTrip = useCreateTripPresetFromTrip();
@@ -208,6 +211,7 @@ export function StatsPage() {
   const displayTrip = tripDetail ?? selectedTrip;
   const gpsPoints = displayTrip?.gpsPoints;
   const hasGpsTrack = Array.isArray(gpsPoints) && gpsPoints.length > 1;
+  const userTimezone = profileData?.user.timezone;
 
   const handleSaveTripPreset = () => {
     if (!selectedTrip || !tripPresetLabel.trim()) return;
@@ -353,7 +357,7 @@ export function StatsPage() {
                     Ce mois
                   </span>
                   <h2 className="text-3xl font-extrabold tracking-tight">
-                    {new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+                    {formatMonthYear(new Date(), userTimezone)}
                   </h2>
                 </div>
               </div>
@@ -506,10 +510,7 @@ export function StatsPage() {
                       <div>
                         <p className="text-sm font-bold">{tripLabel(trip.startedAt)}</p>
                         <p className="text-xs font-medium text-on-surface-variant">
-                          {new Date(trip.startedAt).toLocaleDateString("fr-FR", {
-                            day: "numeric",
-                            month: "short",
-                          })}
+                          {formatDayMonth(trip.startedAt, userTimezone)}
                         </p>
                       </div>
                     </div>
@@ -587,11 +588,7 @@ export function StatsPage() {
                 <div>
                   <h3 className="text-lg font-bold">{tripLabel(selectedTrip.startedAt)}</h3>
                   <p className="text-sm text-text-muted">
-                    {new Date(selectedTrip.startedAt).toLocaleDateString("fr-FR", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    })}
+                    {formatLongDate(selectedTrip.startedAt, userTimezone)}
                   </p>
                 </div>
                 <button

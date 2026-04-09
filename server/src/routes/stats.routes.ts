@@ -15,20 +15,20 @@ const statsQuery = z.object({
 
 function getPeriodStart(period: StatsPeriod): Date | null {
   if (period === "all") return null;
+
   const now = new Date();
   switch (period) {
     case "day":
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - d.getDay() + 1);
-      d.setHours(0, 0, 0, 0);
-      return d;
+      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+      return start;
     }
     case "month":
-      return new Date(now.getFullYear(), now.getMonth(), 1);
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     case "year":
-      return new Date(now.getFullYear(), 0, 1);
+      return new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
   }
 }
 
@@ -54,7 +54,7 @@ statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), asy
     .from(trips)
     .where(and(...conditions));
 
-  const streaks = await computeStreak(currentUser.id, currentUser.timezone ?? undefined);
+  const streaks = await computeStreak(currentUser.id);
 
   return c.json({
     ok: true,

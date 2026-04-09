@@ -372,7 +372,10 @@ export function TripPage() {
   };
 
   return (
-    <div className="relative flex h-[calc(100dvh_-_6rem)] flex-col overflow-hidden">
+    <div
+      className="relative flex h-[calc(100dvh_-_6rem)] flex-col overflow-hidden"
+      data-testid="trip-page-root"
+    >
       {/* Header with persistent GPS indicator */}
       <header
         role="banner"

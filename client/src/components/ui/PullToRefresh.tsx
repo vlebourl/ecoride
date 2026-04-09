@@ -95,10 +95,14 @@ export function PullToRefresh({
   const indicatorOpacity = Math.min(pullDistance / threshold, 1);
   const indicatorY = Math.min(pullDistance, threshold + 20);
 
+  const containerClassName =
+    scrollKey === "/trip" ? "relative h-full overflow-hidden" : "relative h-full overflow-y-auto";
+
   return (
     <div
       ref={containerRef}
-      className="relative h-full overflow-y-auto"
+      data-testid="pull-to-refresh-container"
+      className={containerClassName}
       onScroll={onScroll}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}

@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { App } from "./App";
+import { hasBlockingTripDataForUpdate } from "@/lib/update-guard";
 import "./app.css";
 
 // ---------------------------------------------------------------------------
@@ -38,6 +39,9 @@ window.addEventListener("unhandledrejection", (event) => {
   Sentry.captureException(event.reason);
 });
 
+const CACHE_VERSION_KEY = "ecoride-version";
+const PENDING_VERSION_KEY = "ecoride-pending-version";
+
 // Purge all SW caches when app version changes
 async function purgeAndReload() {
   const names = await caches.keys();
@@ -48,24 +52,45 @@ async function purgeAndReload() {
 }
 
 (async () => {
-  const CACHE_VERSION_KEY = "ecoride-version";
+  const pendingVersion = localStorage.getItem(PENDING_VERSION_KEY);
+  if (pendingVersion && pendingVersion !== __APP_VERSION__ && !hasBlockingTripDataForUpdate()) {
+    localStorage.setItem(CACHE_VERSION_KEY, pendingVersion);
+    localStorage.removeItem(PENDING_VERSION_KEY);
+    await purgeAndReload();
+    return;
+  }
+
   const prev = localStorage.getItem(CACHE_VERSION_KEY);
   if (prev !== __APP_VERSION__) {
     localStorage.setItem(CACHE_VERSION_KEY, __APP_VERSION__);
-    if (prev !== null) await purgeAndReload();
+    if (prev !== null && !hasBlockingTripDataForUpdate()) await purgeAndReload();
   }
 })();
 
 // Poll server for new version every 5 minutes (catches updates while app stays open)
-// Skip reload if a GPS trip is being tracked (backup key present = active tracking)
+// Defer activation while a trip is active, stopped-but-unsaved, or still queued.
 setInterval(
   async () => {
     try {
-      if (localStorage.getItem("ecoride-tracking-backup")) return; // Don't interrupt active tracking
+      const pendingVersion = localStorage.getItem(PENDING_VERSION_KEY);
+      if (pendingVersion && pendingVersion !== __APP_VERSION__) {
+        if (hasBlockingTripDataForUpdate()) return;
+        localStorage.setItem(CACHE_VERSION_KEY, pendingVersion);
+        localStorage.removeItem(PENDING_VERSION_KEY);
+        await purgeAndReload();
+        return;
+      }
+
       const res = await fetch("/api/health");
       const data = await res.json();
       if (data.version && data.version !== __APP_VERSION__) {
-        localStorage.setItem("ecoride-version", data.version);
+        if (hasBlockingTripDataForUpdate()) {
+          localStorage.setItem(PENDING_VERSION_KEY, data.version);
+          return;
+        }
+
+        localStorage.setItem(CACHE_VERSION_KEY, data.version);
+        localStorage.removeItem(PENDING_VERSION_KEY);
         await purgeAndReload();
       }
     } catch {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getTrackingBackup, clearTrackingBackup, getTrackingSession } from "@/hooks/useGpsTracking";
+import { getStoppedSession } from "@/lib/stopped-session";
 import type { TrackingSession, TrackingBackup, UseGpsTrackingResult } from "@/hooks/useGpsTracking";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
@@ -32,16 +33,12 @@ export function useSessionRecovery({ gps }: UseSessionRecoveryOptions): UseSessi
 
   // On mount: check for an active trip backup.
   useEffect(() => {
-    // Restore an unsaved trip that survived navigation (data-loss guard).
-    const stoppedRaw = sessionStorage.getItem("ecoride-stopped-session");
-    if (stoppedRaw) {
-      try {
-        const session = JSON.parse(stoppedRaw) as TrackingSession;
-        sessionRef.current = session;
-        setInitialUiState("stopped");
-      } catch {
-        sessionStorage.removeItem("ecoride-stopped-session");
-      }
+    // Restore an unsaved trip that survived navigation or a transparent app update.
+
+    const session = getStoppedSession();
+    if (session) {
+      sessionRef.current = session;
+      setInitialUiState("stopped");
       return;
     }
     if (gps.state.isTracking) {

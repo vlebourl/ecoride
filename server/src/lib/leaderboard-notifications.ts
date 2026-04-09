@@ -1,9 +1,10 @@
-import { eq, sql, sum, desc } from "drizzle-orm";
+import { eq, sql, sum, desc, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips } from "../db/schema";
+import { pushSubscriptions } from "../db/schema/push-subscriptions";
 import { reportBackgroundError } from "./background";
-import { sendPushToUser } from "./push";
+import { sendPushNotification, type PushPayload } from "./push";
 import { logger } from "./logger";
 
 /**
@@ -39,9 +40,7 @@ export async function checkLeaderboardChanges(
     const currentTotal = currentEntry.totalCo2SavedKg;
     const previousTotal = currentTotal - tripCo2SavedKg;
 
-    // 3. Find users who were just overtaken:
-    //    Their total is in [previousTotal, currentTotal) — they were ahead or tied
-    //    before, but are now behind.
+    // 3. Find users who were just overtaken
     const overtaken = entries.filter(
       (e) =>
         e.userId !== userId &&
@@ -51,29 +50,54 @@ export async function checkLeaderboardChanges(
 
     if (overtaken.length === 0) return;
 
-    // 4. Send notifications (fire-and-forget, errors logged per-send)
+    // 4. Batch fetch all subscriptions for involved users (1 query instead of 2N)
+    const allRecipientIds = [userId, ...overtaken.map((o) => o.userId)];
+    const allSubs = await db
+      .select()
+      .from(pushSubscriptions)
+      .where(inArray(pushSubscriptions.userId, allRecipientIds));
+
+    // Group subscriptions by userId
+    const subsByUser = new Map<string, typeof allSubs>();
+    for (const sub of allSubs) {
+      const existing = subsByUser.get(sub.userId) ?? [];
+      existing.push(sub);
+      subsByUser.set(sub.userId, existing);
+    }
+
+    // 5. Send notifications using pre-fetched subscriptions
     for (const other of overtaken) {
+      const overtakenPayload: PushPayload = {
+        title: "ecoRide",
+        body: `${currentEntry.name} vient de vous dépasser au classement ! 🏆`,
+      };
+      const currentPayload: PushPayload = {
+        title: "ecoRide",
+        body: `Vous venez de dépasser ${other.name} au classement ! 💪`,
+      };
+
       // Notify the overtaken user
-      reportBackgroundError(
-        sendPushToUser(other.userId, {
-          title: "ecoRide",
-          body: `${currentEntry.name} vient de vous dépasser au classement ! 🏆`,
-        }),
-        logger,
-        "leaderboard_notify_overtaken_failed",
-        { userId, overtakenUserId: other.userId },
-      );
+      for (const sub of subsByUser.get(other.userId) ?? []) {
+        reportBackgroundError(
+          sendPushNotification(sub, overtakenPayload, {
+            userId: other.userId,
+            source: "user",
+          }),
+          logger,
+          "leaderboard_notify_overtaken_failed",
+          { userId, overtakenUserId: other.userId },
+        );
+      }
 
       // Notify the current user
-      reportBackgroundError(
-        sendPushToUser(userId, {
-          title: "ecoRide",
-          body: `Vous venez de dépasser ${other.name} au classement ! 💪`,
-        }),
-        logger,
-        "leaderboard_notify_current_user_failed",
-        { userId, overtakenUserId: other.userId },
-      );
+      for (const sub of subsByUser.get(userId) ?? []) {
+        reportBackgroundError(
+          sendPushNotification(sub, currentPayload, { userId, source: "user" }),
+          logger,
+          "leaderboard_notify_current_user_failed",
+          { userId, overtakenUserId: other.userId },
+        );
+      }
     }
   } catch (err) {
     // Never let leaderboard notification errors propagate

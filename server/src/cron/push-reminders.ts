@@ -1,4 +1,4 @@
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips } from "../db/schema";
@@ -33,8 +33,7 @@ export async function processReminders(): Promise<void> {
   const todayWeekDay = DAY_MAP[now.getDay()]!;
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  // Find users with reminders enabled, matching time and day,
-  // who have NOT logged a trip today
+  // Find users with reminders enabled, matching time and day
   const eligibleUsers = await db
     .select({ userId: user.id })
     .from(user)
@@ -48,24 +47,26 @@ export async function processReminders(): Promise<void> {
 
   if (eligibleUsers.length === 0) return;
 
-  // Filter out users who already have a trip today
-  for (const { userId } of eligibleUsers) {
-    const [hasTrip] = await db
-      .select({ id: trips.id })
-      .from(trips)
-      .where(and(eq(trips.userId, userId), gte(trips.startedAt, todayMidnight)))
-      .limit(1);
+  const userIds = eligibleUsers.map((u) => u.userId);
 
-    if (hasTrip) continue;
+  // Batch: find which of these users already have a trip today (1 query instead of N)
+  const usersWithTrips = await db
+    .selectDistinct({ userId: trips.userId })
+    .from(trips)
+    .where(and(inArray(trips.userId, userIds), gte(trips.startedAt, todayMidnight)));
 
-    // Get push subscriptions for this user
-    const subs = await db
-      .select()
-      .from(pushSubscriptions)
-      .where(eq(pushSubscriptions.userId, userId));
+  const usersWithTripsSet = new Set(usersWithTrips.map((u) => u.userId));
+  const usersToNotify = userIds.filter((id) => !usersWithTripsSet.has(id));
 
-    for (const sub of subs) {
-      await sendPushNotification(sub, REMINDER_PAYLOAD);
-    }
+  if (usersToNotify.length === 0) return;
+
+  // Batch: fetch all push subscriptions for eligible users (1 query instead of N)
+  const subs = await db
+    .select()
+    .from(pushSubscriptions)
+    .where(inArray(pushSubscriptions.userId, usersToNotify));
+
+  for (const sub of subs) {
+    await sendPushNotification(sub, REMINDER_PAYLOAD);
   }
 }

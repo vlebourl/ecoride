@@ -552,9 +552,16 @@ export function ProfilePage() {
 
             <div className="mx-4 h-px bg-white/5" />
 
-            {/* Super73 BLE — toggle + guided pairing */}
+            {/* Super73 BLE — toggle + navigate to /vehicle */}
             <div className="flex w-full items-center justify-between p-4">
-              <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (user?.super73Enabled) navigate("/vehicle");
+                }}
+                disabled={!user?.super73Enabled}
+                className="flex min-w-0 items-center gap-4 text-left"
+              >
                 <Bluetooth
                   size={20}
                   className={user?.super73Enabled ? "text-primary-light" : "text-text-muted"}
@@ -566,7 +573,10 @@ export function ProfilePage() {
                   )}
                   {user?.super73Enabled && <span className="text-xs text-primary/70">Activé</span>}
                 </div>
-              </div>
+                {user?.super73Enabled && (
+                  <ChevronRight size={18} className="shrink-0 text-text-dim" />
+                )}
+              </button>
               <button
                 onClick={async () => {
                   if (user?.super73Enabled) {
@@ -629,18 +639,6 @@ export function ProfilePage() {
                   </div>
                   <ChevronRight size={18} className="shrink-0 text-text-dim" />
                 </button>
-
-                <div className="mx-4 h-px bg-white/5" />
-                <Link
-                  to="/vehicle"
-                  className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high"
-                >
-                  <div className="flex items-center gap-4">
-                    <Bike size={20} className="text-primary-light" />
-                    <span className="text-sm font-medium">Contrôle du vélo</span>
-                  </div>
-                  <ChevronRight size={18} className="text-text-dim" />
-                </Link>
               </>
             )}
           </div>

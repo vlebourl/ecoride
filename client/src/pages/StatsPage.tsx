@@ -18,7 +18,7 @@ import {
 } from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
 import { isWebGLSupported } from "@/lib/webgl";
-import { buildSpeedGeoJSON, SPEED_LINE_PAINT, SPEED_LEGEND } from "@/lib/speedGeoJSON";
+import { buildSpeedGeoJSON, SPEED_COLOR_EXPR, SPEED_LEGEND } from "@/lib/speedGeoJSON";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type Period = "week" | "month" | "year";
@@ -129,7 +129,7 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
             <Source type="geojson" data={speedGeoJSON}>
               <Layer
                 type="line"
-                paint={SPEED_LINE_PAINT}
+                paint={{ "line-color": SPEED_COLOR_EXPR, "line-width": 4, "line-opacity": 0.9 }}
                 layout={{ "line-cap": "round", "line-join": "round" }}
               />
             </Source>

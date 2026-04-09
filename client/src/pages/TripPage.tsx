@@ -16,7 +16,7 @@ import { queueTrip } from "@/lib/offline-queue";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
-import { buildSpeedGeoJSON, SPEED_LINE_PAINT } from "@/lib/speedGeoJSON";
+import { buildSpeedGeoJSON, SPEED_COLOR_EXPR } from "@/lib/speedGeoJSON";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -548,7 +548,11 @@ export function TripPage() {
                     <Source type="geojson" data={speedGeoJSON}>
                       <Layer
                         type="line"
-                        paint={SPEED_LINE_PAINT}
+                        paint={{
+                          "line-color": SPEED_COLOR_EXPR,
+                          "line-width": 4,
+                          "line-opacity": 0.9,
+                        }}
                         layout={{ "line-cap": "round", "line-join": "round" }}
                       />
                     </Source>
@@ -633,7 +637,11 @@ export function TripPage() {
                   <Source type="geojson" data={speedGeoJSON}>
                     <Layer
                       type="line"
-                      paint={SPEED_LINE_PAINT}
+                      paint={{
+                        "line-color": SPEED_COLOR_EXPR,
+                        "line-width": 4,
+                        "line-opacity": 0.9,
+                      }}
                       layout={{ "line-cap": "round", "line-join": "round" }}
                     />
                   </Source>

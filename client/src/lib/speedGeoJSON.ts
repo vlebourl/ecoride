@@ -50,29 +50,25 @@ export function buildSpeedGeoJSON(points: GpsPoint[]): {
 }
 
 /**
- * MapLibre paint expression: interpolate speed → color.
- * 0 km/h = blue (idle), 15 = green (cruise), 30+ = orange/red (fast).
+ * MapLibre line-color expression: interpolate speed → color.
+ * 0 km/h = blue, 10 = green, 20 = yellow, 30 = orange, 45+ = red.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export const SPEED_LINE_PAINT: Record<string, any> = {
-  "line-color": [
-    "interpolate",
-    ["linear"],
-    ["get", "speed"],
-    0,
-    "#3b82f6", // blue — stopped/slow
-    10,
-    "#22c55e", // green — moderate
-    20,
-    "#eab308", // yellow — brisk
-    30,
-    "#f97316", // orange — fast
-    45,
-    "#ef4444", // red — very fast
-  ],
-  "line-width": 4,
-  "line-opacity": 0.9,
-};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const SPEED_COLOR_EXPR: any = [
+  "interpolate",
+  ["linear"],
+  ["get", "speed"],
+  0,
+  "#3b82f6",
+  10,
+  "#22c55e",
+  20,
+  "#eab308",
+  30,
+  "#f97316",
+  45,
+  "#ef4444",
+];
 
 /** Speed thresholds and colors for the legend. */
 export const SPEED_LEGEND = [

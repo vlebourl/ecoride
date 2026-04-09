@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X, Save } from "lucide-react";
-import type { Trip } from "@ecoride/shared/types";
+import type { Trip, GpsPoint } from "@ecoride/shared/types";
 import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -18,6 +18,7 @@ import {
 } from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
 import { isWebGLSupported } from "@/lib/webgl";
+import { buildSpeedGeoJSON, SPEED_COLOR_EXPR, SPEED_LEGEND } from "@/lib/speedGeoJSON";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type Period = "week" | "month" | "year";
@@ -71,22 +72,12 @@ function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, numbe
   return null;
 }
 
-function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] }) {
+function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
   const webGLSupported = isWebGLSupported();
   const [webglLost, setWebglLost] = useState(false);
   const mapStyleReadyRef = useRef(false);
   const [mapLoadError, setMapLoadError] = useState(false);
-  const geojsonLine = useMemo(
-    () => ({
-      type: "Feature" as const,
-      geometry: {
-        type: "LineString" as const,
-        coordinates: gpsPoints.map((p) => [p.lng, p.lat] as [number, number]),
-      },
-      properties: {},
-    }),
-    [gpsPoints],
-  );
+  const speedGeoJSON = useMemo(() => buildSpeedGeoJSON(gpsPoints), [gpsPoints]);
   // Single-pass bounds computation: avoids Math.min/max spread which throws
   // RangeError when trips exceed ~65k GPS points (JS call-stack limit).
   let minLng = Infinity,
@@ -135,10 +126,10 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
               if (!mapStyleReadyRef.current) setMapLoadError(true);
             }}
           >
-            <Source type="geojson" data={geojsonLine}>
+            <Source type="geojson" data={speedGeoJSON}>
               <Layer
                 type="line"
-                paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                paint={{ "line-color": SPEED_COLOR_EXPR, "line-width": 4, "line-opacity": 0.9 }}
                 layout={{ "line-cap": "round", "line-join": "round" }}
               />
             </Source>
@@ -149,6 +140,16 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: { lat: number; lng: number }[] 
               <MapNoWebGL />
             </div>
           )}
+          {/* Speed legend */}
+          <div className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-md bg-bg/80 px-2 py-1 text-[10px] text-text-dim backdrop-blur-sm">
+            {SPEED_LEGEND.map((s) => (
+              <div key={s.label} className="flex flex-col items-center">
+                <div className="h-1.5 w-4 rounded-full" style={{ backgroundColor: s.color }} />
+                <span>{s.label}</span>
+              </div>
+            ))}
+            <span className="ml-1">km/h</span>
+          </div>
         </>
       ) : (
         <MapNoWebGL />

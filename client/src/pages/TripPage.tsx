@@ -16,6 +16,7 @@ import { queueTrip } from "@/lib/offline-queue";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
+import { buildSpeedGeoJSON, SPEED_COLOR_EXPR } from "@/lib/speedGeoJSON";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -168,17 +169,7 @@ export function TripPage() {
     // idleFlyToRef is a ref (stable) — idleMapLoadSeq is intentionally listed.
   }, [uiState, currentPos[0], currentPos[1], idleMapLoadSeq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const geojsonLine = useMemo(
-    () => ({
-      type: "Feature" as const,
-      geometry: {
-        type: "LineString" as const,
-        coordinates: gps.state.gpsPoints.map((p) => [p.lng, p.lat]),
-      },
-      properties: {},
-    }),
-    [gps.state.gpsPoints],
-  );
+  const speedGeoJSON = useMemo(() => buildSpeedGeoJSON(gps.state.gpsPoints), [gps.state.gpsPoints]);
 
   const webGLSupported = useMemo(() => isWebGLSupported(), []);
   // Tracks runtime WebGL context loss after initial mount.
@@ -534,6 +525,7 @@ export function TripPage() {
                   }}
                   mapStyle={MAP_STYLE}
                   attributionControl={false}
+                  fadeDuration={0}
                   style={{ width: "100%", height: "100%" }}
                   onLoad={(e) => {
                     mapStyleReadyRef.current = true;
@@ -553,10 +545,14 @@ export function TripPage() {
                   }}
                 >
                   {positions.length > 1 && (
-                    <Source type="geojson" data={geojsonLine}>
+                    <Source type="geojson" data={speedGeoJSON}>
                       <Layer
                         type="line"
-                        paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                        paint={{
+                          "line-color": SPEED_COLOR_EXPR,
+                          "line-width": 4,
+                          "line-opacity": 0.9,
+                        }}
                         layout={{ "line-cap": "round", "line-join": "round" }}
                       />
                     </Source>
@@ -638,10 +634,14 @@ export function TripPage() {
                 }}
               >
                 {positions.length > 1 && (
-                  <Source type="geojson" data={geojsonLine}>
+                  <Source type="geojson" data={speedGeoJSON}>
                     <Layer
                       type="line"
-                      paint={{ "line-color": "#2ecc71", "line-width": 4, "line-opacity": 0.9 }}
+                      paint={{
+                        "line-color": SPEED_COLOR_EXPR,
+                        "line-width": 4,
+                        "line-opacity": 0.9,
+                      }}
                       layout={{ "line-cap": "round", "line-join": "round" }}
                     />
                   </Source>

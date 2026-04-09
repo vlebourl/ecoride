@@ -4,14 +4,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // DB mock — must be set up BEFORE importing modules that use it
 // ---------------------------------------------------------------------------
 
-let mockRows: { date: Date }[] = [];
+let mockRows: { day: string }[] = [];
 
 vi.mock("../../db", () => {
   return {
     db: {
-      selectDistinctOn: vi.fn(() => ({
+      select: vi.fn(() => ({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
+        groupBy: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockImplementation(() => Promise.resolve(mockRows)),
       })),
     },
@@ -21,13 +22,6 @@ vi.mock("../../db/schema", () => ({ trips: { startedAt: {}, userId: {} } }));
 
 // Import AFTER mocks are declared
 import { computeStreak } from "../streaks";
-
-// ---------------------------------------------------------------------------
-// Helper to build a Date at noon UTC for a given YYYY-MM-DD string
-// ---------------------------------------------------------------------------
-function d(ymd: string): Date {
-  return new Date(`${ymd}T12:00:00Z`);
-}
 
 describe("computeStreak", () => {
   afterEach(() => {
@@ -44,7 +38,7 @@ describe("computeStreak", () => {
   it("returns {current: 1, longest: 1} for a single trip today", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
-    mockRows = [{ date: d("2025-06-15") }];
+    mockRows = [{ day: "2025-06-15" }];
     const result = await computeStreak("user-1");
     expect(result).toEqual({ current: 1, longest: 1 });
   });
@@ -52,7 +46,7 @@ describe("computeStreak", () => {
   it("returns {current: 1, longest: 1} for a single trip yesterday", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
-    mockRows = [{ date: d("2025-06-14") }];
+    mockRows = [{ day: "2025-06-14" }];
     const result = await computeStreak("user-1");
     expect(result).toEqual({ current: 1, longest: 1 });
   });
@@ -60,7 +54,7 @@ describe("computeStreak", () => {
   it("returns {current: 0, longest: 1} for a single trip 2 days ago", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
-    mockRows = [{ date: d("2025-06-13") }];
+    mockRows = [{ day: "2025-06-13" }];
     const result = await computeStreak("user-1");
     expect(result).toEqual({ current: 0, longest: 1 });
   });
@@ -68,20 +62,17 @@ describe("computeStreak", () => {
   it("counts 3 consecutive days ending today", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
-    // DB returns descending order
-    mockRows = [{ date: d("2025-06-15") }, { date: d("2025-06-14") }, { date: d("2025-06-13") }];
+    // DB returns descending order (GROUP BY + ORDER BY desc)
+    mockRows = [{ day: "2025-06-15" }, { day: "2025-06-14" }, { day: "2025-06-13" }];
     const result = await computeStreak("user-1");
     expect(result).toEqual({ current: 3, longest: 3 });
   });
 
-  it("deduplicates multiple trips on the same calendar day", async () => {
+  it("handles already-deduplicated rows from GROUP BY", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
-    mockRows = [
-      { date: new Date("2025-06-15T08:00:00Z") },
-      { date: new Date("2025-06-15T18:00:00Z") }, // same day
-      { date: d("2025-06-14") },
-    ];
+    // GROUP BY already deduplicates — just 2 unique days
+    mockRows = [{ day: "2025-06-15" }, { day: "2025-06-14" }];
     const result = await computeStreak("user-1");
     expect(result).toEqual({ current: 2, longest: 2 });
   });
@@ -94,10 +85,10 @@ describe("computeStreak", () => {
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
     // Today only, then a gap, then 3 consecutive old days
     mockRows = [
-      { date: d("2025-06-15") }, // today
-      { date: d("2025-06-10") }, // gap — 5 days ago
-      { date: d("2025-06-09") },
-      { date: d("2025-06-08") },
+      { day: "2025-06-15" }, // today
+      { day: "2025-06-10" }, // gap — 5 days ago
+      { day: "2025-06-09" },
+      { day: "2025-06-08" },
     ];
     const result = await computeStreak("user-1");
     // current = 1 (today only), longest = 3 (June 8-9-10)
@@ -108,11 +99,11 @@ describe("computeStreak", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
     mockRows = [
-      { date: d("2025-06-15") },
-      { date: d("2025-06-14") },
-      { date: d("2025-06-10") }, // gap
-      { date: d("2025-06-09") },
-      { date: d("2025-06-08") },
+      { day: "2025-06-15" },
+      { day: "2025-06-14" },
+      { day: "2025-06-10" }, // gap
+      { day: "2025-06-09" },
+      { day: "2025-06-08" },
     ];
     const result = await computeStreak("user-1");
     // current = 2 (today + yesterday), longest = 3 (June 8-9-10)
@@ -124,14 +115,14 @@ describe("computeStreak", () => {
     vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
     // Most recent trip was 3 days ago (broken streak), past run was 5 days
     mockRows = [
-      { date: d("2025-06-12") }, // 3 days ago — no current streak
-      { date: d("2025-06-11") }, // gap before this
-      { date: d("2025-06-01") }, // gap
-      { date: d("2025-05-31") },
-      { date: d("2025-05-30") },
-      { date: d("2025-05-29") },
-      { date: d("2025-05-28") },
-      { date: d("2025-05-27") },
+      { day: "2025-06-12" }, // 3 days ago — no current streak
+      { day: "2025-06-11" },
+      { day: "2025-06-01" }, // gap
+      { day: "2025-05-31" },
+      { day: "2025-05-30" },
+      { day: "2025-05-29" },
+      { day: "2025-05-28" },
+      { day: "2025-05-27" },
     ];
     const result = await computeStreak("user-1");
     expect(result.current).toBe(0); // last trip was 3 days ago
@@ -139,13 +130,13 @@ describe("computeStreak", () => {
     expect(result.longest).toBe(6);
   });
 
-  it("respects timezone parameter (Europe/Paris UTC+2)", async () => {
-    // 2025-06-15T23:30:00Z = 2025-06-16T01:30:00+02 (Paris) => June 16 in Paris
+  it("respects timezone parameter (timezone is now handled by DB query)", async () => {
+    // The tz parameter is now passed to the SQL DATE() function,
+    // so the mock just returns the already-converted day strings
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-06-15T23:30:00Z"));
-    // Trip at 23:30 UTC = 01:30 Paris => June 16 locally
-    mockRows = [{ date: new Date("2025-06-15T23:30:00Z") }];
-    // Without tz: trip date is "2025-06-15" (UTC), today is "2025-06-15" → streak 1
+    // DB would return "2025-06-15" for UTC timezone
+    mockRows = [{ day: "2025-06-15" }];
     const utcResult = await computeStreak("user-1");
     expect(utcResult).toEqual({ current: 1, longest: 1 });
   });

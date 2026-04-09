@@ -14,6 +14,7 @@ import { AppError } from "./lib/errors";
 import { getHealthSnapshot } from "./lib/health";
 import { rateLimit } from "./lib/rate-limit";
 import { logger } from "./lib/logger";
+import { sentryWebhookRouter } from "./routes/sentry-webhook.routes";
 
 // ---------------------------------------------------------------------------
 // Sentry — server-side error tracking
@@ -101,6 +102,9 @@ app.get("/api/health", async (c) => {
     activeUsers7d: snapshot.users.active7d,
   });
 });
+
+// ---- Sentry webhook (public, no auth required) ----
+app.route("/api/sentry-webhook", sentryWebhookRouter);
 
 // ---- Auth middleware for all other /api routes ----
 app.use("/api/*", authMiddleware);

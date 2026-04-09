@@ -2,25 +2,58 @@ import type { GpsPoint } from "@ecoride/shared/types";
 import type { LayerProps } from "react-map-gl/maplibre";
 import { haversineDistance } from "./haversine";
 
-/**
- * Build a GeoJSON FeatureCollection of 2-point line segments,
- * each with a `speed` property (km/h) derived from consecutive GPS points.
- *
- * MapLibre can then color each segment based on the speed value.
- */
-export function buildSpeedGeoJSON(points: GpsPoint[]): {
+/** Check whether GPS points have valid timestamps for speed calculation. */
+function hasValidTimestamps(points: GpsPoint[]): boolean {
+  if (points.length < 2) return false;
+  // Need at least 2 distinct positive timestamps
+  let distinctTs = 0;
+  for (const p of points) {
+    if (typeof p.ts === "number" && p.ts > 0) {
+      distinctTs++;
+      if (distinctTs >= 2) return true;
+    }
+  }
+  return false;
+}
+
+type SpeedFeatureCollection = {
   type: "FeatureCollection";
   features: Array<{
     type: "Feature";
     geometry: { type: "LineString"; coordinates: [number, number][] };
     properties: { speed: number };
   }>;
-} {
-  const features: Array<{
-    type: "Feature";
-    geometry: { type: "LineString"; coordinates: [number, number][] };
-    properties: { speed: number };
-  }> = [];
+};
+
+type SimpleLineFeature = {
+  type: "Feature";
+  geometry: { type: "LineString"; coordinates: [number, number][] };
+  properties: Record<string, never>;
+};
+
+export type TraceGeoJSON = SpeedFeatureCollection | SimpleLineFeature;
+
+/**
+ * Build GeoJSON for a trip trace.
+ *
+ * If points have valid timestamps: returns a FeatureCollection of 2-point
+ * segments colored by speed. Otherwise: returns a single LineString feature
+ * for a solid-color fallback.
+ */
+export function buildTraceGeoJSON(points: GpsPoint[]): TraceGeoJSON {
+  if (!hasValidTimestamps(points)) {
+    // Fallback: single LineString, no speed data
+    return {
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: points.map((p) => [p.lng, p.lat] as [number, number]),
+      },
+      properties: {},
+    };
+  }
+
+  const features: SpeedFeatureCollection["features"] = [];
 
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1]!;
@@ -44,13 +77,10 @@ export function buildSpeedGeoJSON(points: GpsPoint[]): {
     });
   }
 
-  return {
-    type: "FeatureCollection" as const,
-    features,
-  };
+  return { type: "FeatureCollection" as const, features };
 }
 
-/** Layer style for speed-colored trace — define once, spread into <Layer>. */
+/** Layer style for speed-colored trace segments. */
 export const speedTraceLayer: LayerProps = {
   id: "speed-trace",
   type: "line",
@@ -60,16 +90,31 @@ export const speedTraceLayer: LayerProps = {
       ["linear"],
       ["get", "speed"],
       0,
-      "#3b82f6", // blue — stopped/slow
+      "#3b82f6",
       10,
-      "#22c55e", // green — moderate
+      "#22c55e",
       20,
-      "#eab308", // yellow — brisk
+      "#eab308",
       30,
-      "#f97316", // orange — fast
+      "#f97316",
       45,
-      "#ef4444", // red — very fast
+      "#ef4444",
     ],
+    "line-width": 4,
+    "line-opacity": 0.9,
+  },
+  layout: {
+    "line-cap": "round",
+    "line-join": "round",
+  },
+};
+
+/** Layer style for solid-color fallback (old trips without timestamps). */
+export const solidTraceLayer: LayerProps = {
+  id: "solid-trace",
+  type: "line",
+  paint: {
+    "line-color": "#2ecc71",
     "line-width": 4,
     "line-opacity": 0.9,
   },

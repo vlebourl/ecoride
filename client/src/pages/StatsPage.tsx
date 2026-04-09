@@ -18,7 +18,12 @@ import {
 } from "@/hooks/queries";
 import { tripLabel } from "@/lib/trip-utils";
 import { isWebGLSupported } from "@/lib/webgl";
-import { buildSpeedGeoJSON, speedTraceLayer, SPEED_LEGEND } from "@/lib/speedGeoJSON";
+import {
+  buildTraceGeoJSON,
+  speedTraceLayer,
+  solidTraceLayer,
+  SPEED_LEGEND,
+} from "@/lib/speedGeoJSON";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 
 type Period = "week" | "month" | "year";
@@ -77,7 +82,8 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
   const [webglLost, setWebglLost] = useState(false);
   const mapStyleReadyRef = useRef(false);
   const [mapLoadError, setMapLoadError] = useState(false);
-  const speedGeoJSON = useMemo(() => buildSpeedGeoJSON(gpsPoints), [gpsPoints]);
+  const traceGeoJSON = useMemo(() => buildTraceGeoJSON(gpsPoints), [gpsPoints]);
+  const hasSpeedData = traceGeoJSON.type === "FeatureCollection";
   // Single-pass bounds computation: avoids Math.min/max spread which throws
   // RangeError when trips exceed ~65k GPS points (JS call-stack limit).
   let minLng = Infinity,
@@ -126,8 +132,8 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
               if (!mapStyleReadyRef.current) setMapLoadError(true);
             }}
           >
-            <Source id="speed-trace-stats" type="geojson" data={speedGeoJSON}>
-              <Layer {...speedTraceLayer} id="speed-trace-stats" />
+            <Source id="trace-stats" type="geojson" data={traceGeoJSON}>
+              <Layer {...(hasSpeedData ? speedTraceLayer : solidTraceLayer)} id="trace-stats" />
             </Source>
             <FitBoundsOnLoad bounds={bounds} />
           </Map>
@@ -136,16 +142,18 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
               <MapNoWebGL />
             </div>
           )}
-          {/* Speed legend */}
-          <div className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-md bg-bg/80 px-2 py-1 text-[10px] text-text-dim backdrop-blur-sm">
-            {SPEED_LEGEND.map((s) => (
-              <div key={s.label} className="flex flex-col items-center">
-                <div className="h-1.5 w-4 rounded-full" style={{ backgroundColor: s.color }} />
-                <span>{s.label}</span>
-              </div>
-            ))}
-            <span className="ml-1">km/h</span>
-          </div>
+          {/* Speed legend — only when speed data available */}
+          {hasSpeedData && (
+            <div className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-md bg-bg/80 px-2 py-1 text-[10px] text-text-dim backdrop-blur-sm">
+              {SPEED_LEGEND.map((s) => (
+                <div key={s.label} className="flex flex-col items-center">
+                  <div className="h-1.5 w-4 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span>{s.label}</span>
+                </div>
+              ))}
+              <span className="ml-1">km/h</span>
+            </div>
+          )}
         </>
       ) : (
         <MapNoWebGL />

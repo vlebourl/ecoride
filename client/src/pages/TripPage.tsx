@@ -16,7 +16,7 @@ import { queueTrip } from "@/lib/offline-queue";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
-import { buildSpeedGeoJSON, speedTraceLayer } from "@/lib/speedGeoJSON";
+import { buildTraceGeoJSON, speedTraceLayer, solidTraceLayer } from "@/lib/speedGeoJSON";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -169,7 +169,8 @@ export function TripPage() {
     // idleFlyToRef is a ref (stable) — idleMapLoadSeq is intentionally listed.
   }, [uiState, currentPos[0], currentPos[1], idleMapLoadSeq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const speedGeoJSON = useMemo(() => buildSpeedGeoJSON(gps.state.gpsPoints), [gps.state.gpsPoints]);
+  const traceGeoJSON = useMemo(() => buildTraceGeoJSON(gps.state.gpsPoints), [gps.state.gpsPoints]);
+  const hasSpeedData = traceGeoJSON.type === "FeatureCollection";
 
   const webGLSupported = useMemo(() => isWebGLSupported(), []);
   // Tracks runtime WebGL context loss after initial mount.
@@ -545,8 +546,8 @@ export function TripPage() {
                   }}
                 >
                   {positions.length > 1 && (
-                    <Source id="speed-trace-tracking" type="geojson" data={speedGeoJSON}>
-                      <Layer {...speedTraceLayer} />
+                    <Source id="trace-tracking" type="geojson" data={traceGeoJSON}>
+                      <Layer {...(hasSpeedData ? speedTraceLayer : solidTraceLayer)} />
                     </Source>
                   )}
                   <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
@@ -626,8 +627,11 @@ export function TripPage() {
                 }}
               >
                 {positions.length > 1 && (
-                  <Source id="speed-trace-idle" type="geojson" data={speedGeoJSON}>
-                    <Layer {...speedTraceLayer} id="speed-trace-idle" />
+                  <Source id="trace-idle" type="geojson" data={traceGeoJSON}>
+                    <Layer
+                      {...(hasSpeedData ? speedTraceLayer : solidTraceLayer)}
+                      id="trace-idle"
+                    />
                   </Source>
                 )}
                 <Marker longitude={currentPos[1]} latitude={currentPos[0]}>

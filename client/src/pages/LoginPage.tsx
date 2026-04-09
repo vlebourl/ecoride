@@ -12,8 +12,26 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleGoogleLogin = () => {
-    signIn.social({ provider: "google", callbackURL: window.location.origin + "/" });
+  const handleGoogleLogin = async () => {
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in navigator && (navigator as { standalone?: boolean }).standalone === true);
+
+    if (isStandalone) {
+      const { data } = await signIn.social({
+        provider: "google",
+        callbackURL: window.location.origin + "/",
+        disableRedirect: true,
+      });
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } else {
+      signIn.social({
+        provider: "google",
+        callbackURL: window.location.origin + "/",
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

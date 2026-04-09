@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { ProfilePage } from "../ProfilePage";
-
-const updateProfileMutateMock = vi.fn();
 
 vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
@@ -49,7 +47,7 @@ vi.mock("@/hooks/queries", () => ({
   }),
   useAchievements: () => ({ data: [], isPending: false }),
   useTripPresets: () => ({ data: [] }),
-  useUpdateProfile: () => ({ mutate: updateProfileMutateMock, isPending: false }),
+  useUpdateProfile: () => ({ mutate: vi.fn(), isPending: false }),
   useFuelPrice: () => ({
     data: { priceEur: 1.8, fuelType: "sp95", stationName: "Test" },
     isPending: false,
@@ -74,9 +72,8 @@ vi.mock("@/hooks/usePushNotifications", () => ({
 vi.mock("@/lib/auth", () => ({ signOut: vi.fn() }));
 vi.mock("@/lib/super73-ble", () => ({ isBleSupported: () => true, scanAndConnect: vi.fn() }));
 
-describe("ProfilePage Super73 settings sheet", () => {
+describe("ProfilePage Super73 settings", () => {
   beforeEach(() => {
-    updateProfileMutateMock.mockReset();
     (globalThis as typeof globalThis & { __APP_VERSION__?: string }).__APP_VERSION__ = "test";
   });
 
@@ -84,19 +81,18 @@ describe("ProfilePage Super73 settings sheet", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps Super73 defaults hidden until the settings sheet is opened", () => {
+  it("does not show bike default settings popup (moved to VehiclePage)", () => {
     render(<ProfilePage />);
 
+    // Settings popup and button should no longer exist in ProfilePage
     expect(screen.queryByRole("dialog", { name: "Réglages par défaut du vélo" })).toBeNull();
-    expect(screen.queryByText(/^Mode$/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Réglages par défaut du vélo/i })).toBeNull();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: /Réglages par défaut du vélo/i }));
+  it("shows Vélo connecté toggle when super73 is enabled", () => {
+    render(<ProfilePage />);
 
-    expect(screen.getByRole("dialog", { name: "Réglages par défaut du vélo" })).toBeTruthy();
-    expect(screen.getByText(/^Mode$/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Fermer les réglages du vélo" }));
-
-    expect(screen.queryByRole("dialog", { name: "Réglages par défaut du vélo" })).toBeNull();
+    expect(screen.getByText("Vélo connecté (Super73)")).toBeTruthy();
+    expect(screen.getByText("Activé")).toBeTruthy();
   });
 });

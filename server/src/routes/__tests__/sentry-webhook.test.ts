@@ -173,7 +173,8 @@ describe("POST /sentry-webhook", () => {
     expect(body.data.githubIssue).toBe(210);
 
     // Verify the GitHub API was called with correct payload
-    const fetchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const mockFetch = fetch as unknown as ReturnType<typeof vi.fn>;
+    const fetchCall = mockFetch.mock.calls[0]!;
     expect(fetchCall[0]).toBe("https://api.github.com/repos/vlebourl/ecoride/issues");
     const ghPayload = JSON.parse(fetchCall[1].body as string);
     expect(ghPayload.title).toContain("TypeError");

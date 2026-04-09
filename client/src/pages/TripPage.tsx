@@ -525,6 +525,7 @@ export function TripPage() {
                   }}
                   mapStyle={MAP_STYLE}
                   attributionControl={false}
+                  fadeDuration={0}
                   style={{ width: "100%", height: "100%" }}
                   onLoad={(e) => {
                     mapStyleReadyRef.current = true;

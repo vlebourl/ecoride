@@ -1,7 +1,8 @@
 import { useCallback } from "react";
-import { Outlet, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav } from "./BottomNav";
+import { AnimatedOutlet } from "./AnimatedOutlet";
 import { Super73Provider } from "@/components/Super73Provider";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { GpsTrackingProvider } from "@/hooks/useGpsTracking";
@@ -29,7 +30,12 @@ export function AppShell() {
         >
           <main className="flex-1 overflow-hidden pb-24">
             <PullToRefresh onRefresh={handleRefresh} scrollKey={location.pathname}>
-              <Outlet />
+              <AnimatedOutlet
+                dragX={swipe.dragX}
+                direction={swipe.direction}
+                isAnimating={swipe.isAnimating}
+                onAnimationDone={swipe.onAnimationDone}
+              />
             </PullToRefresh>
           </main>
           <BottomNav />

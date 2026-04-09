@@ -1,11 +1,9 @@
 import type { GpsPoint } from "@ecoride/shared/types";
-import type { LayerProps } from "react-map-gl/maplibre";
 import { haversineDistance } from "./haversine";
 
 /** Check whether GPS points have valid timestamps for speed calculation. */
 function hasValidTimestamps(points: GpsPoint[]): boolean {
   if (points.length < 2) return false;
-  // Need at least 2 distinct positive timestamps
   let distinctTs = 0;
   for (const p of points) {
     if (typeof p.ts === "number" && p.ts > 0) {
@@ -42,7 +40,6 @@ export type TraceGeoJSON = SpeedFeatureCollection | SimpleLineFeature;
  */
 export function buildTraceGeoJSON(points: GpsPoint[]): TraceGeoJSON {
   if (!hasValidTimestamps(points)) {
-    // Fallback: single LineString, no speed data
     return {
       type: "Feature",
       geometry: {
@@ -61,7 +58,6 @@ export function buildTraceGeoJSON(points: GpsPoint[]): TraceGeoJSON {
 
     const dtHours = (curr.ts - prev.ts) / 3_600_000;
     const distKm = haversineDistance(prev.lat, prev.lng, curr.lat, curr.lng);
-    // Avoid division by zero; clamp to reasonable max (120 km/h for bikes)
     const speed = dtHours > 0 ? Math.min(distKm / dtHours, 120) : 0;
 
     features.push({
@@ -80,8 +76,11 @@ export function buildTraceGeoJSON(points: GpsPoint[]): TraceGeoJSON {
   return { type: "FeatureCollection" as const, features };
 }
 
-/** Layer style for speed-colored trace segments. */
-export const speedTraceLayer: LayerProps = {
+/**
+ * Layer props for speed-colored trace segments.
+ * Typed as Record to avoid importing react-map-gl (which pulls CSS into this chunk).
+ */
+export const speedTraceLayer: Record<string, unknown> = {
   id: "speed-trace",
   type: "line",
   paint: {
@@ -109,8 +108,8 @@ export const speedTraceLayer: LayerProps = {
   },
 };
 
-/** Layer style for solid-color fallback (old trips without timestamps). */
-export const solidTraceLayer: LayerProps = {
+/** Layer props for solid-color fallback (old trips without timestamps). */
+export const solidTraceLayer: Record<string, unknown> = {
   id: "solid-trace",
   type: "line",
   paint: {

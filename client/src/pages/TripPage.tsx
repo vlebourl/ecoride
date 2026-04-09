@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Play, Square, Pause, Keyboard, AlertTriangle, CloudOff, RotateCcw, X } from "lucide-react";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
-import type { MapRef } from "react-map-gl/maplibre";
-import "maplibre-gl/dist/maplibre-gl.css";
+import type { MapRef, LayerProps } from "react-map-gl/maplibre";
+// maplibre-gl.css imported in app.css to avoid orphan CSS chunks
 import { useCreateTrip, useProfile, useTripPresets } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import {
@@ -547,7 +547,9 @@ export function TripPage() {
                 >
                   {positions.length > 1 && (
                     <Source id="trace-tracking" type="geojson" data={traceGeoJSON}>
-                      <Layer {...(hasSpeedData ? speedTraceLayer : solidTraceLayer)} />
+                      <Layer
+                        {...((hasSpeedData ? speedTraceLayer : solidTraceLayer) as LayerProps)}
+                      />
                     </Source>
                   )}
                   <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
@@ -629,7 +631,7 @@ export function TripPage() {
                 {positions.length > 1 && (
                   <Source id="trace-idle" type="geojson" data={traceGeoJSON}>
                     <Layer
-                      {...(hasSpeedData ? speedTraceLayer : solidTraceLayer)}
+                      {...((hasSpeedData ? speedTraceLayer : solidTraceLayer) as LayerProps)}
                       id="trace-idle"
                     />
                   </Source>

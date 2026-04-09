@@ -137,7 +137,7 @@ export function TripPage() {
     const now = Date.now();
     if (now - trackingFlyToRef.current < 500) return;
     const map = trackingMapRef.current;
-    if (!map) return; // map not yet mounted; onLoad will replay via trackingMapLoadSeq
+    if (!map || !map.isStyleLoaded()) return; // map or style not ready; onLoad will replay
     trackingFlyToRef.current = now;
     map.flyTo({
       center: [currentPos[1], currentPos[0]],
@@ -159,7 +159,7 @@ export function TripPage() {
     const now = Date.now();
     if (now - idleFlyToRef.current < 500) return;
     const map = idleMapRef.current;
-    if (!map) return; // map not yet mounted; onLoad will replay via idleMapLoadSeq
+    if (!map || !map.isStyleLoaded()) return; // map or style not ready; onLoad will replay
     idleFlyToRef.current = now;
     map.flyTo({
       center: [currentPos[1], currentPos[0]],

@@ -83,6 +83,17 @@ export function computeAvgSpeedKmh(totalDistanceKm: number, totalDurationSec: nu
   return Math.round((totalDistanceKm / hours) * 10) / 10;
 }
 
+function buildLeaderboardResponse<T extends { userId: string }>(
+  entries: T[],
+  getValue: (e: T) => number,
+  currentUserId: string,
+) {
+  const ranked = denseRank(entries, getValue);
+  const mapped = ranked.map((e) => ({ ...e, value: getValue(e) }));
+  const userRank = mapped.find((e) => e.userId === currentUserId)?.rank ?? null;
+  return { entries: mapped, userRank };
+}
+
 const leaderboardRouter = new Hono<AuthEnv>();
 
 // GET /api/stats/leaderboard
@@ -113,11 +124,10 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
       .orderBy(desc(sql`coalesce(${sum(trips.co2SavedKg)}, 0)`), asc(user.name))
       .limit(limit);
 
-    const ranked = denseRank(entries, (e) => e.totalCo2SavedKg ?? 0);
-    const mapped = ranked.map((e) => ({ ...e, value: e.totalCo2SavedKg }));
-
-    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-    return c.json({ ok: true, data: { entries: mapped, userRank } });
+    return c.json({
+      ok: true,
+      data: buildLeaderboardResponse(entries, (e) => e.totalCo2SavedKg ?? 0, currentUser.id),
+    });
   }
 
   if (category === "distance") {
@@ -136,14 +146,14 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
       .orderBy(desc(sql`coalesce(${sum(trips.distanceKm)}, 0)`), asc(user.name))
       .limit(limit);
 
-    const ranked = denseRank(entries, (e) => e.totalDistanceKm ?? 0);
-    const mapped = ranked.map((e) => ({
-      ...e,
-      value: Math.round((e.totalDistanceKm ?? 0) * 10) / 10,
-    }));
-
-    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-    return c.json({ ok: true, data: { entries: mapped, userRank } });
+    return c.json({
+      ok: true,
+      data: buildLeaderboardResponse(
+        entries,
+        (e) => Math.round((e.totalDistanceKm ?? 0) * 10) / 10,
+        currentUser.id,
+      ),
+    });
   }
 
   if (category === "money") {
@@ -162,14 +172,14 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
       .orderBy(desc(sql`coalesce(${sum(trips.moneySavedEur)}, 0)`), asc(user.name))
       .limit(limit);
 
-    const ranked = denseRank(entries, (e) => e.totalMoneySaved ?? 0);
-    const mapped = ranked.map((e) => ({
-      ...e,
-      value: Math.round((e.totalMoneySaved ?? 0) * 100) / 100,
-    }));
-
-    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-    return c.json({ ok: true, data: { entries: mapped, userRank } });
+    return c.json({
+      ok: true,
+      data: buildLeaderboardResponse(
+        entries,
+        (e) => Math.round((e.totalMoneySaved ?? 0) * 100) / 100,
+        currentUser.id,
+      ),
+    });
   }
 
   if (category === "trips") {
@@ -188,11 +198,10 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
       .orderBy(desc(count(trips.id)), asc(user.name))
       .limit(limit);
 
-    const ranked = denseRank(entries, (e) => e.tripCount);
-    const mapped = ranked.map((e) => ({ ...e, value: e.tripCount }));
-
-    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-    return c.json({ ok: true, data: { entries: mapped, userRank } });
+    return c.json({
+      ok: true,
+      data: buildLeaderboardResponse(entries, (e) => e.tripCount, currentUser.id),
+    });
   }
 
   if (category === "speed") {
@@ -225,11 +234,10 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
       .sort((a, b) => b.avgSpeedKmh - a.avgSpeedKmh || a.name.localeCompare(b.name))
       .slice(0, limit);
 
-    const ranked = denseRank(withSpeed, (e) => e.avgSpeedKmh);
-    const mapped = ranked.map((e) => ({ ...e, value: e.avgSpeedKmh }));
-
-    const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-    return c.json({ ok: true, data: { entries: mapped, userRank } });
+    return c.json({
+      ok: true,
+      data: buildLeaderboardResponse(withSpeed, (e) => e.avgSpeedKmh, currentUser.id),
+    });
   }
 
   // category === "streak"
@@ -298,11 +306,10 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
     .sort((a, b) => b.streak - a.streak || a.name.localeCompare(b.name))
     .slice(0, limit);
 
-  const ranked = denseRank(withStreak, (e) => e.streak);
-  const mapped = ranked.map((e) => ({ ...e, value: e.streak }));
-
-  const userRank = mapped.find((e) => e.userId === currentUser.id)?.rank ?? null;
-  return c.json({ ok: true, data: { entries: mapped, userRank } });
+  return c.json({
+    ok: true,
+    data: buildLeaderboardResponse(withStreak, (e) => e.streak, currentUser.id),
+  });
 });
 
 /**

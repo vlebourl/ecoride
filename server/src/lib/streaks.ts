@@ -1,20 +1,12 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { trips } from "../db/schema";
-
-/**
- * Format a Date as YYYY-MM-DD in the given IANA timezone.
- * Falls back to UTC if the timezone is not provided.
- */
-function dateToLocalDay(date: Date, tz?: string): string {
-  return date.toLocaleDateString("sv-SE", { timeZone: tz ?? "UTC" });
-}
 
 /**
  * Get "today" as YYYY-MM-DD in the given IANA timezone.
  */
 function todayInTz(tz?: string): string {
-  return dateToLocalDay(new Date(), tz);
+  return new Date().toLocaleDateString("sv-SE", { timeZone: tz ?? "UTC" });
 }
 
 /**
@@ -30,23 +22,17 @@ export async function computeStreak(
   userId: string,
   tz?: string,
 ): Promise<{ current: number; longest: number }> {
-  // Get distinct trip dates ordered descending
+  // Get distinct trip dates ordered descending via GROUP BY DATE
   const rows = await db
-    .selectDistinctOn([trips.startedAt], {
-      date: trips.startedAt,
-    })
+    .select({ day: sql<string>`DATE(${trips.startedAt} AT TIME ZONE ${tz ?? "UTC"})`.as("day") })
     .from(trips)
     .where(eq(trips.userId, userId))
-    .orderBy(desc(trips.startedAt));
+    .groupBy(sql`DATE(${trips.startedAt} AT TIME ZONE ${tz ?? "UTC"})`)
+    .orderBy(desc(sql`day`));
 
   if (rows.length === 0) return { current: 0, longest: 0 };
 
-  // Extract unique dates (YYYY-MM-DD) in the user's local timezone
-  const dateSet = new Set<string>();
-  for (const row of rows) {
-    dateSet.add(dateToLocalDay(row.date, tz));
-  }
-  const dates = Array.from(dateSet).sort().reverse();
+  const dates = rows.map((r) => r.day);
 
   const today = todayInTz(tz);
 

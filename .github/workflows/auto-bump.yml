@@ -35,7 +35,7 @@ jobs:
 
             if [ "$TYPE" = "feat" ]; then
               echo "type=minor" >> $GITHUB_OUTPUT
-            elif [ "$TYPE" = "fix" ] || [ "$TYPE" = "perf" ]; then
+            elif [ "$TYPE" = "fix" ] || [ "$TYPE" = "perf" ] || [ "$TYPE" = "refactor" ]; then
               echo "type=patch" >> $GITHUB_OUTPUT
             else
               echo "type=none" >> $GITHUB_OUTPUT

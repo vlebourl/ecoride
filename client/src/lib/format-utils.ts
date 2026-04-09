@@ -21,3 +21,10 @@ export function formatDuration(sec: number): string {
   if (h > 0) return `${h}h${m.toString().padStart(2, "0")}`;
   return `${m}min`;
 }
+
+/** Format seconds as MM:SS (used by trip tracking timer). */
+export function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}

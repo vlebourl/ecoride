@@ -15,8 +15,7 @@ describe("buildLighthouseReport", () => {
     const { markdown, fail } = buildLighthouseReport(report, "https://example.test/run/1");
 
     expect(fail).toBe(false);
-    expect(markdown).toContain("| PWA | N/A | ⚪ |");
-    expect(markdown).toContain("recent Lighthouse versions no longer expose a `pwa` category");
+    expect(markdown).not.toContain("PWA");
   });
 
   it("keeps threshold logic based on accessibility and performance", () => {

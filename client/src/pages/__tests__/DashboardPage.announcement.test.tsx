@@ -14,7 +14,7 @@ const activeAnnouncement = {
 
 const useActiveAnnouncementMock = vi.fn();
 const getPendingTripsMock = vi.fn(() => []);
-
+const getRejectedTripsMock = vi.fn(() => []);
 const storage = new Map<string, string>();
 const localStorageMock = {
   getItem: (key: string) => storage.get(key) ?? null,
@@ -25,6 +25,8 @@ const localStorageMock = {
     storage.delete(key);
   },
 };
+
+vi.mock("/pwa-192x192.png?url", () => ({ default: "/logo.png" }));
 
 vi.mock("react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
@@ -72,6 +74,7 @@ vi.mock("@/hooks/usePushNotifications", () => ({
 
 vi.mock("@/lib/offline-queue", () => ({
   getPendingTrips: () => getPendingTripsMock(),
+  getRejectedTrips: () => getRejectedTripsMock(),
 }));
 
 describe("DashboardPage announcement banner", () => {
@@ -84,6 +87,8 @@ describe("DashboardPage announcement banner", () => {
     useActiveAnnouncementMock.mockReset();
     getPendingTripsMock.mockReset();
     getPendingTripsMock.mockReturnValue([]);
+    getRejectedTripsMock.mockReset();
+    getRejectedTripsMock.mockReturnValue([]);
   });
 
   afterEach(() => {
@@ -110,5 +115,34 @@ describe("DashboardPage announcement banner", () => {
 
     expect(localStorage.getItem("ecoride:ann-dismissed")).toBe("announcement-new");
     expect(screen.queryByTestId("announcement-banner")).toBeNull();
+  });
+  it("shows rejected sync trips separately from pending ones", () => {
+    useActiveAnnouncementMock.mockReturnValue({ data: null });
+    getPendingTripsMock.mockReturnValue([
+      {
+        distanceKm: 1,
+        durationSec: 60,
+        startedAt: "2026-04-09T10:00:00.000Z",
+        endedAt: "2026-04-09T10:01:00.000Z",
+      },
+    ]);
+    getRejectedTripsMock.mockReturnValue([
+      {
+        trip: {
+          distanceKm: 2,
+          durationSec: 120,
+          startedAt: "2026-04-09T11:00:00.000Z",
+          endedAt: "2026-04-09T11:02:00.000Z",
+        },
+        rejectedAt: "2026-04-09T12:00:00.000Z",
+        status: 409,
+        reason: "Trajet rejeté : chevauchement avec un trajet déjà enregistré.",
+      },
+    ]);
+
+    render(<DashboardPage />);
+
+    expect(screen.getByText(/1 trajet en attente de synchronisation/i)).toBeTruthy();
+    expect(screen.getByText(/1 trajet rejeté lors de la synchronisation/i)).toBeTruthy();
   });
 });

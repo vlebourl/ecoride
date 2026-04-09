@@ -12,10 +12,11 @@ import {
   Euro,
   Route,
   Bell,
+  AlertTriangle,
 } from "lucide-react";
 import { useDashboardSummary, useProfile, useActiveAnnouncement } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { getPendingTrips } from "@/lib/offline-queue";
+import { getPendingTrips, getRejectedTrips } from "@/lib/offline-queue";
 import appLogo from "/pwa-192x192.png?url";
 
 interface Milestone {
@@ -106,6 +107,7 @@ export function DashboardPage() {
   const showAnn = !!announcement && dismissedAnnouncementId !== announcement.id;
 
   const pendingTrips = getPendingTrips();
+  const rejectedTrips = getRejectedTrips();
 
   const isPending = todayPending || allTimePending;
 
@@ -220,13 +222,22 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Offline pending trips banner */}
+      {/* Offline sync banners */}
       {pendingTrips.length > 0 && (
         <div className="mx-6 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3">
           <CloudOff size={18} className="shrink-0 text-primary-light" />
           <span className="flex-1 text-xs font-medium text-text">
             {pendingTrips.length} trajet{pendingTrips.length > 1 ? "s" : ""} en attente de
             synchronisation
+          </span>
+        </div>
+      )}
+      {rejectedTrips.length > 0 && (
+        <div className="mx-6 flex items-center gap-3 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
+          <AlertTriangle size={18} className="shrink-0 text-warning" />
+          <span className="flex-1 text-xs font-medium text-text">
+            {rejectedTrips.length} trajet{rejectedTrips.length > 1 ? "s" : ""} rejeté
+            {rejectedTrips.length > 1 ? "s" : ""} lors de la synchronisation
           </span>
         </div>
       )}

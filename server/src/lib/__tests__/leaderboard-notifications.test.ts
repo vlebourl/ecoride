@@ -11,19 +11,22 @@ vi.mock("../../db/schema", () => ({ trips: { co2SavedKg: {}, userId: {} } }));
 vi.mock("../../db/schema/auth", () => ({
   user: { id: {}, name: {}, leaderboardOptOut: {} },
 }));
-vi.mock("../push", () => ({ sendPushToUser: vi.fn().mockResolvedValue(0) }));
+vi.mock("../../db/schema/push-subscriptions", () => ({
+  pushSubscriptions: { userId: {} },
+}));
+vi.mock("../push", () => ({ sendPushNotification: vi.fn().mockResolvedValue(true) }));
 vi.mock("../logger", () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
 import { db } from "../../db";
 import { logger } from "../logger";
-import { sendPushToUser } from "../push";
+import { sendPushNotification } from "../push";
 import { checkLeaderboardChanges } from "../leaderboard-notifications";
 
 const mockDb = vi.mocked(db) as { select: ReturnType<typeof vi.fn> };
 const mockLogger = vi.mocked(logger) as { error: ReturnType<typeof vi.fn> };
-const mockSendPushToUser = vi.mocked(sendPushToUser);
+const mockSendPush = vi.mocked(sendPushNotification);
 
 function makeLeaderboardChain(
   entries: { userId: string; name: string; totalCo2SavedKg: number }[],
@@ -37,9 +40,23 @@ function makeLeaderboardChain(
   };
 }
 
+/** Mock subscription fetch chain (second db.select call). */
+function makeSubsChain(
+  subs: Array<{ id: string; userId: string; endpoint: string; p256dh: string; auth: string }>,
+) {
+  return {
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockResolvedValue(subs),
+  };
+}
+
+function fakeSub(userId: string, id = `sub-${userId}`) {
+  return { id, userId, endpoint: `https://push/${userId}`, p256dh: "key", auth: "auth" };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockSendPushToUser.mockResolvedValue(0);
+  mockSendPush.mockResolvedValue(true);
 });
 
 describe("checkLeaderboardChanges", () => {
@@ -49,11 +66,10 @@ describe("checkLeaderboardChanges", () => {
     );
 
     await checkLeaderboardChanges("user-1", 5);
-    expect(mockSendPushToUser).not.toHaveBeenCalled();
+    expect(mockSendPush).not.toHaveBeenCalled();
   });
 
   it("does nothing when no one was overtaken", async () => {
-    // user-1 has 20 kg, trip added 5 kg (was 15) — Alice has 50, no one in [15, 20)
     mockDb.select.mockReturnValue(
       makeLeaderboardChain([
         { userId: "other-user", name: "Alice", totalCo2SavedKg: 50 },
@@ -62,39 +78,40 @@ describe("checkLeaderboardChanges", () => {
     );
 
     await checkLeaderboardChanges("user-1", 5);
-    expect(mockSendPushToUser).not.toHaveBeenCalled();
+    expect(mockSendPush).not.toHaveBeenCalled();
   });
 
   it("sends notifications to overtaken user and current user", async () => {
-    // user-1 now has 25 kg, trip added 5 kg (was 20)
-    // Alice has 22 kg — falls in [20, 25)
-    mockDb.select.mockReturnValue(
-      makeLeaderboardChain([
-        { userId: "user-1", name: "Bob", totalCo2SavedKg: 25 },
-        { userId: "alice", name: "Alice", totalCo2SavedKg: 22 },
-      ]),
-    );
+    // First call: leaderboard query. Second call: subscription batch fetch.
+    mockDb.select
+      .mockReturnValueOnce(
+        makeLeaderboardChain([
+          { userId: "user-1", name: "Bob", totalCo2SavedKg: 25 },
+          { userId: "alice", name: "Alice", totalCo2SavedKg: 22 },
+        ]),
+      )
+      .mockReturnValueOnce(makeSubsChain([fakeSub("alice"), fakeSub("user-1")]));
 
     await checkLeaderboardChanges("user-1", 5);
 
-    expect(mockSendPushToUser).toHaveBeenCalledTimes(2);
-    const calledUserIds = mockSendPushToUser.mock.calls.map((c) => c[0]);
-    expect(calledUserIds).toContain("alice");
-    expect(calledUserIds).toContain("user-1");
+    // 1 overtaken user × 2 directions (overtaken + current) = 2 push calls
+    expect(mockSendPush).toHaveBeenCalledTimes(2);
   });
 
   it("handles multiple overtaken users", async () => {
-    mockDb.select.mockReturnValue(
-      makeLeaderboardChain([
-        { userId: "user-1", name: "Bob", totalCo2SavedKg: 30 },
-        { userId: "alice", name: "Alice", totalCo2SavedKg: 25 },
-        { userId: "carol", name: "Carol", totalCo2SavedKg: 22 },
-      ]),
-    );
+    mockDb.select
+      .mockReturnValueOnce(
+        makeLeaderboardChain([
+          { userId: "user-1", name: "Bob", totalCo2SavedKg: 30 },
+          { userId: "alice", name: "Alice", totalCo2SavedKg: 25 },
+          { userId: "carol", name: "Carol", totalCo2SavedKg: 22 },
+        ]),
+      )
+      .mockReturnValueOnce(makeSubsChain([fakeSub("alice"), fakeSub("carol"), fakeSub("user-1")]));
 
     await checkLeaderboardChanges("user-1", 10);
-    // 2 overtaken × 2 notifications = 4 total
-    expect(mockSendPushToUser).toHaveBeenCalledTimes(4);
+    // 2 overtaken × (1 notify overtaken + 1 notify current) = 4
+    expect(mockSendPush).toHaveBeenCalledTimes(4);
   });
 
   it("swallows db errors and does not propagate", async () => {
@@ -107,7 +124,7 @@ describe("checkLeaderboardChanges", () => {
     });
 
     await expect(checkLeaderboardChanges("user-1", 5)).resolves.toBeUndefined();
-    expect(mockSendPushToUser).not.toHaveBeenCalled();
+    expect(mockSendPush).not.toHaveBeenCalled();
   });
 
   it("does not notify when trip adds 0 CO2 (empty overtake range)", async () => {
@@ -119,23 +136,25 @@ describe("checkLeaderboardChanges", () => {
     );
 
     await checkLeaderboardChanges("user-1", 0);
-    // previousTotal = 5, currentTotal = 5, range [5, 5) is empty
-    expect(mockSendPushToUser).not.toHaveBeenCalled();
+    expect(mockSendPush).not.toHaveBeenCalled();
   });
 
   it("logs notification send failures without propagating", async () => {
-    mockDb.select.mockReturnValue(
-      makeLeaderboardChain([
-        { userId: "user-1", name: "Bob", totalCo2SavedKg: 25 },
-        { userId: "alice", name: "Alice", totalCo2SavedKg: 22 },
-      ]),
-    );
-    mockSendPushToUser
+    mockDb.select
+      .mockReturnValueOnce(
+        makeLeaderboardChain([
+          { userId: "user-1", name: "Bob", totalCo2SavedKg: 25 },
+          { userId: "alice", name: "Alice", totalCo2SavedKg: 22 },
+        ]),
+      )
+      .mockReturnValueOnce(makeSubsChain([fakeSub("alice"), fakeSub("user-1")]));
+    mockSendPush
       .mockRejectedValueOnce(new Error("alice push failed"))
       .mockRejectedValueOnce(new Error("bob push failed"));
 
     await expect(checkLeaderboardChanges("user-1", 5)).resolves.toBeUndefined();
-    await Promise.resolve();
+    // reportBackgroundError catches rejections and logs — give it a tick
+    await new Promise((r) => setTimeout(r, 10));
 
     expect(mockLogger.error).toHaveBeenCalledWith(
       "leaderboard_notify_overtaken_failed",

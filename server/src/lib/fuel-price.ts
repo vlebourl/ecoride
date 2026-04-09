@@ -10,7 +10,34 @@ interface CachedPrice {
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const MAX_CACHE_SIZE = 500;
 const cache = new Map<string, CachedPrice>();
+
+/**
+ * Evict entries when the cache exceeds MAX_CACHE_SIZE.
+ * 1. Delete expired entries (cachedAt + CACHE_TTL_MS <= now)
+ * 2. If still over, delete oldest 10% by cachedAt
+ */
+function evictIfNeeded(): void {
+  if (cache.size < MAX_CACHE_SIZE) return;
+
+  const now = Date.now();
+  // Pass 1: delete expired entries
+  for (const [key, entry] of cache) {
+    if (entry.cachedAt + CACHE_TTL_MS <= now) {
+      cache.delete(key);
+    }
+  }
+
+  // Pass 2: if still over, delete oldest 10% by cachedAt
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const entries = [...cache.entries()].sort((a, b) => a[1].cachedAt - b[1].cachedAt);
+    const toDelete = Math.ceil(cache.size * 0.1);
+    for (let i = 0; i < toDelete; i++) {
+      cache.delete(entries[i]![0]);
+    }
+  }
+}
 
 // National average fallback prices (€/L, updated periodically)
 const FALLBACK_PRICES: Record<FuelType, number> = {
@@ -86,6 +113,7 @@ export async function getFuelPrice(
         updatedAt: record.prix_maj ?? new Date().toISOString(),
         cachedAt: Date.now(),
       };
+      evictIfNeeded();
       cache.set(cacheKey, result);
       return result;
     }
@@ -103,6 +131,28 @@ export async function getFuelPrice(
     updatedAt: new Date().toISOString(),
     cachedAt: Date.now(),
   };
+  evictIfNeeded();
   cache.set(cacheKey, fallback);
   return fallback;
 }
+
+/** @internal Exposed for testing only */
+export function _getCacheSize(): number {
+  return cache.size;
+}
+
+/** @internal Exposed for testing only — clear all entries */
+export function _clearCache(): void {
+  cache.clear();
+}
+
+/** @internal Exposed for testing only — directly insert a cache entry */
+export function _setCacheEntry(key: string, entry: CachedPrice): void {
+  cache.set(key, entry);
+}
+
+/** @internal Exposed for testing only */
+export const _MAX_CACHE_SIZE = MAX_CACHE_SIZE;
+
+/** @internal Exposed for testing only */
+export const _CACHE_TTL_MS = CACHE_TTL_MS;

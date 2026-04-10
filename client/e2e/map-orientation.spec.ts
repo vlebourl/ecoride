@@ -64,13 +64,13 @@ test("map orientation toggles between POV and north-up and persists across reloa
   const stored = await page.evaluate(() => localStorage.getItem("ecoride-map-orientation"));
   expect(stored).toBe("north");
 
-  // Reload and verify persistence: start tracking again, orientation should still be north-up.
-  // Clear the tracking session keys so the reload lands on the idle screen — we only want to
-  // assert that the orientation preference survives a reload, not the mid-trip recovery flow.
-  await page.evaluate(() => {
-    localStorage.removeItem("ecoride-tracking-backup");
-    localStorage.removeItem("ecoride-stopped-session");
-  });
+  // Cleanly end the trip before reloading so the app lands on the idle screen on reload.
+  // (Clearing localStorage alone races with the tracking backup interval.)
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Interrompre" }).click();
+  await page.getByRole("button", { name: "Abandonner" }).click();
+  await expect(page.getByText("Démarrer")).toBeVisible({ timeout: 5000 });
+
   await page.reload({ waitUntil: "networkidle" });
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });

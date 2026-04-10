@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { beforeEach, describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Super73ModeButton } from "../Super73ModeButton";
+import { I18nProvider } from "@/i18n/provider";
 
 const useSuper73Mock = vi.fn();
 
@@ -8,7 +9,13 @@ vi.mock("@/hooks/useSuper73", () => ({
   useSuper73: () => useSuper73Mock(),
 }));
 
+const renderWithI18n = (ui: React.ReactElement) => render(<I18nProvider>{ui}</I18nProvider>);
+
 describe("Super73ModeButton compact", () => {
+  beforeEach(() => {
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -28,7 +35,7 @@ describe("Super73ModeButton compact", () => {
       cycleTripModeSelection: vi.fn(),
     });
 
-    render(<Super73ModeButton enabled compact />);
+    renderWithI18n(<Super73ModeButton enabled compact />);
 
     const button = screen.getByRole("button", { name: "Super73 déconnecté" });
     expect(button.className).toContain("aspect-square");
@@ -50,7 +57,7 @@ describe("Super73ModeButton compact", () => {
       cycleTripModeSelection: vi.fn(),
     });
 
-    render(<Super73ModeButton enabled compact />);
+    renderWithI18n(<Super73ModeButton enabled compact />);
 
     expect(screen.getByRole("button", { name: "Mode EPAC" })).toBeTruthy();
   });
@@ -70,7 +77,7 @@ describe("Super73ModeButton compact", () => {
       cycleTripModeSelection: vi.fn(),
     });
 
-    render(<Super73ModeButton enabled compact />);
+    renderWithI18n(<Super73ModeButton enabled compact />);
 
     expect(screen.getByRole("button", { name: "Mode Off-Road" })).toBeTruthy();
   });
@@ -90,7 +97,7 @@ describe("Super73ModeButton compact", () => {
       cycleTripModeSelection: vi.fn(),
     });
 
-    render(<Super73ModeButton enabled compact />);
+    renderWithI18n(<Super73ModeButton enabled compact />);
 
     expect(screen.getByRole("button", { name: "Mode Auto" })).toBeTruthy();
   });

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
+import { useT } from "@/i18n/provider";
 
 interface PageHeaderProps {
   /** Page title — always rendered as the unique <h1> of the page */
@@ -20,6 +21,7 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, subtitle, titleHidden, back, right }: PageHeaderProps) {
+  const t = useT();
   return (
     <>
       <header
@@ -30,7 +32,7 @@ export function PageHeader({ title, subtitle, titleHidden, back, right }: PageHe
           {back && (
             <Link
               to={back.to}
-              aria-label={back.label ?? "Retour"}
+              aria-label={back.label ?? t("shared.pageHeader.back")}
               className="rounded-lg p-1 text-text-muted transition-colors hover:text-text active:scale-95"
             >
               <ArrowLeft size={20} />

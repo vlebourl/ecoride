@@ -1,11 +1,13 @@
 import { BluetoothOff, Loader2, Star } from "lucide-react";
 import { useSuper73, type BleStatus, type Super73TripModeSelection } from "@/hooks/useSuper73";
+import { useT } from "@/i18n/provider";
 
 interface Props {
   enabled: boolean;
   compact?: boolean;
 }
 
+// Product/mode brand names — not translated.
 const MODE_LABELS: Record<string, string> = {
   eco: "EPAC",
   tour: "Tour",
@@ -43,6 +45,7 @@ function CompactModeIcon({ selection }: { selection: Super73TripModeSelection })
 }
 
 export function Super73ModeButton({ enabled, compact = false }: Props) {
+  const t = useT();
   const ble = useSuper73();
 
   if (!enabled || ble.status === "unsupported") return null;
@@ -58,7 +61,7 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
         <button
           onClick={ble.connect}
           className={`${compactBaseClass} border-surface-highest bg-surface-container`}
-          aria-label="Super73 déconnecté"
+          aria-label={t("super73.compact.disconnectedAria")}
         >
           <BluetoothOff size={18} className="text-text-muted" />
         </button>
@@ -69,7 +72,7 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
       return (
         <div
           className={`${compactBaseClass} border-surface-highest bg-surface-container`}
-          aria-label="Connexion Super73 en cours"
+          aria-label={t("super73.compact.connectingAria")}
         >
           <Loader2 size={18} className="animate-spin text-warning" />
         </div>
@@ -81,7 +84,7 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
         <button
           onClick={ble.connect}
           className={`${compactBaseClass} border-surface-highest bg-surface-container`}
-          aria-label="Super73 déconnecté"
+          aria-label={t("super73.compact.disconnectedAria")}
         >
           <BluetoothOff size={18} className="text-text-muted" />
         </button>
@@ -96,7 +99,11 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
           ? "border-[#60A5FA]/40 bg-[#60A5FA]/10"
           : "border-warning/40 bg-warning/10";
     const labelBySelection =
-      selection === "auto" ? "Mode Auto" : selection === "race" ? "Mode Off-Road" : "Mode EPAC";
+      selection === "auto"
+        ? t("super73.compact.modeAuto")
+        : selection === "race"
+          ? t("super73.compact.modeOffRoad")
+          : t("super73.compact.modeEpac");
 
     return (
       <button
@@ -117,12 +124,12 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
           <StatusDot status={ble.status} />
           <span className="text-base font-semibold text-text">
             {ble.status === "connected"
-              ? "Connecté"
+              ? t("super73.full.connected")
               : ble.status === "connecting"
-                ? "Connexion..."
+                ? t("super73.full.connecting")
                 : ble.status === "error"
-                  ? "Erreur"
-                  : "Déconnecté"}
+                  ? t("super73.full.error")
+                  : t("super73.full.disconnected")}
           </span>
         </div>
         {ble.status === "connected" ? (
@@ -130,7 +137,7 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
             onClick={ble.disconnect}
             className="h-12 rounded-xl bg-surface-high px-5 text-sm font-bold text-text-muted active:scale-95"
           >
-            Déconnecter
+            {t("super73.full.disconnect")}
           </button>
         ) : (
           <button
@@ -141,7 +148,7 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
             {ble.status === "connecting" ? (
               <Loader2 size={20} className="animate-spin" />
             ) : (
-              "Connecter"
+              t("super73.full.connect")
             )}
           </button>
         )}

@@ -51,12 +51,18 @@ export function StoppedSummary({
           </button>
           <button
             onClick={onSave}
-            disabled={isSaving}
-            className="flex-1 rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
+            disabled={isSaving || distance < 0.01}
+            title={distance < 0.01 ? "Distance trop courte pour enregistrer" : undefined}
+            className="flex-1 rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving ? "..." : "Enregistrer"}
           </button>
         </div>
+        {distance < 0.01 && (
+          <p className="mt-3 text-center text-xs text-text-muted">
+            Trajet trop court pour être enregistré. Utilisez Abandonner.
+          </p>
+        )}
         {sessionPersistFailed && (
           <div className="mt-4 rounded-xl bg-danger/10 p-4">
             <div className="flex items-center gap-3">

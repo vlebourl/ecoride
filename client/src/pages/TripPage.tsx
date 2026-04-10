@@ -540,6 +540,7 @@ export function TripPage() {
               onStop={handleStopFromInterrupt}
               onAbandon={handleAbandonFromInterrupt}
               onClose={() => setInterruptMenuOpen(false)}
+              canStop={distance >= 0.01}
             />
           )}
         </>

@@ -5,9 +5,16 @@ export interface InterruptMenuProps {
   onStop: () => void;
   onAbandon: () => void;
   onClose: () => void;
+  canStop: boolean;
 }
 
-export function InterruptMenu({ onResume, onStop, onAbandon, onClose }: InterruptMenuProps) {
+export function InterruptMenu({
+  onResume,
+  onStop,
+  onAbandon,
+  onClose,
+  canStop,
+}: InterruptMenuProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-black/50 px-6 pb-6" data-no-swipe>
       <div
@@ -43,7 +50,9 @@ export function InterruptMenu({ onResume, onStop, onAbandon, onClose }: Interrup
           </button>
           <button
             onClick={onStop}
-            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-surface-high py-4 text-base font-bold text-text active:scale-95"
+            disabled={!canStop}
+            title={canStop ? undefined : "Distance trop courte pour enregistrer"}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-surface-high py-4 text-base font-bold text-text active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Square size={18} fill="currentColor" />
             Terminer

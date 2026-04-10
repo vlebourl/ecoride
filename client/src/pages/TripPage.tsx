@@ -23,6 +23,8 @@ import { TrackingControls } from "@/components/trip/TrackingControls";
 import { useSessionRecovery } from "@/hooks/useSessionRecovery";
 import { useManualTrip } from "@/hooks/useManualTrip";
 import { useMapCamera } from "@/hooks/useMapCamera";
+import { useMapOrientation } from "@/hooks/useMapOrientation";
+import { MapOrientationButton } from "@/components/trip/MapOrientationButton";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -45,6 +47,8 @@ export function TripPage() {
   const { data: profileData } = useProfile();
   const { data: tripPresetsData } = useTripPresets();
   const gps = useAppGpsTracking();
+  const { orientation, toggle: toggleOrientation } = useMapOrientation();
+  const isPov = orientation === "pov";
 
   const tripPresets = tripPresetsData ?? [];
 
@@ -102,8 +106,8 @@ export function TripPage() {
 
   // --- Map cameras (extracted hook) ---
   const trackingCamera = useMapCamera(trackingMapRef, currentPos, {
-    bearing: gps.state.heading,
-    pitch: 45,
+    bearing: isPov ? gps.state.heading : 0,
+    pitch: isPov ? 45 : 0,
     padding: TRACKING_CAMERA_PADDING,
     enabled: uiState === "tracking",
   });
@@ -305,6 +309,7 @@ export function TripPage() {
             className="relative min-h-0 flex-1 overflow-hidden"
             data-testid="tracking-map"
             data-heading={gps.state.heading ?? 0}
+            data-map-orientation={orientation}
             data-camera-padding-top={TRACKING_CAMERA_PADDING.top}
             data-camera-padding-bottom={TRACKING_CAMERA_PADDING.bottom}
           >
@@ -316,8 +321,8 @@ export function TripPage() {
                     longitude: currentPos[1],
                     latitude: currentPos[0],
                     zoom: 15,
-                    bearing: gps.state.heading ?? 0,
-                    pitch: gps.state.heading != null ? 45 : 0,
+                    bearing: isPov ? (gps.state.heading ?? 0) : 0,
+                    pitch: isPov && gps.state.heading != null ? 45 : 0,
                   }}
                   mapStyle={MAP_STYLE}
                   attributionControl={false}
@@ -352,6 +357,8 @@ export function TripPage() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
+                          transform: isPov ? undefined : `rotate(${gps.state.heading}deg)`,
+                          transition: "transform 300ms linear",
                         }}
                       >
                         <svg width="24" height="24" viewBox="0 0 24 24">
@@ -385,6 +392,11 @@ export function TripPage() {
             ) : (
               <MapNoWebGL />
             )}
+            <div className="pointer-events-none absolute right-3 top-3 z-10">
+              <div className="pointer-events-auto">
+                <MapOrientationButton orientation={orientation} onToggle={toggleOrientation} />
+              </div>
+            </div>
           </div>
         </>
       )}

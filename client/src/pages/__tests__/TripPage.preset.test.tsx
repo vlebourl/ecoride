@@ -84,6 +84,7 @@ vi.mock("@/components/Super73ModeButton", () => ({ Super73ModeButton: () => null
 
 describe("TripPage trip preset selection", () => {
   beforeEach(() => {
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
     mutateMock.mockReset();
     startMock.mockReset();
     resetMock.mockReset();

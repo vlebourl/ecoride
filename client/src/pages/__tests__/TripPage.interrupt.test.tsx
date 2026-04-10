@@ -75,6 +75,7 @@ vi.mock("@/components/Super73ModeButton", () => ({ Super73ModeButton: () => null
 
 describe("TripPage interrupt finish flow", () => {
   beforeEach(() => {
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
     mutateMock.mockReset();
     pauseMock.mockReset();
     stopMock.mockReset();

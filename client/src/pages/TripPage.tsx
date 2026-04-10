@@ -27,6 +27,7 @@ import { useMapOrientation } from "@/hooks/useMapOrientation";
 import { MapOrientationButton } from "@/components/trip/MapOrientationButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useT } from "@/i18n/provider";
+import { useBleSpeedSensor } from "@/hooks/useBleSpeedSensor";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -50,6 +51,7 @@ export function TripPage() {
   const { data: profileData } = useProfile();
   const { data: tripPresetsData } = useTripPresets();
   const gps = useAppGpsTracking();
+  const bleSensor = useBleSpeedSensor();
   const { orientation, toggle: toggleOrientation } = useMapOrientation();
   const isPov = orientation === "pov";
 
@@ -282,6 +284,7 @@ export function TripPage() {
           <TrackingDashboard
             isPaused={gps.state.isPaused}
             speedKmh={gps.state.speedKmh}
+            bleSpeedKmh={bleSensor.state.speedKmh}
             distance={distance}
             co2Saved={co2Saved}
             elapsed={elapsed}

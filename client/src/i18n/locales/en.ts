@@ -518,4 +518,21 @@ export const en: Record<TranslationKey, string> = {
   "super73.full.disconnected": "Disconnected",
   "super73.full.disconnect": "Disconnect",
   "super73.full.connect": "Connect",
+
+  "profile.bleSpeedSensor.row": "BLE Speed Sensor",
+  "profile.bleSpeedSensor.description":
+    "Use a Bluetooth speed sensor (CSC) instead of GPS speed during your trips.",
+  "profile.bleSpeedSensor.pair": "Pair a sensor",
+  "profile.bleSpeedSensor.pairing": "Connecting…",
+  "profile.bleSpeedSensor.disconnect": "Disconnect",
+  "profile.bleSpeedSensor.statusConnected": "Connected — {{name}}",
+  "profile.bleSpeedSensor.statusDisconnected": "No sensor connected",
+  "profile.bleSpeedSensor.statusConnecting": "Connecting…",
+  "profile.bleSpeedSensor.statusError": "Connection error",
+  "profile.bleSpeedSensor.wheelCircumference": "Wheel circumference (mm)",
+  "profile.bleSpeedSensor.wheelCircumferenceHelp":
+    "Measure the wheel perimeter or use a preset: 2215 (27.5×2.4), 2096 (700×25c), 2155 (700×32c).",
+
+  "trip.speedSource.gps": "GPS",
+  "trip.speedSource.sensor": "Sensor",
 };

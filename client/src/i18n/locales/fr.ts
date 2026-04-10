@@ -484,6 +484,19 @@ export const fr = {
   "privacy.sections.contact.linkLabel": "issue sur GitHub",
   "privacy.sections.contact.bodyAfter": ".",
 
+  "profile.mapCache.row": "Cartes hors-ligne",
+  "profile.mapCache.description":
+    "Les cartes que vous avez déjà consultées restent affichables sans connexion.",
+  "profile.mapCache.entriesOne": "{{count}} tuile en cache",
+  "profile.mapCache.entriesMany": "{{count}} tuiles en cache",
+  "profile.mapCache.empty": "Aucune carte en cache",
+  "profile.mapCache.approxSize": "Espace utilisé: {{size}}",
+  "profile.mapCache.clear": "Vider le cache",
+  "profile.mapCache.clearConfirm":
+    "Vider le cache des cartes hors-ligne ? Les tuiles seront re-téléchargées à la prochaine consultation.",
+  "profile.mapCache.clearing": "Suppression...",
+  "profile.mapCache.cleared": "Cache vidé",
+
   "shared.errorBoundary.title": "Une erreur est survenue",
   "shared.errorBoundary.body": "Quelque chose s'est mal passé. Essayez de recharger la page.",
   "shared.errorBoundary.reload": "Recharger",

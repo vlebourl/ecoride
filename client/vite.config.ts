@@ -94,6 +94,28 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallbackDenylist: [/^\/api\//],
         importScripts: ["/sw-api-guard.js"],
+        // Feature #242 — passive map tile caching. Tiles and style assets
+        // already fetched by the user are stored so the map keeps rendering
+        // offline and on bad connections. No bulk prefetch (would violate
+        // the CARTO basemap ToS) — only what the user has actually loaded.
+        // The cache name is referenced from src/lib/tile-cache.ts and is
+        // preserved across version bumps in main.tsx so users don't lose
+        // their downloaded tiles on every deploy.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /(^|\.)basemaps\.cartocdn\.com$/i.test(url.hostname),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "ecoride-map-tiles-v1",
+              expiration: {
+                maxEntries: 400,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
     ...sentryPlugin,

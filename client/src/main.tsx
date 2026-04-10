@@ -7,6 +7,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { I18nProvider } from "./i18n/provider";
 import { App } from "./App";
 import { hasBlockingTripDataForUpdate } from "@/lib/update-guard";
+import { MAP_TILE_CACHE_NAME } from "@/lib/tile-cache";
 import "./app.css";
 
 // ---------------------------------------------------------------------------
@@ -43,10 +44,12 @@ window.addEventListener("unhandledrejection", (event) => {
 const CACHE_VERSION_KEY = "ecoride-version";
 const PENDING_VERSION_KEY = "ecoride-pending-version";
 
-// Purge all SW caches when app version changes
+// Purge SW caches when app version changes — except the offline map tile
+// cache (feature #242), which is expensive to rebuild and unrelated to the
+// app bundle version. Users keep their downloaded tiles across deploys.
 async function purgeAndReload() {
   const names = await caches.keys();
-  await Promise.all(names.map((n) => caches.delete(n)));
+  await Promise.all(names.filter((n) => n !== MAP_TILE_CACHE_NAME).map((n) => caches.delete(n)));
   const regs = await navigator.serviceWorker?.getRegistrations();
   if (regs) await Promise.all(regs.map((r) => r.unregister()));
   window.location.reload();

@@ -8,7 +8,7 @@ import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useAppGpsTracking } from "@/hooks/useGpsTracking";
 import type { TrackingSession } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
-import { clearStoppedSession, setStoppedSession } from "@/lib/stopped-session";
+import { clearStoppedSession } from "@/lib/stopped-session";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 import { formatTime } from "@/lib/format-utils";
@@ -195,21 +195,6 @@ export function TripPage() {
     gps.start();
     setUiState("tracking");
   }, [gps, recovery, resetMapState]);
-
-  const stopTracking = useCallback(
-    (showStoppedPanel = true) => {
-      const session = gps.stop();
-      recovery.sessionRef.current = session;
-      resetMapState();
-      setInterruptMenuOpen(false);
-      if (!setStoppedSession(session)) {
-        recovery.setSessionPersistFailed(true);
-      }
-      if (showStoppedPanel) setUiState("stopped");
-      return session;
-    },
-    [gps, recovery, resetMapState],
-  );
 
   const handleInterrupt = useCallback(() => {
     if (!gps.state.isPaused) gps.pause();

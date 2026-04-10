@@ -169,10 +169,13 @@ export function ProfilePage() {
         role="banner"
         className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
       >
-        <span className="text-xl font-bold tracking-tighter">
-          <span className="text-text">eco</span>
-          <span className="text-primary-light">Ride</span>
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="text-xl font-bold tracking-tighter">
+            <span className="text-text">eco</span>
+            <span className="text-primary-light">Ride</span>
+          </span>
+          <span className="text-xs text-text-dim">v{__APP_VERSION__}</span>
+        </div>
       </header>
 
       <div className="space-y-8 px-6 pb-6">
@@ -763,8 +766,6 @@ export function ProfilePage() {
               {deleteAccount.isPending ? "Suppression..." : "Supprimer mon compte"}
             </div>
           </button>
-
-          <p className="mt-4 text-center text-xs text-text-dim">v{__APP_VERSION__}</p>
         </section>
       </div>
     </>

@@ -65,6 +65,12 @@ test("map orientation toggles between POV and north-up and persists across reloa
   expect(stored).toBe("north");
 
   // Reload and verify persistence: start tracking again, orientation should still be north-up.
+  // Clear the tracking session keys so the reload lands on the idle screen — we only want to
+  // assert that the orientation preference survives a reload, not the mid-trip recovery flow.
+  await page.evaluate(() => {
+    localStorage.removeItem("ecoride-tracking-backup");
+    localStorage.removeItem("ecoride-stopped-session");
+  });
   await page.reload({ waitUntil: "networkidle" });
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });

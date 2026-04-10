@@ -18,72 +18,75 @@ import { useDashboardSummary, useProfile, useActiveAnnouncement } from "@/hooks/
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { getPendingTrips, getRejectedTrips } from "@/lib/offline-queue";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useT } from "@/i18n/provider";
+import type { TranslationKey } from "@/i18n/locales/fr";
 import appLogo from "/pwa-192x192.png?url";
 
 interface Milestone {
   value: number;
-  label: string;
+  labelKey: TranslationKey;
 }
 
 // --- Milestone data ---
 // Money: subjective price comparisons (approximate French prices 2024)
 const MONEY_MILESTONES: Milestone[] = [
-  { value: 5, label: "Un caf\u00e9 offert" },
-  { value: 15, label: "Une place de cin\u00e9" },
-  { value: 30, label: "Un resto" },
-  { value: 75, label: "Un plein d\u2019essence" },
-  { value: 150, label: "Une r\u00e9vision v\u00e9lo" },
-  { value: 300, label: "Un weekend en France" },
-  { value: 750, label: "Un v\u00e9lo d\u2019occasion" },
-  { value: 1500, label: "Un v\u00e9lo \u00e9lectrique" },
-  { value: 3000, label: "Des vacances au soleil" },
-  { value: 5000, label: "Un an de transports" },
-  { value: 10000, label: "Une voiture \u00e9conomis\u00e9e" },
+  { value: 5, labelKey: "dashboard.milestones.money.coffee" },
+  { value: 15, labelKey: "dashboard.milestones.money.cinema" },
+  { value: 30, labelKey: "dashboard.milestones.money.restaurant" },
+  { value: 75, labelKey: "dashboard.milestones.money.fuelTank" },
+  { value: 150, labelKey: "dashboard.milestones.money.bikeService" },
+  { value: 300, labelKey: "dashboard.milestones.money.weekendFrance" },
+  { value: 750, labelKey: "dashboard.milestones.money.usedBike" },
+  { value: 1500, labelKey: "dashboard.milestones.money.ebike" },
+  { value: 3000, labelKey: "dashboard.milestones.money.sunVacation" },
+  { value: 5000, labelKey: "dashboard.milestones.money.yearlyTransport" },
+  { value: 10000, labelKey: "dashboard.milestones.money.savedCar" },
 ];
 
 // KM: real distances (road: Google Maps, flight: great circle)
 const KM_MILESTONES: Milestone[] = [
-  { value: 10, label: "Premi\u00e8re sortie" },
-  { value: 100, label: "100 bornes" },
-  { value: 500, label: "Paris \u2192 Lyon" }, // 465 km route
-  { value: 1000, label: "Paris \u2192 Barcelone" }, // 1 040 km route
-  { value: 2500, label: "Paris \u2192 Istanbul" }, // 2 550 km
-  { value: 3500, label: "Un Tour de France" }, // ~3 500 km
-  { value: 6000, label: "Distance Paris \u2194 New York" }, // 5 850 km vol
-  { value: 10000, label: "Quart du tour de la Terre" }, // 40 075 / 4
-  { value: 40000, label: "Tour du monde" }, // 40 075 km
+  { value: 10, labelKey: "dashboard.milestones.km.firstRide" },
+  { value: 100, labelKey: "dashboard.milestones.km.hundred" },
+  { value: 500, labelKey: "dashboard.milestones.km.parisLyon" },
+  { value: 1000, labelKey: "dashboard.milestones.km.parisBarcelona" },
+  { value: 2500, labelKey: "dashboard.milestones.km.parisIstanbul" },
+  { value: 3500, labelKey: "dashboard.milestones.km.tourDeFrance" },
+  { value: 6000, labelKey: "dashboard.milestones.km.parisNewYork" },
+  { value: 10000, labelKey: "dashboard.milestones.km.quarterEarth" },
+  { value: 40000, labelKey: "dashboard.milestones.km.aroundWorld" },
 ];
 
 // CO2: car equivalents (ADEME: 7 L/100km × 2.31 kg/L = 0.162 kg/km)
 // Aviation: DGAC emission factors per passenger
 const CO2_MILESTONES: Milestone[] = [
-  { value: 5, label: "Trajet a\u00e9roport \u00e9vit\u00e9" }, // CDG 30 km = 4.9 kg
-  { value: 20, label: "Paris \u2192 Rouen en voiture" }, // 135 km = 21.9 kg
-  { value: 50, label: "Paris \u2192 Rennes en voiture" }, // 350 km = 56.7 kg
-  { value: 75, label: "Paris \u2192 Lyon en voiture" }, // 465 km = 75.3 kg
-  { value: 150, label: "Vol Paris \u2192 Gen\u00e8ve \u00e9vit\u00e9" }, // DGAC ~150 kg/pax
-  { value: 250, label: "Vol Paris \u2192 Rome \u00e9vit\u00e9" }, // DGAC ~250 kg/pax
-  { value: 500, label: "Vol Paris \u2192 Marrakech \u00e9vit\u00e9" }, // DGAC ~500 kg/pax
-  { value: 1000, label: "1 tonne de CO\u2082 !" },
-  { value: 1500, label: "Vol Paris \u2192 New York \u00e9vit\u00e9" }, // DGAC ~1 400 kg/pax
-  { value: 2500, label: "Vol Paris \u2192 Johannesburg \u00e9vit\u00e9" }, // DGAC ~2 400 kg/pax
-  { value: 5000, label: "Empreinte transport d\u2019un Fran\u00e7ais" }, // ~5t/an
-  { value: 10000, label: "10 tonnes \u00e9vit\u00e9es" },
+  { value: 5, labelKey: "dashboard.milestones.co2.airportTrip" },
+  { value: 20, labelKey: "dashboard.milestones.co2.parisRouen" },
+  { value: 50, labelKey: "dashboard.milestones.co2.parisRennes" },
+  { value: 75, labelKey: "dashboard.milestones.co2.parisLyonCar" },
+  { value: 150, labelKey: "dashboard.milestones.co2.flightGeneva" },
+  { value: 250, labelKey: "dashboard.milestones.co2.flightRome" },
+  { value: 500, labelKey: "dashboard.milestones.co2.flightMarrakech" },
+  { value: 1000, labelKey: "dashboard.milestones.co2.oneTonne" },
+  { value: 1500, labelKey: "dashboard.milestones.co2.flightNewYork" },
+  { value: 2500, labelKey: "dashboard.milestones.co2.flightJohannesburg" },
+  { value: 5000, labelKey: "dashboard.milestones.co2.frenchFootprint" },
+  { value: 10000, labelKey: "dashboard.milestones.co2.tenTonnes" },
 ];
 
 function getNextMilestone(current: number, milestones: Milestone[]) {
   const next = milestones.find((m) => m.value > current);
   if (!next) {
     const last = milestones[milestones.length - 1]!;
-    return { target: last.value, label: last.label, progress: 1 };
+    return { target: last.value, labelKey: last.labelKey, progress: 1 };
   }
   const prev = milestones.filter((m) => m.value <= current).pop();
   const base = prev?.value ?? 0;
   const progress = (current - base) / (next.value - base);
-  return { target: next.value, label: next.label, progress: Math.min(progress, 1) };
+  return { target: next.value, labelKey: next.labelKey, progress: Math.min(progress, 1) };
 }
 
 export function DashboardPage() {
+  const t = useT();
   const { data: today, isPending: todayPending } = useDashboardSummary("day");
   const { data: allTime, isPending: allTimePending } = useDashboardSummary("all");
   const { data: profileData } = useProfile();
@@ -160,7 +163,7 @@ export function DashboardPage() {
       <div
         className="flex flex-1 items-center justify-center"
         role="status"
-        aria-label="Chargement"
+        aria-label={t("dashboard.loadingAria")}
       >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
@@ -171,7 +174,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Accueil" titleHidden />
+      <PageHeader title={t("dashboard.header.title")} titleHidden />
 
       {/* Admin announcement banner (swipable) */}
       {showAnn && (
@@ -209,7 +212,7 @@ export function DashboardPage() {
             </div>
             <button
               onClick={dismissAnn}
-              aria-label="Fermer l'annonce"
+              aria-label={t("dashboard.announcement.dismissAria")}
               className="shrink-0 rounded p-1 text-text-muted hover:text-text"
             >
               <X size={14} />
@@ -220,7 +223,7 @@ export function DashboardPage() {
               to={announcement.url}
               className="mt-2 inline-block text-xs font-bold text-primary-light underline"
             >
-              En savoir plus
+              {t("dashboard.announcement.more")}
             </Link>
           )}
         </div>
@@ -231,8 +234,10 @@ export function DashboardPage() {
         <div className="mx-6 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3">
           <CloudOff size={18} className="shrink-0 text-primary-light" />
           <span className="flex-1 text-xs font-medium text-text">
-            {pendingTrips.length} trajet{pendingTrips.length > 1 ? "s" : ""} en attente de
-            synchronisation
+            {t(
+              pendingTrips.length > 1 ? "dashboard.sync.pendingMany" : "dashboard.sync.pendingOne",
+              { count: pendingTrips.length },
+            )}
           </span>
         </div>
       )}
@@ -240,12 +245,16 @@ export function DashboardPage() {
         <div className="mx-6 flex items-center gap-3 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
           <AlertTriangle size={18} className="shrink-0 text-warning" />
           <span className="flex-1 text-xs font-medium text-text">
-            {rejectedTrips.length} trajet{rejectedTrips.length > 1 ? "s" : ""} rejeté
-            {rejectedTrips.length > 1 ? "s" : ""} lors de la synchronisation
+            {t(
+              rejectedTrips.length > 1
+                ? "dashboard.sync.rejectedMany"
+                : "dashboard.sync.rejectedOne",
+              { count: rejectedTrips.length },
+            )}
           </span>
           <button
             onClick={dismissRejectedSync}
-            aria-label="Fermer l'avertissement de synchronisation"
+            aria-label={t("dashboard.sync.dismissRejectedAria")}
             className="shrink-0 rounded p-2 text-text-muted hover:text-text"
           >
             <X size={14} />
@@ -259,19 +268,17 @@ export function DashboardPage() {
           <img src={appLogo} alt="ecoRide" className="h-20 w-20 rounded-2xl" />
           <div className="flex flex-col items-center gap-2 text-center">
             <h2 className="text-2xl font-bold">
-              Bienvenue sur <span className="text-text">eco</span>
+              {t("dashboard.welcome.titleLead")} <span className="text-text">eco</span>
               <span className="text-primary-light">Ride</span> !
             </h2>
-            <p className="max-w-xs text-sm text-text-muted">
-              Enregistrez votre premier trajet vélo pour commencer à suivre vos économies CO₂.
-            </p>
+            <p className="max-w-xs text-sm text-text-muted">{t("dashboard.welcome.body")}</p>
           </div>
           <Link
             to="/trip"
             className="mt-2 flex items-center gap-3 rounded-xl bg-primary px-8 py-4 text-sm font-bold text-bg transition-colors hover:bg-primary-light active:scale-95"
           >
             <Bike size={20} />
-            Démarrer un trajet
+            {t("dashboard.cta.start")}
           </Link>
         </div>
       ) : (
@@ -287,8 +294,10 @@ export function DashboardPage() {
                 <Bike size={28} className="text-bg" />
               </div>
               <div>
-                <span className="block text-lg font-black text-bg">Démarrer un trajet</span>
-                <span className="block text-sm font-medium text-bg/70">GPS ou saisie manuelle</span>
+                <span className="block text-lg font-black text-bg">{t("dashboard.cta.start")}</span>
+                <span className="block text-sm font-medium text-bg/70">
+                  {t("dashboard.cta.subtitle")}
+                </span>
               </div>
             </div>
             <ChevronRight
@@ -304,11 +313,11 @@ export function DashboardPage() {
               <div className="flex items-center gap-3 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3">
                 <Car size={18} className="shrink-0 text-warning" />
                 <Link to="/profile" className="flex-1 text-xs font-medium text-text">
-                  Configurez votre véhicule de référence pour des calculs CO₂ plus précis
+                  {t("dashboard.vehiclePrompt.body")}
                 </Link>
                 <button
                   onClick={() => setVehiclePromptDismissed(true)}
-                  aria-label="Fermer"
+                  aria-label={t("dashboard.vehiclePrompt.dismissAria")}
                   className="shrink-0 rounded p-2 text-text-muted hover:text-text"
                 >
                   <X size={14} />
@@ -324,21 +333,21 @@ export function DashboardPage() {
             >
               <Bell size={18} className="shrink-0 text-primary-light" />
               <span className="flex-1 text-xs font-medium text-text">
-                Activez les notifications pour ne rien manquer
+                {t("dashboard.notifPrompt.body")}
               </span>
               <button
                 onClick={() => push.toggle()}
                 disabled={push.busy}
                 className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-bg"
               >
-                Activer
+                {t("dashboard.notifPrompt.enable")}
               </button>
               <button
                 onClick={() => {
                   localStorage.setItem("ecoride:notification-prompt-dismissed", "true");
                   setNotifPromptDismissed(true);
                 }}
-                aria-label="Fermer la suggestion de notifications"
+                aria-label={t("dashboard.notifPrompt.dismissAria")}
                 className="shrink-0 rounded p-1 text-text-muted hover:text-text"
               >
                 <X size={14} />
@@ -349,7 +358,7 @@ export function DashboardPage() {
           {/* Today's Summary */}
           <section className="rounded-xl bg-surface-container p-5">
             <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
-              Aujourd'hui
+              {t("dashboard.today.title")}
             </h3>
             {today.tripCount > 0 ? (
               <div className="grid grid-cols-3 gap-4 text-center">
@@ -359,7 +368,11 @@ export function DashboardPage() {
                     <span className="text-2xl font-black text-text">{today.tripCount}</span>
                   </div>
                   <span className="text-xs font-bold uppercase text-text-muted">
-                    {today.tripCount > 1 ? "trajets" : "trajet"}
+                    {t(
+                      today.tripCount > 1
+                        ? "dashboard.today.tripsMany"
+                        : "dashboard.today.tripsOne",
+                    )}
                   </span>
                 </div>
                 <div>
@@ -369,7 +382,9 @@ export function DashboardPage() {
                       {today.totalDistanceKm.toFixed(1)}
                     </span>
                   </div>
-                  <span className="text-xs font-bold uppercase text-text-muted">km</span>
+                  <span className="text-xs font-bold uppercase text-text-muted">
+                    {t("dashboard.today.kmUnit")}
+                  </span>
                 </div>
                 <div>
                   <div className="flex items-center justify-center gap-1">
@@ -378,13 +393,13 @@ export function DashboardPage() {
                       {today.totalCo2SavedKg.toFixed(1)}
                     </span>
                   </div>
-                  <span className="text-xs font-bold uppercase text-text-muted">kg CO₂</span>
+                  <span className="text-xs font-bold uppercase text-text-muted">
+                    {t("dashboard.today.co2Unit")}
+                  </span>
                 </div>
               </div>
             ) : (
-              <p className="text-center text-sm text-text-muted">
-                Pas encore de trajet aujourd'hui — c'est le moment !
-              </p>
+              <p className="text-center text-sm text-text-muted">{t("dashboard.today.empty")}</p>
             )}
           </section>
 
@@ -395,22 +410,27 @@ export function DashboardPage() {
             </span>
             <span className="text-sm font-bold text-text">
               {allTime.currentStreak > 0
-                ? `${allTime.currentStreak} jour${allTime.currentStreak > 1 ? "s" : ""} consécutif${allTime.currentStreak > 1 ? "s" : ""}`
-                : "Commencez votre série !"}
+                ? t(
+                    allTime.currentStreak > 1
+                      ? "dashboard.streak.activeMany"
+                      : "dashboard.streak.activeOne",
+                    { count: allTime.currentStreak },
+                  )
+                : t("dashboard.streak.start")}
             </span>
           </div>
 
           {/* Progressive Milestones */}
           <section className="space-y-3" data-testid="milestones">
             <h3 className="text-xs font-bold uppercase tracking-widest text-text-muted">
-              Prochains objectifs
+              {t("dashboard.milestones.title")}
             </h3>
             {milestones.map((m) => (
               <div key={m.key} className="rounded-xl bg-surface-container p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {m.icon}
-                    <span className="text-xs font-bold text-text-muted">{m.label}</span>
+                    <span className="text-xs font-bold text-text-muted">{t(m.labelKey)}</span>
                   </div>
                   <span className="text-xs font-bold text-primary-light">
                     {m.current < m.target

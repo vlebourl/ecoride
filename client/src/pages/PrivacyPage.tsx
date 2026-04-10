@@ -1,7 +1,9 @@
 import { Link } from "react-router";
 import { ArrowLeft, Shield } from "lucide-react";
+import { useT } from "@/i18n/provider";
 
 export function PrivacyPage() {
+  const t = useT();
   return (
     <div className="min-h-dvh bg-bg px-6 py-12">
       <div className="mx-auto max-w-lg">
@@ -11,7 +13,7 @@ export function PrivacyPage() {
           className="mb-8 inline-flex items-center gap-2 text-sm text-text-muted hover:text-text"
         >
           <ArrowLeft size={16} />
-          Retour
+          {t("privacy.back")}
         </Link>
 
         {/* Header */}
@@ -19,80 +21,79 @@ export function PrivacyPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15">
             <Shield size={24} className="text-primary-light" />
           </div>
-          <h1 className="text-2xl font-bold text-text">Politique de confidentialit&eacute;</h1>
+          <h1 className="text-2xl font-bold text-text">{t("privacy.header.title")}</h1>
         </div>
 
-        <p className="mb-6 text-sm text-text-muted">
-          Derni&egrave;re mise &agrave; jour : mars 2026
-        </p>
+        <p className="mb-6 text-sm text-text-muted">{t("privacy.updated")}</p>
 
         {/* Sections */}
         <section className="mb-6">
-          <h2 className="mb-2 text-lg font-semibold text-text">Donn&eacute;es collect&eacute;es</h2>
+          <h2 className="mb-2 text-lg font-semibold text-text">
+            {t("privacy.sections.collected.title")}
+          </h2>
           <ul className="list-inside list-disc space-y-1 text-sm text-text-muted">
-            <li>Email et nom (via Google OAuth ou inscription par email)</li>
-            <li>Traces GPS pendant les trajets enregistr&eacute;s</li>
-            <li>
-              Pr&eacute;f&eacute;rences de v&eacute;hicule (type de v&eacute;lo, v&eacute;hicule de
-              comparaison)
-            </li>
-          </ul>
-        </section>
-
-        <section className="mb-6">
-          <h2 className="mb-2 text-lg font-semibold text-text">H&eacute;bergement et partage</h2>
-          <ul className="list-inside list-disc space-y-1 text-sm text-text-muted">
-            <li>
-              Les donn&eacute;es sont stock&eacute;es sur un serveur auto-h&eacute;berg&eacute;
-            </li>
-            <li>Aucune donn&eacute;e n'est partag&eacute;e avec des tiers</li>
+            <li>{t("privacy.sections.collected.item1")}</li>
+            <li>{t("privacy.sections.collected.item2")}</li>
+            <li>{t("privacy.sections.collected.item3")}</li>
           </ul>
         </section>
 
         <section className="mb-6">
           <h2 className="mb-2 text-lg font-semibold text-text">
-            Utilisation des donn&eacute;es GPS
+            {t("privacy.sections.hosting.title")}
           </h2>
           <ul className="list-inside list-disc space-y-1 text-sm text-text-muted">
-            <li>Suivi de vos trajets v&eacute;lo (distance, dur&eacute;e, trac&eacute;)</li>
-            <li>G&eacute;olocalisation pour les prix de carburant</li>
-            <li>Les donn&eacute;es GPS ne sont utilis&eacute;es &agrave; aucune autre fin</li>
+            <li>{t("privacy.sections.hosting.item1")}</li>
+            <li>{t("privacy.sections.hosting.item2")}</li>
           </ul>
         </section>
 
         <section className="mb-6">
-          <h2 className="mb-2 text-lg font-semibold text-text">Vos droits</h2>
+          <h2 className="mb-2 text-lg font-semibold text-text">
+            {t("privacy.sections.gps.title")}
+          </h2>
           <ul className="list-inside list-disc space-y-1 text-sm text-text-muted">
-            <li>
-              Vous pouvez exporter vos donn&eacute;es &agrave; tout moment depuis votre profil
-            </li>
-            <li>
-              Vous pouvez supprimer votre compte et toutes vos donn&eacute;es depuis votre profil
-            </li>
+            <li>{t("privacy.sections.gps.item1")}</li>
+            <li>{t("privacy.sections.gps.item2")}</li>
+            <li>{t("privacy.sections.gps.item3")}</li>
           </ul>
         </section>
 
         <section className="mb-6">
-          <h2 className="mb-2 text-lg font-semibold text-text">Cookies</h2>
+          <h2 className="mb-2 text-lg font-semibold text-text">
+            {t("privacy.sections.rights.title")}
+          </h2>
           <ul className="list-inside list-disc space-y-1 text-sm text-text-muted">
-            <li>Cookies de session uniquement (Better Auth)</li>
-            <li>Aucun cookie d'analyse ou de publicit&eacute;</li>
+            <li>{t("privacy.sections.rights.item1")}</li>
+            <li>{t("privacy.sections.rights.item2")}</li>
+          </ul>
+        </section>
+
+        <section className="mb-6">
+          <h2 className="mb-2 text-lg font-semibold text-text">
+            {t("privacy.sections.cookies.title")}
+          </h2>
+          <ul className="list-inside list-disc space-y-1 text-sm text-text-muted">
+            <li>{t("privacy.sections.cookies.item1")}</li>
+            <li>{t("privacy.sections.cookies.item2")}</li>
           </ul>
         </section>
 
         <section className="mb-8">
-          <h2 className="mb-2 text-lg font-semibold text-text">Contact</h2>
+          <h2 className="mb-2 text-lg font-semibold text-text">
+            {t("privacy.sections.contact.title")}
+          </h2>
           <p className="text-sm text-text-muted">
-            Pour toute question, ouvrez une{" "}
+            {t("privacy.sections.contact.bodyBefore")}
             <a
               href="https://github.com/vlebourl/ecoride/issues"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary underline"
             >
-              issue sur GitHub
+              {t("privacy.sections.contact.linkLabel")}
             </a>
-            .
+            {t("privacy.sections.contact.bodyAfter")}
           </p>
         </section>
       </div>

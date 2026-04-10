@@ -5,8 +5,10 @@ import {
   useCreateAnnouncement,
   useDeleteAnnouncement,
 } from "@/hooks/queries";
+import { useT } from "@/i18n/provider";
 
 export function AnnouncementSection() {
+  const t = useT();
   const { data: list, isPending } = useAdminAnnouncements();
   const createAnn = useCreateAnnouncement();
   const deleteAnn = useDeleteAnnouncement();
@@ -20,7 +22,7 @@ export function AnnouncementSection() {
       <div className="flex items-center gap-2">
         <Megaphone size={18} className="text-primary-light" />
         <h3 className="text-sm font-bold uppercase tracking-widest text-text-dim">
-          Annonces in-app
+          {t("admin.announcements.title")}
         </h3>
       </div>
 
@@ -46,7 +48,7 @@ export function AnnouncementSection() {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Titre de l'annonce"
+          placeholder={t("admin.announcements.titlePlaceholder")}
           required
           maxLength={100}
           className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -54,7 +56,7 @@ export function AnnouncementSection() {
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Message..."
+          placeholder={t("admin.announcements.bodyPlaceholder")}
           required
           maxLength={500}
           rows={2}
@@ -64,7 +66,7 @@ export function AnnouncementSection() {
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Lien (optionnel, ex: /profile)"
+          placeholder={t("admin.announcements.urlPlaceholder")}
           className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <button
@@ -75,12 +77,12 @@ export function AnnouncementSection() {
           {created ? (
             <>
               <Check size={16} />
-              {"Publiée !"}
+              {t("admin.announcements.published")}
             </>
           ) : (
             <>
               <Megaphone size={16} />
-              {"Publier l'annonce"}
+              {t("admin.announcements.publish")}
             </>
           )}
         </button>
@@ -98,7 +100,7 @@ export function AnnouncementSection() {
                   <p className="text-sm font-bold text-text">{a.title}</p>
                   {a.active && (
                     <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary-light">
-                      ACTIVE
+                      {t("admin.announcements.active")}
                     </span>
                   )}
                 </div>

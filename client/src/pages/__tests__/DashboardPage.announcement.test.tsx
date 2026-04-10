@@ -2,6 +2,14 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { DashboardPage } from "../DashboardPage";
+import { I18nProvider } from "@/i18n/provider";
+
+const renderDashboard = () =>
+  render(
+    <I18nProvider>
+      <DashboardPage />
+    </I18nProvider>,
+  );
 
 const activeAnnouncement = {
   id: "announcement-new",
@@ -84,6 +92,7 @@ describe("DashboardPage announcement banner", () => {
       value: localStorageMock,
       configurable: true,
     });
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
     useActiveAnnouncementMock.mockReset();
     getPendingTripsMock.mockReset();
     getPendingTripsMock.mockReturnValue([]);
@@ -100,7 +109,7 @@ describe("DashboardPage announcement banner", () => {
     localStorage.setItem("ecoride:ann-dismissed", "announcement-old");
     useActiveAnnouncementMock.mockReturnValue({ data: activeAnnouncement });
 
-    render(<DashboardPage />);
+    renderDashboard();
 
     expect(screen.getByTestId("announcement-banner")).toBeTruthy();
     expect(screen.getByText("Maintenance ce soir")).toBeTruthy();
@@ -109,7 +118,7 @@ describe("DashboardPage announcement banner", () => {
   it("stores the current announcement id when dismissed", () => {
     useActiveAnnouncementMock.mockReturnValue({ data: activeAnnouncement });
 
-    render(<DashboardPage />);
+    renderDashboard();
 
     fireEvent.click(screen.getByRole("button", { name: "Fermer l'annonce" }));
 
@@ -140,7 +149,7 @@ describe("DashboardPage announcement banner", () => {
       },
     ]);
 
-    render(<DashboardPage />);
+    renderDashboard();
 
     expect(screen.getByText(/1 trajet en attente de synchronisation/i)).toBeTruthy();
     expect(screen.getByText(/1 trajet rejeté lors de la synchronisation/i)).toBeTruthy();
@@ -162,13 +171,21 @@ describe("DashboardPage announcement banner", () => {
       },
     ]);
 
-    const { rerender } = render(<DashboardPage />);
+    const { rerender } = render(
+      <I18nProvider>
+        <DashboardPage />
+      </I18nProvider>,
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Fermer l'avertissement de synchronisation" }),
     );
     expect(screen.queryByText(/trajet rejeté lors de la synchronisation/i)).toBeNull();
 
-    rerender(<DashboardPage />);
+    rerender(
+      <I18nProvider>
+        <DashboardPage />
+      </I18nProvider>,
+    );
     expect(screen.queryByText(/trajet rejeté lors de la synchronisation/i)).toBeNull();
 
     getRejectedTripsMock.mockReturnValue([
@@ -185,7 +202,11 @@ describe("DashboardPage announcement banner", () => {
       },
     ]);
 
-    rerender(<DashboardPage />);
+    rerender(
+      <I18nProvider>
+        <DashboardPage />
+      </I18nProvider>,
+    );
     expect(screen.getByText(/trajet rejeté lors de la synchronisation/i)).toBeTruthy();
   });
 });

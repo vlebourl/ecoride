@@ -1,5 +1,6 @@
 import { CloudOff } from "lucide-react";
 import type { TripPreset } from "@ecoride/shared/types";
+import { useT } from "@/i18n/provider";
 
 export interface ManualEntryFormProps {
   manualKm: string;
@@ -30,6 +31,7 @@ export function ManualEntryForm({
   isSaving,
   saveError,
 }: ManualEntryFormProps) {
+  const t = useT();
   return (
     <div className="min-h-0 overflow-y-auto px-6 pb-4">
       <form
@@ -45,16 +47,13 @@ export function ManualEntryForm({
           }
         }}
       >
-        <h2 className="mb-4 text-lg font-bold">Saisie manuelle</h2>
-        <p className="mb-4 text-sm text-text-muted">
-          Choisissez un trajet pré-enregistré ou l'option personnalisée, puis ajustez les champs si
-          besoin avant d'enregistrer.
-        </p>
+        <h2 className="mb-4 text-lg font-bold">{t("trip.manual.title")}</h2>
+        <p className="mb-4 text-sm text-text-muted">{t("trip.manual.subtitle")}</p>
         <label
           htmlFor="manual-preset-select"
           className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted"
         >
-          Trajet pré-enregistré
+          {t("trip.manual.presetLabel")}
         </label>
         <select
           id="manual-preset-select"
@@ -62,7 +61,7 @@ export function ManualEntryForm({
           onChange={(e) => onPresetChange(e.target.value)}
           className="mb-4 w-full rounded-lg bg-surface-high p-4 text-base font-bold text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
-          <option value="custom">Personnalisé</option>
+          <option value="custom">{t("trip.manual.custom")}</option>
           {tripPresets.map((tripPreset) => (
             <option key={tripPreset.id} value={tripPreset.id}>
               {tripPreset.label}
@@ -73,7 +72,7 @@ export function ManualEntryForm({
           htmlFor="manual-distance-input"
           className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted"
         >
-          Distance (km)
+          {t("trip.manual.distanceLabel")}
         </label>
         <input
           id="manual-distance-input"
@@ -90,7 +89,7 @@ export function ManualEntryForm({
           htmlFor="manual-duration-input"
           className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted"
         >
-          Durée (minutes)
+          {t("trip.manual.durationLabel")}
         </label>
         <input
           id="manual-duration-input"
@@ -100,7 +99,7 @@ export function ManualEntryForm({
             setManualPresetId("custom");
             setManualMinutes(e.target.value);
           }}
-          placeholder="Optionnel"
+          placeholder={t("trip.manual.durationPlaceholder")}
           className="mb-4 w-full rounded-lg bg-surface-high p-4 text-2xl font-bold text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <div className="flex gap-3">
@@ -109,14 +108,14 @@ export function ManualEntryForm({
             onClick={onCancel}
             className="flex-1 rounded-xl bg-surface-high py-4 text-sm font-bold text-text-muted active:scale-95"
           >
-            Annuler
+            {t("trip.manual.cancel")}
           </button>
           <button
             type="submit"
             disabled={isSaving || !manualKm || parseFloat(manualKm) <= 0}
             className="flex-1 rounded-xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-bg active:scale-95 disabled:opacity-50"
           >
-            {isSaving ? "..." : "Enregistrer"}
+            {isSaving ? "..." : t("trip.manual.save")}
           </button>
         </div>
         {saveError && (

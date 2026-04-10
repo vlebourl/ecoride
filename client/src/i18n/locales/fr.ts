@@ -23,6 +23,116 @@ export const fr = {
   "settings.language.label": "Choisir la langue",
   "settings.language.fr": "Français",
   "settings.language.en": "English",
+
+  "trip.header.title": "Trajet",
+  "trip.start.label": "Démarrer",
+  "trip.start.saving": "Enregistrement...",
+  "trip.manualButton": "Saisie manuelle",
+  "trip.confirm.save": "Enregistrer ce trajet ?",
+  "trip.confirm.abandon": "Abandonner ce trajet ? Les données seront perdues.",
+  "trip.offline.savedLocally": "Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement.",
+
+  "trip.dashboard.pausedAria": "Trajet en pause",
+  "trip.dashboard.pausedLabel": "PAUSÉ",
+  "trip.dashboard.pausedUnit": "en pause",
+  "trip.dashboard.speedUnit": "km/h",
+  "trip.dashboard.km": "km",
+  "trip.dashboard.co2Unit": "kg CO₂",
+  "trip.dashboard.time": "temps",
+
+  "trip.controls.interrupt": "Interrompre",
+  "trip.controls.interrupted": "Interrompu",
+  "trip.controls.interruptAria": "Interrompre le trajet",
+  "trip.controls.openInterruptMenuAria": "Ouvrir le menu d'interruption",
+
+  "trip.interrupt.dialogAria": "Menu d'interruption du trajet",
+  "trip.interrupt.title": "Trajet interrompu",
+  "trip.interrupt.subtitle": "Reprendre, terminer ou abandonner ce trajet.",
+  "trip.interrupt.closeAria": "Fermer le menu d'interruption",
+  "trip.interrupt.resume": "Reprendre",
+  "trip.interrupt.finish": "Terminer",
+  "trip.interrupt.abandon": "Abandonner",
+  "trip.interrupt.tooShort": "Distance trop courte pour enregistrer",
+
+  "trip.stopped.title": "Trajet terminé",
+  "trip.stopped.abandon": "Abandonner",
+  "trip.stopped.save": "Enregistrer",
+  "trip.stopped.tooShortTitle": "Distance trop courte pour enregistrer",
+  "trip.stopped.tooShortMsg": "Trajet trop court pour être enregistré. Utilisez Abandonner.",
+  "trip.stopped.durationLabel": "durée",
+  "trip.stopped.sessionPersistFailed":
+    "Session non sauvegardée localement (stockage insuffisant). Enregistrez le trajet avant de fermer cet onglet.",
+
+  "trip.recovery.message": "Un trajet en cours a été interrompu. {{distance}} km — {{duration}}",
+  "trip.recovery.resume": "Reprendre",
+  "trip.recovery.dismissAria": "Fermer",
+
+  "trip.manual.title": "Saisie manuelle",
+  "trip.manual.subtitle":
+    "Choisissez un trajet pré-enregistré ou l'option personnalisée, puis ajustez les champs si besoin avant d'enregistrer.",
+  "trip.manual.presetLabel": "Trajet pré-enregistré",
+  "trip.manual.custom": "Personnalisé",
+  "trip.manual.distanceLabel": "Distance (km)",
+  "trip.manual.durationLabel": "Durée (minutes)",
+  "trip.manual.durationPlaceholder": "Optionnel",
+  "trip.manual.cancel": "Annuler",
+  "trip.manual.save": "Enregistrer",
+
+  "trip.gps.denied": "GPS refusé",
+  "trip.gps.unavailable": "GPS indisponible",
+  "trip.gps.waiting": "GPS...",
+  "trip.gps.precise": "Précis",
+  "trip.gps.medium": "Moyen",
+  "trip.gps.low": "Faible",
+
+  "trip.map.orientationNorth": "Passer en mode nord en haut",
+  "trip.map.orientationPov": "Passer en mode suivi du cap",
+
+  "vehicle.header.title": "Mon vélo",
+  "vehicle.header.back": "Retour au profil",
+  "vehicle.bleUnsupported.title": "Bluetooth non supporté par ce navigateur.",
+  "vehicle.bleUnsupported.body": "Sur iOS, utilisez Bluefy. Sur desktop, utilisez Chrome.",
+  "vehicle.connection.title": "Connexion & Mode",
+
+  "vehicle.autoMode.title": "Mode auto en trajet",
+  "vehicle.autoMode.subtitle":
+    "Passe en Off-Road à basse vitesse et en EPAC à vitesse plus élevée pendant un trajet.",
+  "vehicle.autoMode.savedBadge": "Sauvé",
+  "vehicle.autoMode.toggleLabel": "Mode auto selon la vitesse",
+  "vehicle.autoMode.toggleHint":
+    "Hystérésis actuelle: Off-Road à 10 km/h ou moins, EPAC à 17 km/h ou plus.",
+  "vehicle.autoMode.disableAria": "Désactiver le mode auto",
+  "vehicle.autoMode.enableAria": "Activer le mode auto",
+  "vehicle.autoMode.saving": "Sauvegarde...",
+  "vehicle.autoMode.save": "Enregistrer le mode auto",
+
+  "vehicle.defaults.title": "Réglages par défaut",
+  "vehicle.defaults.subtitle": "Appliqués automatiquement à la connexion.",
+  "vehicle.defaults.mode": "Mode",
+  "vehicle.defaults.assist": "Assistance",
+  "vehicle.defaults.lights": "Lumières",
+  "vehicle.defaults.lightsHint": "Auto à la connexion",
+  "vehicle.defaults.lightsDisableAria": "Désactiver les lumières par défaut",
+  "vehicle.defaults.lightsEnableAria": "Activer les lumières par défaut",
+  "vehicle.defaults.thresholdsTitle": "Seuils mode auto",
+  "vehicle.defaults.thresholdsHint": "Bascule de mode selon la vitesse",
+  "vehicle.defaults.thresholdsExplain":
+    "Off-Road si vitesse ≤ seuil bas, EPAC si vitesse ≥ seuil haut.",
+  "vehicle.defaults.invalidThresholds":
+    "Le seuil Off-Road doit être strictement inférieur au seuil EPAC.",
+  "vehicle.defaults.save": "Enregistrer les réglages",
+
+  "vehicle.assist.title": "Niveau d'assistance",
+  "vehicle.lights.title": "Lumières",
+  "vehicle.lights.on": "Allumées",
+  "vehicle.lights.off": "Éteintes",
+
+  "vehicle.info.title": "Informations",
+  "vehicle.info.region": "Région",
+  "vehicle.info.regionEu": "Europe (EPAC)",
+  "vehicle.info.regionUs": "USA",
+  "vehicle.info.currentMode": "Mode actuel",
+  "vehicle.info.assist": "Assistance",
 } as const;
 
 export type TranslationKey = keyof typeof fr;

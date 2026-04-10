@@ -1,6 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { InterruptMenu } from "../InterruptMenu";
+import { I18nProvider } from "@/i18n/provider";
+
+const renderWithI18n = (ui: React.ReactElement) => render(<I18nProvider>{ui}</I18nProvider>);
+
+beforeEach(() => {
+  vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
+});
 
 describe("InterruptMenu", () => {
   const baseProps = {
@@ -11,13 +18,13 @@ describe("InterruptMenu", () => {
   };
 
   it("disables Terminer when canStop is false", () => {
-    render(<InterruptMenu {...baseProps} canStop={false} />);
+    renderWithI18n(<InterruptMenu {...baseProps} canStop={false} />);
     const btn = screen.getByRole("button", { name: "Terminer" }) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
   it("enables Terminer when canStop is true", () => {
-    render(<InterruptMenu {...baseProps} canStop={true} />);
+    renderWithI18n(<InterruptMenu {...baseProps} canStop={true} />);
     const btn = screen.getByRole("button", { name: "Terminer" }) as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
   });

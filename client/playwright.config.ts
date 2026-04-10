@@ -8,6 +8,9 @@ export default defineConfig({
     baseURL: "http://localhost:4173",
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
+    // Force French so e2e assertions on FR strings keep working regardless
+    // of the Chromium default locale. English coverage lives in vitest.
+    locale: "fr-FR",
   },
   webServer: {
     command: "bun run preview --port 4173",

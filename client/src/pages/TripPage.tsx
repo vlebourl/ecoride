@@ -26,6 +26,7 @@ import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapOrientation } from "@/hooks/useMapOrientation";
 import { MapOrientationButton } from "@/components/trip/MapOrientationButton";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useT } from "@/i18n/provider";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -34,6 +35,7 @@ const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
 const TRACKING_CAMERA_PADDING = { top: 200, bottom: 0, left: 0, right: 0 };
 
 export function TripPage() {
+  const t = useT();
   const [uiState, setUiState] = useState<TripState>("idle");
   const [saveError, setSaveError] = useState("");
   const [initialPos, setInitialPos] = useState<[number, number]>(DEFAULT_CENTER);
@@ -170,7 +172,7 @@ export function TripPage() {
         },
         onError: () => {
           queueTrip(tripData);
-          setSaveError("Trajet sauvegard\u00e9 hors-ligne. Il sera envoy\u00e9 automatiquement.");
+          setSaveError(t("trip.offline.savedLocally"));
           setTimeout(() => {
             recovery.setPendingBackup(null);
             setUiState("idle");
@@ -183,7 +185,7 @@ export function TripPage() {
         },
       });
     },
-    [createTrip, gps, recovery, manual],
+    [createTrip, gps, recovery, manual, t],
   );
 
   const startTracking = useCallback(() => {
@@ -243,7 +245,7 @@ export function TripPage() {
       data-testid="trip-page-root"
     >
       <PageHeader
-        title="Trajet"
+        title={t("trip.header.title")}
         titleHidden
         right={
           <GpsStatusBadge
@@ -453,7 +455,7 @@ export function TripPage() {
           elapsed={elapsed}
           formatTime={formatTime}
           onAbandon={() => {
-            if (window.confirm("Abandonner ce trajet ? Les donn\u00e9es seront perdues.")) {
+            if (window.confirm(t("trip.confirm.abandon"))) {
               recovery.setPendingBackup(null);
               clearStoppedSession();
               setUiState("idle");
@@ -462,7 +464,7 @@ export function TripPage() {
             }
           }}
           onSave={() => {
-            if (window.confirm("Enregistrer ce trajet ?")) {
+            if (window.confirm(t("trip.confirm.save"))) {
               handleSaveTrip(distance, elapsed, recovery.sessionRef.current);
             }
           }}
@@ -504,7 +506,7 @@ export function TripPage() {
           >
             <Play size={28} className="text-bg" fill="currentColor" />
             <span className="text-xl font-black uppercase tracking-widest text-bg">
-              {createTrip.isPending ? "Enregistrement..." : "D\u00e9marrer"}
+              {createTrip.isPending ? t("trip.start.saving") : t("trip.start.label")}
             </span>
           </button>
           <button
@@ -515,7 +517,7 @@ export function TripPage() {
             className="flex w-full items-center justify-center gap-3 rounded-xl bg-surface-container py-4 active:scale-95"
           >
             <Keyboard size={18} className="text-text-muted" />
-            <span className="text-sm font-bold text-text-muted">Saisie manuelle</span>
+            <span className="text-sm font-bold text-text-muted">{t("trip.manualButton")}</span>
           </button>
         </div>
       )}

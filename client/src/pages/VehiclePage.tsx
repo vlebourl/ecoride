@@ -6,12 +6,14 @@ import { useSuper73 } from "@/hooks/useSuper73";
 import { isBleSupported } from "@/lib/super73-ble";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useT } from "@/i18n/provider";
 import type { Super73Mode } from "@ecoride/shared/types";
 
 const ASSIST_LEVELS = [0, 1, 2, 3, 4] as const;
 const SUPER73_DEFAULT_MODES: Super73Mode[] = ["eco", "tour", "sport", "race"];
 
 export function VehiclePage() {
+  const t = useT();
   const navigate = useNavigate();
   const { data: profileData, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
@@ -96,23 +98,22 @@ export function VehiclePage() {
 
   return (
     <>
-      <PageHeader title="Mon vélo" back={{ to: "/profile", label: "Retour au profil" }} />
+      <PageHeader
+        title={t("vehicle.header.title")}
+        back={{ to: "/profile", label: t("vehicle.header.back") }}
+      />
       <div className="flex flex-col gap-6 px-6 pb-6">
         {!bleSupported && (
           <div className="rounded-xl bg-warning/10 px-4 py-3">
-            <p className="text-sm font-medium text-warning">
-              Bluetooth non supporté par ce navigateur.
-            </p>
-            <p className="mt-1 text-xs text-text-muted">
-              Sur iOS, utilisez Bluefy. Sur desktop, utilisez Chrome.
-            </p>
+            <p className="text-sm font-medium text-warning">{t("vehicle.bleUnsupported.title")}</p>
+            <p className="mt-1 text-xs text-text-muted">{t("vehicle.bleUnsupported.body")}</p>
           </div>
         )}
 
         {/* Connection + Mode selector */}
         <section className="rounded-2xl bg-surface-container p-4">
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-text-muted">
-            Connexion & Mode
+            {t("vehicle.connection.title")}
           </h2>
           <Super73ModeButton enabled={enabled} />
         </section>
@@ -121,17 +122,14 @@ export function VehiclePage() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider text-text-muted">
-                Mode auto en trajet
+                {t("vehicle.autoMode.title")}
               </h2>
-              <p className="mt-1 text-xs text-text-dim">
-                Passe en Off-Road à basse vitesse et en EPAC à vitesse plus élevée pendant un
-                trajet.
-              </p>
+              <p className="mt-1 text-xs text-text-dim">{t("vehicle.autoMode.subtitle")}</p>
             </div>
             {saveSuccess && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary-light">
                 <Check size={12} />
-                Sauvé
+                {t("vehicle.autoMode.savedBadge")}
               </span>
             )}
           </div>
@@ -140,10 +138,10 @@ export function VehiclePage() {
             <label className="flex items-center justify-between gap-4 rounded-2xl bg-surface-high px-4 py-3">
               <div>
                 <span className="block text-sm font-semibold text-text">
-                  Mode auto selon la vitesse
+                  {t("vehicle.autoMode.toggleLabel")}
                 </span>
                 <span className="block text-xs text-text-dim">
-                  Hystérésis actuelle: Off-Road à 10 km/h ou moins, EPAC à 17 km/h ou plus.
+                  {t("vehicle.autoMode.toggleHint")}
                 </span>
               </div>
               <button
@@ -152,7 +150,11 @@ export function VehiclePage() {
                 className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
                   autoModeEnabled ? "bg-primary" : "bg-surface"
                 }`}
-                aria-label={autoModeEnabled ? "Désactiver le mode auto" : "Activer le mode auto"}
+                aria-label={
+                  autoModeEnabled
+                    ? t("vehicle.autoMode.disableAria")
+                    : t("vehicle.autoMode.enableAria")
+                }
               >
                 <span
                   className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
@@ -168,7 +170,7 @@ export function VehiclePage() {
               disabled={updateProfile.isPending}
               className="w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
             >
-              {updateProfile.isPending ? "Sauvegarde..." : "Enregistrer le mode auto"}
+              {updateProfile.isPending ? t("vehicle.autoMode.saving") : t("vehicle.autoMode.save")}
             </button>
           </div>
         </section>
@@ -178,16 +180,14 @@ export function VehiclePage() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider text-text-muted">
-                Réglages par défaut
+                {t("vehicle.defaults.title")}
               </h2>
-              <p className="mt-1 text-xs text-text-dim">
-                Appliqués automatiquement à la connexion.
-              </p>
+              <p className="mt-1 text-xs text-text-dim">{t("vehicle.defaults.subtitle")}</p>
             </div>
             {defaultsSaved && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary-light">
                 <Check size={12} />
-                Sauvé
+                {t("vehicle.autoMode.savedBadge")}
               </span>
             )}
           </div>
@@ -196,7 +196,7 @@ export function VehiclePage() {
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
-                  Mode
+                  {t("vehicle.defaults.mode")}
                 </span>
                 <select
                   value={defaultMode}
@@ -213,7 +213,7 @@ export function VehiclePage() {
 
               <label className="block">
                 <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
-                  Assistance
+                  {t("vehicle.defaults.assist")}
                 </span>
                 <select
                   value={defaultAssist}
@@ -233,8 +233,12 @@ export function VehiclePage() {
 
             <label className="flex items-center justify-between gap-3 rounded-lg bg-surface-high px-3 py-2.5">
               <div className="min-w-0">
-                <span className="block text-sm font-medium text-text">Lumières</span>
-                <span className="block text-xs text-text-dim">Auto à la connexion</span>
+                <span className="block text-sm font-medium text-text">
+                  {t("vehicle.defaults.lights")}
+                </span>
+                <span className="block text-xs text-text-dim">
+                  {t("vehicle.defaults.lightsHint")}
+                </span>
               </div>
               <button
                 type="button"
@@ -244,8 +248,8 @@ export function VehiclePage() {
                 }`}
                 aria-label={
                   defaultLight
-                    ? "Désactiver les lumières par défaut"
-                    : "Activer les lumières par défaut"
+                    ? t("vehicle.defaults.lightsDisableAria")
+                    : t("vehicle.defaults.lightsEnableAria")
                 }
               >
                 <span
@@ -258,8 +262,10 @@ export function VehiclePage() {
 
             <div className="rounded-lg bg-surface-high p-3">
               <div>
-                <p className="text-sm font-medium text-text">Seuils mode auto</p>
-                <p className="text-xs text-text-dim">Bascule de mode selon la vitesse</p>
+                <p className="text-sm font-medium text-text">
+                  {t("vehicle.defaults.thresholdsTitle")}
+                </p>
+                <p className="text-xs text-text-dim">{t("vehicle.defaults.thresholdsHint")}</p>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-3">
                 <label className="block">
@@ -292,14 +298,12 @@ export function VehiclePage() {
                 </label>
               </div>
               <p className="mt-2 text-xs text-text-dim">
-                Off-Road si vitesse ≤ seuil bas, EPAC si vitesse ≥ seuil haut.
+                {t("vehicle.defaults.thresholdsExplain")}
               </p>
             </div>
 
             {invalidThresholds && (
-              <p className="text-xs text-danger">
-                Le seuil Off-Road doit être strictement inférieur au seuil EPAC.
-              </p>
+              <p className="text-xs text-danger">{t("vehicle.defaults.invalidThresholds")}</p>
             )}
 
             <button
@@ -308,7 +312,7 @@ export function VehiclePage() {
               disabled={updateProfile.isPending || invalidThresholds}
               className="w-full rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
             >
-              {updateProfile.isPending ? "Sauvegarde..." : "Enregistrer les réglages"}
+              {updateProfile.isPending ? t("vehicle.autoMode.saving") : t("vehicle.defaults.save")}
             </button>
           </div>
         </section>
@@ -318,7 +322,7 @@ export function VehiclePage() {
           <>
             <section className="rounded-2xl bg-surface-container p-4">
               <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-text-muted">
-                Niveau d'assistance
+                {t("vehicle.assist.title")}
               </h2>
               <div className="flex gap-2">
                 {ASSIST_LEVELS.map((level) => (
@@ -340,7 +344,7 @@ export function VehiclePage() {
             {/* Lights */}
             <section className="rounded-2xl bg-surface-container p-4">
               <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-text-muted">
-                Lumières
+                {t("vehicle.lights.title")}
               </h2>
               <button
                 onClick={() => ble.setLight(!ble.bikeState?.light)}
@@ -351,7 +355,7 @@ export function VehiclePage() {
                 }`}
               >
                 <span className="text-base font-bold">
-                  {ble.bikeState?.light ? "Allumées" : "Éteintes"}
+                  {ble.bikeState?.light ? t("vehicle.lights.on") : t("vehicle.lights.off")}
                 </span>
                 {ble.bikeState?.light ? <Sun size={24} /> : <SunDim size={24} />}
               </button>
@@ -360,23 +364,25 @@ export function VehiclePage() {
             {/* Info */}
             <section className="rounded-2xl bg-surface-container p-4">
               <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-text-muted">
-                Informations
+                {t("vehicle.info.title")}
               </h2>
               <div className="space-y-2 text-sm text-text-muted">
                 <div className="flex justify-between">
-                  <span>Région</span>
+                  <span>{t("vehicle.info.region")}</span>
                   <span className="font-medium text-text">
-                    {ble.bikeState?.region === "eu" ? "Europe (EPAC)" : "USA"}
+                    {ble.bikeState?.region === "eu"
+                      ? t("vehicle.info.regionEu")
+                      : t("vehicle.info.regionUs")}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Mode actuel</span>
+                  <span>{t("vehicle.info.currentMode")}</span>
                   <span className="font-medium text-text">
                     {ble.bikeState?.mode === "race" ? "Off-Road" : ble.bikeState?.mode}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Assistance</span>
+                  <span>{t("vehicle.info.assist")}</span>
                   <span className="font-medium text-text">{ble.bikeState?.assist}/4</span>
                 </div>
               </div>

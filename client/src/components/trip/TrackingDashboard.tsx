@@ -1,3 +1,5 @@
+import { useT } from "@/i18n/provider";
+
 export interface TrackingDashboardProps {
   isPaused: boolean;
   speedKmh: number | null;
@@ -15,6 +17,7 @@ export function TrackingDashboard({
   elapsed,
   formatTime,
 }: TrackingDashboardProps) {
+  const t = useT();
   return (
     <>
       {/* Speed — hero central */}
@@ -22,9 +25,9 @@ export function TrackingDashboard({
         {isPaused ? (
           <span
             className="text-5xl font-black tracking-tighter text-warning"
-            aria-label="Trajet en pause"
+            aria-label={t("trip.dashboard.pausedAria")}
           >
-            PAUSÉ
+            {t("trip.dashboard.pausedLabel")}
           </span>
         ) : (
           <span className="text-7xl font-black tracking-tighter text-text">
@@ -32,7 +35,7 @@ export function TrackingDashboard({
           </span>
         )}
         <span className="text-sm font-bold uppercase tracking-widest text-text-dim">
-          {isPaused ? "en pause" : "km/h"}
+          {isPaused ? t("trip.dashboard.pausedUnit") : t("trip.dashboard.speedUnit")}
         </span>
       </div>
 
@@ -42,19 +45,25 @@ export function TrackingDashboard({
           <span className="block text-2xl font-extrabold tracking-tighter text-text">
             {distance.toFixed(1)}
           </span>
-          <span className="text-xs font-bold uppercase text-text-dim">km</span>
+          <span className="text-xs font-bold uppercase text-text-dim">
+            {t("trip.dashboard.km")}
+          </span>
         </div>
         <div className="rounded-xl bg-surface-low/80 p-3 text-center backdrop-blur-2xl">
           <span className="block text-2xl font-extrabold tracking-tighter text-primary-light">
             {co2Saved.toFixed(1)}
           </span>
-          <span className="text-xs font-bold uppercase text-text-dim">kg CO₂</span>
+          <span className="text-xs font-bold uppercase text-text-dim">
+            {t("trip.dashboard.co2Unit")}
+          </span>
         </div>
         <div className="rounded-xl bg-surface-low/80 p-3 text-center backdrop-blur-2xl">
           <span className="block text-2xl font-extrabold tracking-tighter text-text">
             {formatTime(elapsed)}
           </span>
-          <span className="text-xs font-bold uppercase text-text-dim">temps</span>
+          <span className="text-xs font-bold uppercase text-text-dim">
+            {t("trip.dashboard.time")}
+          </span>
         </div>
       </div>
     </>

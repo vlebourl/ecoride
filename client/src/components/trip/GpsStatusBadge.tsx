@@ -1,3 +1,5 @@
+import { useT } from "@/i18n/provider";
+
 export interface GpsStatusBadgeProps {
   uiState: string;
   gpsAccuracy: number | null;
@@ -13,6 +15,7 @@ export function GpsStatusBadge({
   isTracking,
   gpsStatus,
 }: GpsStatusBadgeProps) {
+  const t = useT();
   const accuracy = uiState === "tracking" ? gpsAccuracy : idleAccuracy;
   const isActive = uiState === "tracking" ? isTracking : gpsStatus === "active";
   const isDenied = gpsStatus === "denied";
@@ -33,18 +36,18 @@ export function GpsStatusBadge({
               : "#FF4D4D";
 
   const label = isDenied
-    ? "GPS refusé"
+    ? t("trip.gps.denied")
     : isUnavailable
-      ? "GPS indisponible"
+      ? t("trip.gps.unavailable")
       : isWaiting
-        ? "GPS..."
+        ? t("trip.gps.waiting")
         : accuracy == null
-          ? "GPS..."
+          ? t("trip.gps.waiting")
           : accuracy < 10
-            ? "Précis"
+            ? t("trip.gps.precise")
             : accuracy < 30
-              ? "Moyen"
-              : "Faible";
+              ? t("trip.gps.medium")
+              : t("trip.gps.low");
 
   return (
     <div className="flex items-center gap-1.5">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   User as UserIcon,
@@ -12,6 +12,7 @@ import {
   Check,
   Droplets,
   Download,
+  Upload,
   Trash2,
   Shield,
   MessageSquarePlus,
@@ -28,6 +29,7 @@ import {
   useDeleteAccount,
   useDeleteTripPreset,
   useExportData,
+  useImportData,
   useSubmitFeedback,
 } from "@/hooks/queries";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -48,7 +50,9 @@ export function ProfilePage() {
   const deleteAccount = useDeleteAccount();
   const deleteTripPreset = useDeleteTripPreset();
   const exportData = useExportData();
+  const importData = useImportData();
   const submitFeedback = useSubmitFeedback();
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const userFuelType = profileData?.user?.fuelType ?? "sp95";
   const { data: fuelPrice, isPending: fuelPriceLoading } = useFuelPrice(userFuelType);
@@ -126,6 +130,30 @@ export function ProfilePage() {
 
   const handleExportData = () => {
     exportData.mutate();
+  };
+
+  const handleImportClick = () => {
+    importFileRef.current?.click();
+  };
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const confirmed = window.confirm(
+      "Importer les trajets depuis ce fichier ? Les valeurs historiques (CO₂, €, carburant) seront conservées telles quelles. Les doublons sont ignorés.",
+    );
+    if (!confirmed) return;
+    importData.mutate(file, {
+      onSuccess: (data) => {
+        window.alert(
+          `Import terminé : ${data.imported} trajet(s) importé(s), ${data.skipped} doublon(s) ignoré(s).`,
+        );
+      },
+      onError: (err) => {
+        window.alert(`Échec de l'import : ${err instanceof Error ? err.message : String(err)}`);
+      },
+    });
   };
 
   const handleDeleteTripPreset = (tripPresetId: string, label: string) => {
@@ -704,6 +732,24 @@ export function ProfilePage() {
             <div className="flex items-center justify-center gap-2">
               <Download size={16} />
               {exportData.isPending ? "Export en cours..." : "Exporter mes données"}
+            </div>
+          </button>
+
+          <input
+            ref={importFileRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImportFile}
+            className="hidden"
+          />
+          <button
+            onClick={handleImportClick}
+            disabled={importData.isPending}
+            className="mt-4 w-full rounded-lg bg-surface-high py-4 text-xs font-bold uppercase tracking-widest text-text-muted active:scale-95 disabled:opacity-50"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Upload size={16} />
+              {importData.isPending ? "Import en cours..." : "Importer mes données"}
             </div>
           </button>
 

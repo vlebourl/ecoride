@@ -543,6 +543,42 @@ export function useExportData() {
   });
 }
 
+export function useImportData() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const text = await file.text();
+      let payload: unknown;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new Error("Fichier JSON invalide");
+      }
+      if (
+        !payload ||
+        typeof payload !== "object" ||
+        !Array.isArray((payload as { trips?: unknown }).trips)
+      ) {
+        throw new Error("Format d'export non reconnu");
+      }
+      return apiFetch<{
+        ok: boolean;
+        data: { imported: number; skipped: number };
+      }>("/user/import", {
+        method: "POST",
+        body: JSON.stringify({ trips: (payload as { trips: unknown[] }).trips }),
+      }).then((r) => r.data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+      qc.invalidateQueries({ queryKey: ["achievements"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      qc.invalidateQueries({ queryKey: ["leaderboard"] });
+    },
+  });
+}
+
 export function useSubmitFeedback() {
   return useMutation({
     mutationFn: (data: { type: "bug" | "feature"; title: string; description: string }) =>

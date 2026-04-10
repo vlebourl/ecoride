@@ -1,11 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { PageHeader } from "../PageHeader";
+import { I18nProvider } from "@/i18n/provider";
 
 function renderHeader(ui: React.ReactElement) {
-  return render(<MemoryRouter>{ui}</MemoryRouter>);
+  return render(
+    <I18nProvider>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </I18nProvider>,
+  );
 }
+
+beforeEach(() => {
+  vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
+});
 
 describe("PageHeader", () => {
   it("renders the title as the unique <h1> of the page", () => {

@@ -483,6 +483,31 @@ export const fr = {
   "privacy.sections.contact.bodyBefore": "Pour toute question, ouvrez une ",
   "privacy.sections.contact.linkLabel": "issue sur GitHub",
   "privacy.sections.contact.bodyAfter": ".",
+
+  "shared.errorBoundary.title": "Une erreur est survenue",
+  "shared.errorBoundary.body": "Quelque chose s'est mal passé. Essayez de recharger la page.",
+  "shared.errorBoundary.reload": "Recharger",
+  "shared.mapNoWebGL.title": "Carte indisponible",
+  "shared.mapNoWebGL.body": "WebGL non supporté par ce navigateur",
+  "shared.nav.ariaLabel": "Navigation principale",
+  "shared.nav.home": "Accueil",
+  "shared.nav.trip": "Trajet",
+  "shared.nav.stats": "Stats",
+  "shared.nav.leaderboard": "Classement",
+  "shared.nav.profile": "Profil",
+  "shared.pageHeader.back": "Retour",
+
+  "super73.compact.disconnectedAria": "Super73 déconnecté",
+  "super73.compact.connectingAria": "Connexion Super73 en cours",
+  "super73.compact.modeAuto": "Mode Auto",
+  "super73.compact.modeEpac": "Mode EPAC",
+  "super73.compact.modeOffRoad": "Mode Off-Road",
+  "super73.full.connected": "Connecté",
+  "super73.full.connecting": "Connexion...",
+  "super73.full.error": "Erreur",
+  "super73.full.disconnected": "Déconnecté",
+  "super73.full.disconnect": "Déconnecter",
+  "super73.full.connect": "Connecter",
 } as const;
 
 export type TranslationKey = keyof typeof fr;

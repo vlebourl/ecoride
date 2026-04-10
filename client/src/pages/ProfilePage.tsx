@@ -39,6 +39,7 @@ import { formatFullDate } from "@/lib/format-utils";
 import { isBleSupported, scanAndConnect } from "@/lib/super73-ble";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { MapCacheRow } from "@/components/MapCacheRow";
+import { BleSpeedSensorRow } from "@/components/BleSpeedSensorRow";
 import { useT } from "@/i18n/provider";
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
@@ -723,6 +724,10 @@ export function ProfilePage() {
             <div className="mx-4 h-px bg-white/5" />
 
             <MapCacheRow />
+
+            <div className="mx-4 h-px bg-white/5" />
+
+            <BleSpeedSensorRow />
 
             <div className="mx-4 h-px bg-white/5" />
 

@@ -42,7 +42,13 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(appVersion),
   },
   build: {
-    sourcemap: true,
+    // 'hidden' emits the .map files (so Sentry can still upload source maps
+    // during CI) but strips the `//# sourceMappingURL=` comment from the JS,
+    // so browsers never try to fetch the stripped maps in production. This
+    // avoids the DevTools warning "No sources are declared in this source map"
+    // which appears because @sentry/vite-plugin removes the sources array
+    // after uploading.
+    sourcemap: "hidden",
   },
   plugins: [
     react(),

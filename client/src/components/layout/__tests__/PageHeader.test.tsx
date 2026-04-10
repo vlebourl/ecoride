@@ -22,6 +22,13 @@ describe("PageHeader", () => {
     expect(within(banner).getByText("Ride")).toBeTruthy();
   });
 
+  it("always shows the app version next to the logo", () => {
+    renderHeader(<PageHeader title="Accueil" />);
+    const banner = screen.getByRole("banner");
+    // vitest.config.ts defines __APP_VERSION__ as "test"
+    expect(within(banner).getByText("vtest")).toBeTruthy();
+  });
+
   it("hides the title visually when titleHidden is set but keeps it in the DOM for a11y", () => {
     renderHeader(<PageHeader title="Accueil" titleHidden />);
     const h1 = screen.getByRole("heading", { level: 1 });

@@ -165,10 +165,7 @@ export function ProfilePage() {
 
   return (
     <>
-      <PageHeader
-        title="Profil"
-        right={<span className="text-xs text-text-dim">v{__APP_VERSION__}</span>}
-      />
+      <PageHeader title="Profil" />
 
       <div className="space-y-8 px-6 pb-6">
         {/* User Identity Hero */}

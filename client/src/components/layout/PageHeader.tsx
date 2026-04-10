@@ -36,10 +36,13 @@ export function PageHeader({ title, subtitle, titleHidden, back, right }: PageHe
               <ArrowLeft size={20} />
             </Link>
           )}
-          <span className="text-xl font-bold tracking-tighter">
-            <span className="text-text">eco</span>
-            <span className="text-primary-light">Ride</span>
-          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl font-bold tracking-tighter">
+              <span className="text-text">eco</span>
+              <span className="text-primary-light">Ride</span>
+            </span>
+            <span className="text-xs text-text-dim">v{__APP_VERSION__}</span>
+          </div>
         </div>
         {right ? <div className="flex items-center gap-2">{right}</div> : null}
       </header>

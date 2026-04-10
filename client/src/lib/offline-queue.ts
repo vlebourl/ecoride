@@ -3,6 +3,17 @@ import type { CreateTripRequest } from "@ecoride/shared/api-contracts";
 const STORAGE_KEY = "ecoride-pending-trips";
 const REJECTED_STORAGE_KEY = "ecoride-rejected-trips";
 
+export const QUEUE_CHANGED_EVENT = "ecoride:queue-changed";
+
+function notifyQueueChanged(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new Event(QUEUE_CHANGED_EVENT));
+  } catch {
+    // Event constructor unavailable (very old environments) — no-op.
+  }
+}
+
 export interface RejectedTripRecord {
   trip: CreateTripRequest;
   rejectedAt: string;
@@ -40,6 +51,7 @@ export function queueTrip(data: CreateTripRequest): void {
   const key = crypto.randomUUID();
   pending.push({ ...data, idempotencyKey: key });
   writeQueue(STORAGE_KEY, pending);
+  notifyQueueChanged();
 }
 
 export function getPendingTrips(): CreateTripRequest[] {

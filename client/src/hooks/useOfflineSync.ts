@@ -1,7 +1,12 @@
 import { useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "@/lib/api";
-import { getPendingTrips, recordRejectedTrip, removePendingTrip } from "@/lib/offline-queue";
+import {
+  QUEUE_CHANGED_EVENT,
+  getPendingTrips,
+  recordRejectedTrip,
+  removePendingTrip,
+} from "@/lib/offline-queue";
 import type { Trip } from "@ecoride/shared/types";
 
 function isTerminalTripSyncError(error: unknown): error is ApiError {
@@ -57,9 +62,24 @@ export function useOfflineSync() {
     // Try on mount
     syncPending();
 
-    // Try when coming back online
-    const handleOnline = () => syncPending();
-    window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
+    // Retry whenever something could have unblocked the queue:
+    //   - the browser reports we are back online
+    //   - a new trip was enqueued by handleSaveTrip onError (issue #231 — in
+    //     a running PWA the AppShell never remounts, so without this event
+    //     the queue would sit idle until the next offline → online flip)
+    //   - the PWA comes back to the foreground (tab switch / app resume)
+    const retry = () => syncPending();
+    window.addEventListener("online", retry);
+    window.addEventListener(QUEUE_CHANGED_EVENT, retry);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") syncPending();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("online", retry);
+      window.removeEventListener(QUEUE_CHANGED_EVENT, retry);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [syncPending]);
 }

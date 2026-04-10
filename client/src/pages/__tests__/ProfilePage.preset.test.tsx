@@ -106,6 +106,7 @@ vi.mock("@/hooks/usePushNotifications", () => ({
 vi.mock("@/lib/auth", () => ({ signOut: vi.fn() }));
 vi.mock("@/lib/super73-ble", () => ({ isBleSupported: () => false, scanAndConnect: vi.fn() }));
 vi.mock("@/components/LanguageSwitcher", () => ({ LanguageSwitcher: () => null }));
+vi.mock("@/components/MapCacheRow", () => ({ MapCacheRow: () => null }));
 
 describe("ProfilePage preset management", () => {
   beforeEach(() => {

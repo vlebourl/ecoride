@@ -482,6 +482,18 @@ export const en: Record<TranslationKey, string> = {
   "privacy.sections.contact.linkLabel": "issue on GitHub",
   "privacy.sections.contact.bodyAfter": ".",
 
+  "profile.mapCache.row": "Offline maps",
+  "profile.mapCache.description": "Maps you've already viewed stay available without a connection.",
+  "profile.mapCache.entriesOne": "{{count}} tile cached",
+  "profile.mapCache.entriesMany": "{{count}} tiles cached",
+  "profile.mapCache.empty": "No map tiles cached",
+  "profile.mapCache.approxSize": "Storage used: {{size}}",
+  "profile.mapCache.clear": "Clear cache",
+  "profile.mapCache.clearConfirm":
+    "Clear the offline map cache? Tiles will be re-downloaded the next time you view them.",
+  "profile.mapCache.clearing": "Clearing…",
+  "profile.mapCache.cleared": "Cache cleared",
+
   "shared.errorBoundary.title": "Something went wrong",
   "shared.errorBoundary.body": "Something broke. Try reloading the page.",
   "shared.errorBoundary.reload": "Reload",

@@ -2,6 +2,25 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ProfilePage } from "../ProfilePage";
+import { I18nProvider } from "@/i18n/provider";
+
+const createLocalStorageMock = () => {
+  const store = new Map<string, string>();
+  return {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      store.set(k, String(v));
+    },
+    removeItem: (k: string) => {
+      store.delete(k);
+    },
+    clear: () => store.clear(),
+    key: (i: number) => Array.from(store.keys())[i] ?? null,
+    get length() {
+      return store.size;
+    },
+  } as Storage;
+};
 
 const deleteTripPresetMock = vi.fn();
 
@@ -90,6 +109,8 @@ vi.mock("@/components/LanguageSwitcher", () => ({ LanguageSwitcher: () => null }
 
 describe("ProfilePage preset management", () => {
   beforeEach(() => {
+    vi.stubGlobal("localStorage", createLocalStorageMock());
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
     deleteTripPresetMock.mockReset();
     (globalThis as typeof globalThis & { __APP_VERSION__?: string }).__APP_VERSION__ = "test";
   });
@@ -97,7 +118,11 @@ describe("ProfilePage preset management", () => {
   it("shows trip presets in Profile and deletes them from there", () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<ProfilePage />);
+    render(
+      <I18nProvider>
+        <ProfilePage />
+      </I18nProvider>,
+    );
 
     expect(screen.getByText("Trajets pré-enregistrés")).toBeTruthy();
     expect(screen.getByText("Domicile → Travail")).toBeTruthy();

@@ -2,6 +2,32 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ProfilePage } from "../ProfilePage";
+import { I18nProvider } from "@/i18n/provider";
+
+const createLocalStorageMock = () => {
+  const store = new Map<string, string>();
+  return {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      store.set(k, String(v));
+    },
+    removeItem: (k: string) => {
+      store.delete(k);
+    },
+    clear: () => store.clear(),
+    key: (i: number) => Array.from(store.keys())[i] ?? null,
+    get length() {
+      return store.size;
+    },
+  } as Storage;
+};
+
+const renderProfile = () =>
+  render(
+    <I18nProvider>
+      <ProfilePage />
+    </I18nProvider>,
+  );
 
 const mockUser = vi.hoisted(() => ({
   id: "user-1",
@@ -78,6 +104,8 @@ vi.mock("@/components/LanguageSwitcher", () => ({ LanguageSwitcher: () => null }
 
 describe("ProfilePage Super73 settings", () => {
   beforeEach(() => {
+    vi.stubGlobal("localStorage", createLocalStorageMock());
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
     (globalThis as typeof globalThis & { __APP_VERSION__?: string }).__APP_VERSION__ = "test";
     Object.assign(mockUser, {
       super73Enabled: true,
@@ -95,14 +123,14 @@ describe("ProfilePage Super73 settings", () => {
   });
 
   it("does not show bike default settings popup (moved to VehiclePage)", () => {
-    render(<ProfilePage />);
+    renderProfile();
 
     expect(screen.queryByRole("dialog", { name: "Réglages par défaut du vélo" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Réglages par défaut du vélo/i })).toBeNull();
   });
 
   it("shows Vélo connecté toggle when super73 is enabled", () => {
-    render(<ProfilePage />);
+    renderProfile();
 
     expect(screen.getByText("Vélo connecté (Super73)")).toBeTruthy();
     expect(screen.getByText("Activé")).toBeTruthy();
@@ -111,7 +139,7 @@ describe("ProfilePage Super73 settings", () => {
   it("hides Vélo connecté settings when super73 access is disabled", () => {
     mockUser.super73Enabled = false;
 
-    render(<ProfilePage />);
+    renderProfile();
 
     expect(screen.queryByText("Vélo connecté (Super73)")).toBeNull();
   });

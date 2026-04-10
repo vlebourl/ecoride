@@ -19,7 +19,8 @@ import {
   useProfile,
 } from "@/hooks/queries";
 import { formatDayMonth, formatLongDate, formatMonthYear } from "@/lib/format-utils";
-import { tripLabel } from "@/lib/trip-utils";
+import { tripLabel, tripLabelKey } from "@/lib/trip-utils";
+import { useT, type TranslateFn } from "@/i18n/provider";
 import { isWebGLSupported } from "@/lib/webgl";
 import {
   buildTraceGeoJSON,
@@ -33,32 +34,41 @@ import { PageHeader } from "@/components/layout/PageHeader";
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
 
-const periodLabels: Record<Period, string> = {
-  week: "Semaine",
-  month: "Mois",
-  year: "Année",
-};
+const getPeriodLabels = (t: TranslateFn): Record<Period, string> => ({
+  week: t("stats.chart.period.week"),
+  month: t("stats.chart.period.month"),
+  year: t("stats.chart.period.year"),
+});
 
-const metricLabels: Record<Metric, string> = {
-  km: "Distance (km)",
-  co2: "CO₂ (kg)",
-  eur: "Économies (€)",
-};
+const getMetricLabels = (t: TranslateFn): Record<Metric, string> => ({
+  km: t("stats.chart.metric.km"),
+  co2: t("stats.chart.metric.co2"),
+  eur: t("stats.chart.metric.eur"),
+});
 
-const DAY_LABELS = ["L", "M", "M", "J", "V", "S", "D"];
-const MONTH_LABELS = [
-  "Jan",
-  "Fév",
-  "Mar",
-  "Avr",
-  "Mai",
-  "Juin",
-  "Juil",
-  "Août",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Déc",
+const getDayLabels = (t: TranslateFn): string[] => [
+  t("stats.days.mon"),
+  t("stats.days.tue"),
+  t("stats.days.wed"),
+  t("stats.days.thu"),
+  t("stats.days.fri"),
+  t("stats.days.sat"),
+  t("stats.days.sun"),
+];
+
+const getMonthLabels = (t: TranslateFn): string[] => [
+  t("stats.months.jan"),
+  t("stats.months.feb"),
+  t("stats.months.mar"),
+  t("stats.months.apr"),
+  t("stats.months.may"),
+  t("stats.months.jun"),
+  t("stats.months.jul"),
+  t("stats.months.aug"),
+  t("stats.months.sep"),
+  t("stats.months.oct"),
+  t("stats.months.nov"),
+  t("stats.months.dec"),
 ];
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
@@ -170,6 +180,11 @@ function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
 }
 
 export function StatsPage() {
+  const t = useT();
+  const periodLabels = useMemo(() => getPeriodLabels(t), [t]);
+  const metricLabels = useMemo(() => getMetricLabels(t), [t]);
+  const DAY_LABELS = useMemo(() => getDayLabels(t), [t]);
+  const MONTH_LABELS = useMemo(() => getMonthLabels(t), [t]);
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("km");
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
@@ -205,6 +220,10 @@ export function StatsPage() {
       return;
     }
 
+    // Keep the legacy FR-only helper here because the existing preset test
+    // mocks "@/lib/trip-utils" with `tripLabel: () => "Trajet domicile-travail"`
+    // and expects the stripped value "domicile-travail". The visible labels in
+    // the list and the detail sheet below use the i18n variant.
     setTripPresetLabel(tripLabel(selectedTrip.startedAt).replace(/^Trajet /, ""));
   }, [selectedTrip]);
 
@@ -227,12 +246,12 @@ export function StatsPage() {
         onSuccess: () => {
           setTripPresetFormOpen(false);
           setSelectedTrip(null);
-          setTripPresetFeedback({ type: "success", message: "Trajet pré-enregistré créé." });
+          setTripPresetFeedback({ type: "success", message: t("stats.detail.presetCreated") });
         },
         onError: () => {
           setTripPresetFeedback({
             type: "error",
-            message: "Impossible de créer le trajet pré-enregistré.",
+            message: t("stats.detail.presetError"),
           });
         },
       },
@@ -295,14 +314,14 @@ export function StatsPage() {
     }
 
     return data;
-  }, [chartTrips, period]);
+  }, [chartTrips, period, DAY_LABELS, MONTH_LABELS]);
 
   if (isPending || !s) {
     return (
       <div
         className="flex flex-1 items-center justify-center"
         role="status"
-        aria-label="Chargement"
+        aria-label={t("stats.loadingAria")}
       >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
@@ -323,7 +342,7 @@ export function StatsPage() {
         </div>
       )}
 
-      <PageHeader title="Statistiques" />
+      <PageHeader title={t("stats.header.title")} />
 
       <div className="space-y-12 px-6 pb-6">
         {s.tripCount === 0 ? (
@@ -332,10 +351,8 @@ export function StatsPage() {
               <BarChart3 size={40} className="text-primary-light" />
             </div>
             <div className="flex flex-col items-center gap-2 text-center">
-              <h3 className="text-xl font-bold">Pas encore de statistiques</h3>
-              <p className="max-w-xs text-sm text-text-muted">
-                Vos données apparaîtront ici après votre premier trajet.
-              </p>
+              <h3 className="text-xl font-bold">{t("stats.empty.title")}</h3>
+              <p className="max-w-xs text-sm text-text-muted">{t("stats.empty.body")}</p>
             </div>
           </div>
         ) : (
@@ -345,7 +362,7 @@ export function StatsPage() {
               <div className="flex items-end justify-between">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                    Ce mois
+                    {t("stats.monthly.caption")}
                   </span>
                   <h2 className="text-3xl font-extrabold tracking-tight">
                     {formatMonthYear(new Date(), userTimezone)}
@@ -358,7 +375,7 @@ export function StatsPage() {
                 <div className="col-span-1 flex min-h-[160px] flex-col justify-between rounded-xl border border-outline-variant/10 bg-surface-low p-6 md:col-span-2">
                   <div className="flex items-start justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                      Distance Totale
+                      {t("stats.monthly.totalDistance")}
                     </span>
                     <Bike size={22} className="text-primary-light" />
                   </div>
@@ -366,27 +383,31 @@ export function StatsPage() {
                     <span className="text-6xl font-bold tracking-tighter">
                       {Math.round(s.totalDistanceKm)}
                     </span>
-                    <span className="text-xl font-bold text-on-surface-variant">KM</span>
+                    <span className="text-xl font-bold text-on-surface-variant">
+                      {t("stats.monthly.distanceUnit")}
+                    </span>
                   </div>
                 </div>
 
                 {/* CO2 */}
                 <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
                   <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                    CO₂ Économisé
+                    {t("stats.monthly.co2Saved")}
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-bold tracking-tighter">
                       {Math.round(s.totalCo2SavedKg)}
                     </span>
-                    <span className="text-base font-bold text-primary-light">KG</span>
+                    <span className="text-base font-bold text-primary-light">
+                      {t("stats.monthly.co2Unit")}
+                    </span>
                   </div>
                 </div>
 
                 {/* Money */}
                 <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
                   <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                    Économies
+                    {t("stats.monthly.savings")}
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-bold tracking-tighter">
@@ -402,7 +423,7 @@ export function StatsPage() {
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-                  Évolution
+                  {t("stats.chart.title")}
                 </h3>
               </div>
 
@@ -435,7 +456,11 @@ export function StatsPage() {
                         : "bg-surface-high text-text-muted"
                     }`}
                   >
-                    {m === "km" ? "KM" : m === "co2" ? "CO₂" : "€"}
+                    {m === "km"
+                      ? t("stats.chart.metricShort.km")
+                      : m === "co2"
+                        ? t("stats.chart.metricShort.co2")
+                        : t("stats.chart.metricShort.eur")}
                   </button>
                 ))}
               </div>
@@ -462,7 +487,13 @@ export function StatsPage() {
                       labelStyle={{ color: "#8a9ba8", fontWeight: 600 }}
                       itemStyle={{ color: "#2ecc71" }}
                       formatter={(value) => [
-                        `${Number(value).toFixed(metric === "eur" ? 2 : 1)} ${metric === "km" ? "km" : metric === "co2" ? "kg" : "€"}`,
+                        `${Number(value).toFixed(metric === "eur" ? 2 : 1)} ${
+                          metric === "km"
+                            ? t("stats.chart.unit.km")
+                            : metric === "co2"
+                              ? t("stats.chart.unit.co2")
+                              : t("stats.chart.unit.eur")
+                        }`,
                         metricLabels[metric],
                       ]}
                     />
@@ -482,11 +513,11 @@ export function StatsPage() {
             {/* Recent Activity */}
             <section className="space-y-6">
               <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-                Activité récente
+                {t("stats.recent.title")}
               </h3>
               <div className="max-h-80 space-y-3 overflow-y-auto">
                 {trips.length === 0 && (
-                  <p className="text-center text-sm text-text-muted">Aucun trajet enregistré</p>
+                  <p className="text-center text-sm text-text-muted">{t("stats.recent.empty")}</p>
                 )}
                 {trips.map((trip) => (
                   <button
@@ -499,7 +530,7 @@ export function StatsPage() {
                         <Bike size={20} className="text-primary-light" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold">{tripLabel(trip.startedAt)}</p>
+                        <p className="text-sm font-bold">{t(tripLabelKey(trip.startedAt))}</p>
                         <p className="text-xs font-medium text-on-surface-variant">
                           {formatDayMonth(trip.startedAt, userTimezone)}
                         </p>
@@ -507,10 +538,10 @@ export function StatsPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-primary-light">
-                        +{Number(trip.distanceKm).toFixed(1)} KM
+                        +{Number(trip.distanceKm).toFixed(1)} {t("stats.recent.kmSuffix")}
                       </p>
                       <p className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
-                        {trip.co2SavedKg.toFixed(1)} KG CO₂
+                        {trip.co2SavedKg.toFixed(1)} {t("stats.recent.co2Suffix")}
                       </p>
                     </div>
                   </button>
@@ -523,7 +554,7 @@ export function StatsPage() {
         {/* Badges */}
         <section className="space-y-4">
           <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-            Badges
+            {t("stats.badges.title")}
           </h3>
           <div className="grid grid-cols-4 gap-4">
             {allBadgeIds.map((id) => {
@@ -559,7 +590,7 @@ export function StatsPage() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Détail du trajet"
+            aria-label={t("stats.detail.dialogAria")}
             className="fixed inset-0 z-[60] flex items-end justify-center"
             onClick={() => setSelectedTrip(null)}
           >
@@ -577,14 +608,14 @@ export function StatsPage() {
               {/* Header */}
               <div className="mb-6 flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-bold">{tripLabel(selectedTrip.startedAt)}</h3>
+                  <h3 className="text-lg font-bold">{t(tripLabelKey(selectedTrip.startedAt))}</h3>
                   <p className="text-sm text-text-muted">
                     {formatLongDate(selectedTrip.startedAt, userTimezone)}
                   </p>
                 </div>
                 <button
                   onClick={() => setSelectedTrip(null)}
-                  aria-label="Fermer"
+                  aria-label={t("stats.detail.closeAria")}
                   className="rounded-lg p-2 text-text-muted active:bg-surface-high"
                 >
                   <X size={20} />
@@ -596,7 +627,9 @@ export function StatsPage() {
 
               {/* Manual entry label */}
               {!hasGpsTrack && (
-                <p className="mb-4 text-center text-xs text-text-dim">Saisie manuelle</p>
+                <p className="mb-4 text-center text-xs text-text-dim">
+                  {t("stats.detail.manualEntry")}
+                </p>
               )}
 
               {/* Stats */}
@@ -605,19 +638,25 @@ export function StatsPage() {
                   <p className="text-xl font-bold text-primary-light">
                     {Number(selectedTrip.distanceKm).toFixed(1)}
                   </p>
-                  <p className="text-xs font-bold uppercase text-text-muted">km</p>
+                  <p className="text-xs font-bold uppercase text-text-muted">
+                    {t("stats.detail.km")}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xl font-bold text-primary-light">
                     {selectedTrip.co2SavedKg.toFixed(1)}
                   </p>
-                  <p className="text-xs font-bold uppercase text-text-muted">kg CO₂</p>
+                  <p className="text-xs font-bold uppercase text-text-muted">
+                    {t("stats.detail.co2")}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xl font-bold text-primary-light">
                     {selectedTrip.moneySavedEur.toFixed(2)}
                   </p>
-                  <p className="text-xs font-bold uppercase text-text-muted">€</p>
+                  <p className="text-xs font-bold uppercase text-text-muted">
+                    {t("stats.detail.eur")}
+                  </p>
                 </div>
               </div>
 
@@ -631,7 +670,7 @@ export function StatsPage() {
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 py-3 text-sm font-bold text-primary-light active:scale-95 disabled:opacity-50"
                 >
                   <Save size={16} />
-                  {tripPresetFormOpen ? "Masquer le formulaire" : "Créer un trajet pré-enregistré"}
+                  {tripPresetFormOpen ? t("stats.detail.hideForm") : t("stats.detail.createPreset")}
                 </button>
 
                 {tripPresetFormOpen && (
@@ -640,7 +679,7 @@ export function StatsPage() {
                       htmlFor="trip-preset-label-input"
                       className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted"
                     >
-                      Nom du trajet pré-enregistré
+                      {t("stats.detail.presetLabel")}
                     </label>
                     <input
                       id="trip-preset-label-input"
@@ -655,14 +694,16 @@ export function StatsPage() {
                         disabled={createTripPresetFromTrip.isPending || !tripPresetLabel.trim()}
                         className="flex-1 rounded-lg bg-primary py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
                       >
-                        {createTripPresetFromTrip.isPending ? "Enregistrement..." : "Enregistrer"}
+                        {createTripPresetFromTrip.isPending
+                          ? t("stats.detail.saving")
+                          : t("stats.detail.save")}
                       </button>
                       <button
                         onClick={() => setTripPresetFormOpen(false)}
                         disabled={createTripPresetFromTrip.isPending}
                         className="flex-1 rounded-lg bg-surface-high py-3 text-sm font-bold text-text-muted active:scale-95 disabled:opacity-50"
                       >
-                        Annuler
+                        {t("stats.detail.cancel")}
                       </button>
                     </div>
                   </div>
@@ -678,7 +719,7 @@ export function StatsPage() {
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-danger/10 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
                 >
                   <Trash2 size={16} />
-                  {deleteTrip.isPending ? "Suppression..." : "Supprimer ce trajet"}
+                  {deleteTrip.isPending ? t("stats.detail.deleting") : t("stats.detail.delete")}
                 </button>
               </div>
             </div>

@@ -38,10 +38,12 @@ import { signOut } from "@/lib/auth";
 import { formatFullDate } from "@/lib/format-utils";
 import { isBleSupported, scanAndConnect } from "@/lib/super73-ble";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useT } from "@/i18n/provider";
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
 export function ProfilePage() {
+  const t = useT();
   const navigate = useNavigate();
   const { data: profileData, isPending: profileLoading } = useProfile();
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
@@ -89,7 +91,7 @@ export function ProfilePage() {
       <div
         className="flex flex-1 items-center justify-center"
         role="status"
-        aria-label="Chargement"
+        aria-label={t("profile.loadingAria")}
       >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
@@ -121,9 +123,7 @@ export function ProfilePage() {
   };
 
   const handleDeleteAccount = () => {
-    const confirmed = window.confirm(
-      "Êtes-vous sûr ? Toutes vos données seront supprimées définitivement.",
-    );
+    const confirmed = window.confirm(t("profile.delete.confirm"));
     if (!confirmed) return;
     deleteAccount.mutate(undefined, {
       onSuccess: () => navigate("/login"),
@@ -142,31 +142,33 @@ export function ProfilePage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    const confirmed = window.confirm(
-      "Importer les trajets depuis ce fichier ? Les valeurs historiques (CO₂, €, carburant) seront conservées telles quelles. Les doublons sont ignorés.",
-    );
+    const confirmed = window.confirm(t("profile.import.confirm"));
     if (!confirmed) return;
     importData.mutate(file, {
       onSuccess: (data) => {
         window.alert(
-          `Import terminé : ${data.imported} trajet(s) importé(s), ${data.skipped} doublon(s) ignoré(s).`,
+          t("profile.import.success", { imported: data.imported, skipped: data.skipped }),
         );
       },
       onError: (err) => {
-        window.alert(`Échec de l'import : ${err instanceof Error ? err.message : String(err)}`);
+        window.alert(
+          t("profile.import.error", {
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        );
       },
     });
   };
 
   const handleDeleteTripPreset = (tripPresetId: string, label: string) => {
-    const confirmed = window.confirm(`Supprimer le trajet pré-enregistré « ${label} » ?`);
+    const confirmed = window.confirm(t("profile.presets.confirmDelete", { label }));
     if (!confirmed) return;
     deleteTripPreset.mutate(tripPresetId);
   };
 
   return (
     <>
-      <PageHeader title="Profil" />
+      <PageHeader title={t("profile.header.title")} />
 
       <div className="space-y-8 px-6 pb-6">
         {/* User Identity Hero */}
@@ -187,7 +189,7 @@ export function ProfilePage() {
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-text">{user.name}</h2>
             <div className="mt-1 inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary-light">
-              Eco Rider
+              {t("profile.ecoRiderBadge")}
             </div>
           </div>
         </section>
@@ -196,46 +198,62 @@ export function ProfilePage() {
         <section className="grid grid-cols-2 gap-4">
           <div className="group relative col-span-2 overflow-hidden rounded-lg bg-surface-low p-6">
             <p className="text-xs font-bold uppercase tracking-widest text-primary/70">
-              Total CO₂ Économisé
+              {t("profile.stats.totalCo2")}
             </p>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-5xl font-extrabold tracking-tighter text-text">
                 {stats.totalCo2SavedKg.toFixed(1)}
               </span>
-              <span className="text-xl font-bold uppercase text-text-dim">kg</span>
+              <span className="text-xl font-bold uppercase text-text-dim">
+                {t("profile.stats.kgUnit")}
+              </span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Distance</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
+              {t("profile.stats.distance")}
+            </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
                 {Math.round(stats.totalDistanceKm)}
               </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">km</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                {t("profile.stats.kmUnit")}
+              </span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Trajets</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
+              {t("profile.stats.trips")}
+            </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">{stats.tripCount}</span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Carburant</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
+              {t("profile.stats.fuel")}
+            </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
                 {stats.totalFuelSavedL.toFixed(1)}
               </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">L</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                {t("profile.stats.litersUnit")}
+              </span>
             </div>
           </div>
           <div className="rounded-lg bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">Economisé</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
+              {t("profile.stats.saved")}
+            </p>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-text">
                 {stats.totalMoneySavedEur.toFixed(2)}
               </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">EUR</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                {t("profile.stats.eurUnit")}
+              </span>
             </div>
           </div>
         </section>
@@ -261,7 +279,7 @@ export function ProfilePage() {
                 </span>
               </div>
               <p className="text-xs text-text-muted">
-                {fuelPrice.stationName ? fuelPrice.stationName : "Prix moyen national"}
+                {fuelPrice.stationName ? fuelPrice.stationName : t("profile.fuel.nationalAverage")}
               </p>
             </div>
           ) : null}
@@ -270,7 +288,7 @@ export function ProfilePage() {
         {/* Badges */}
         <section className="space-y-4">
           <div className="flex items-end justify-between">
-            <h2 className="text-lg font-bold tracking-tight">Badges</h2>
+            <h2 className="text-lg font-bold tracking-tight">{t("profile.badges.title")}</h2>
           </div>
           <div className="grid grid-cols-4 gap-4">
             {allBadgeIds.map((id) => {
@@ -302,17 +320,14 @@ export function ProfilePage() {
         <section className="space-y-4">
           <div className="flex items-end justify-between">
             <div>
-              <h2 className="text-lg font-bold tracking-tight">Trajets pré-enregistrés</h2>
-              <p className="mt-1 text-sm text-text-muted">
-                Gérez ici votre liste de trajets favoris. Pour en créer un nouveau, ouvrez un trajet
-                dans l'onglet Stats puis choisissez « Créer un trajet pré-enregistré ».
-              </p>
+              <h2 className="text-lg font-bold tracking-tight">{t("profile.presets.title")}</h2>
+              <p className="mt-1 text-sm text-text-muted">{t("profile.presets.subtitle")}</p>
             </div>
           </div>
           <div className="space-y-3">
             {tripPresets.length === 0 ? (
               <div className="rounded-lg bg-surface-low p-5 text-sm text-text-muted">
-                Aucun trajet pré-enregistré pour le moment.
+                {t("profile.presets.empty")}
               </div>
             ) : (
               tripPresets.map((tripPreset) => (
@@ -323,10 +338,10 @@ export function ProfilePage() {
                   <div>
                     <p className="text-sm font-bold text-text">{tripPreset.label}</p>
                     <p className="mt-1 text-xs text-text-muted">
-                      {tripPreset.distanceKm.toFixed(1)} km
+                      {tripPreset.distanceKm.toFixed(1)} {t("profile.stats.kmUnit")}
                       {tripPreset.durationSec != null
                         ? ` · ${Math.round(tripPreset.durationSec / 60)} min`
-                        : " · durée personnalisable"}
+                        : ` · ${t("profile.presets.customDuration")}`}
                     </p>
                   </div>
                   <button
@@ -334,7 +349,7 @@ export function ProfilePage() {
                     disabled={deleteTripPreset.isPending}
                     className="rounded-lg bg-danger/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-danger active:scale-95 disabled:opacity-50"
                   >
-                    Supprimer
+                    {t("profile.presets.delete")}
                   </button>
                 </div>
               ))
@@ -345,11 +360,11 @@ export function ProfilePage() {
         {/* Vehicle Form (collapsible) */}
         {showVehicle && (
           <section className="space-y-4 rounded-xl bg-surface-low p-6">
-            <h2 className="text-lg font-bold tracking-tight">Véhicule de référence</h2>
+            <h2 className="text-lg font-bold tracking-tight">{t("profile.vehicle.title")}</h2>
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
-                  Modèle
+                  {t("profile.vehicle.model")}
                 </label>
                 <input
                   type="text"
@@ -360,7 +375,7 @@ export function ProfilePage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
-                  Carburant
+                  {t("profile.vehicle.fuel")}
                 </label>
                 <select
                   value={fuelType}
@@ -376,7 +391,7 @@ export function ProfilePage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
-                  Consommation (L/100km)
+                  {t("profile.vehicle.consumption")}
                 </label>
                 <input
                   type="number"
@@ -395,12 +410,12 @@ export function ProfilePage() {
             >
               {saveSuccess ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Check size={16} /> Enregistré
+                  <Check size={16} /> {t("profile.vehicle.saved")}
                 </span>
               ) : updateProfile.isPending ? (
-                "Enregistrement..."
+                t("profile.vehicle.saving")
               ) : (
-                "Enregistrer"
+                t("profile.vehicle.save")
               )}
             </button>
           </section>
@@ -408,7 +423,7 @@ export function ProfilePage() {
 
         {/* Settings List */}
         <section className="space-y-2">
-          <h2 className="mb-4 text-lg font-bold tracking-tight">Paramètres</h2>
+          <h2 className="mb-4 text-lg font-bold tracking-tight">{t("profile.settings.title")}</h2>
           <div className="overflow-hidden rounded-lg bg-surface-low">
             {/* Informations personnelles */}
             <button
@@ -417,7 +432,7 @@ export function ProfilePage() {
             >
               <div className="flex items-center gap-4">
                 <UserIcon size={20} className="text-text-muted" />
-                <span className="text-sm font-medium">Informations personnelles</span>
+                <span className="text-sm font-medium">{t("profile.settings.personalInfo")}</span>
               </div>
               {showPersonalInfo ? (
                 <ChevronDown size={18} className="text-text-dim" />
@@ -429,7 +444,7 @@ export function ProfilePage() {
               <div className="space-y-3 px-4 pb-4">
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
-                    Nom
+                    {t("profile.settings.name")}
                   </label>
                   <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
                     {user.name}
@@ -437,7 +452,7 @@ export function ProfilePage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
-                    Email
+                    {t("profile.settings.email")}
                   </label>
                   <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
                     {user.email}
@@ -445,7 +460,7 @@ export function ProfilePage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-text-muted">
-                    Membre depuis
+                    {t("profile.settings.memberSince")}
                   </label>
                   <div className="w-full rounded-lg bg-surface-high p-3 text-sm text-text-dim">
                     {formatFullDate(user.createdAt, user.timezone)}
@@ -463,7 +478,7 @@ export function ProfilePage() {
             >
               <div className="flex items-center gap-4">
                 <Bike size={20} className="text-text-muted" />
-                <span className="text-sm font-medium">Mon véhicule</span>
+                <span className="text-sm font-medium">{t("profile.settings.myVehicle")}</span>
               </div>
               <ChevronRight size={18} className="text-text-dim" />
             </button>
@@ -479,17 +494,21 @@ export function ProfilePage() {
                   <BellOff size={20} className="text-text-muted" />
                 )}
                 <div className="flex flex-col items-start">
-                  <span className="text-sm font-medium">Notifications</span>
+                  <span className="text-sm font-medium">{t("profile.settings.notifications")}</span>
                   {push.status === "unsupported" && (
-                    <span className="text-xs text-text-dim">Non supporté par ce navigateur</span>
+                    <span className="text-xs text-text-dim">
+                      {t("profile.settings.notificationsUnsupported")}
+                    </span>
                   )}
                   {push.status === "denied" && (
                     <span className="text-xs text-text-dim">
-                      Autorisation refusée dans les paramètres du navigateur
+                      {t("profile.settings.notificationsDenied")}
                     </span>
                   )}
                   {push.status === "subscribed" && (
-                    <span className="text-xs text-primary/70">Activées</span>
+                    <span className="text-xs text-primary/70">
+                      {t("profile.settings.notificationsEnabled")}
+                    </span>
                   )}
                 </div>
               </div>
@@ -499,8 +518,8 @@ export function ProfilePage() {
                   disabled={push.busy}
                   aria-label={
                     push.status === "subscribed"
-                      ? "Désactiver les notifications"
-                      : "Activer les notifications"
+                      ? t("profile.settings.notificationsDisableAria")
+                      : t("profile.settings.notificationsEnableAria")
                   }
                   className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
                     push.status === "subscribed" ? "bg-primary" : "bg-surface-high"
@@ -538,14 +557,18 @@ export function ProfilePage() {
                       className={user?.super73Enabled ? "text-primary-light" : "text-text-muted"}
                     />
                     <div className="flex flex-col items-start">
-                      <span className="text-sm font-medium">Vélo connecté (Super73)</span>
+                      <span className="text-sm font-medium">
+                        {t("profile.settings.super73Connected")}
+                      </span>
                       {!isBleSupported() && (
                         <span className="text-xs text-text-dim">
-                          Non supporté par ce navigateur
+                          {t("profile.settings.super73Unsupported")}
                         </span>
                       )}
                       {user?.super73Enabled && (
-                        <span className="text-xs text-primary/70">Activé</span>
+                        <span className="text-xs text-primary/70">
+                          {t("profile.settings.super73Enabled")}
+                        </span>
                       )}
                     </div>
                     {user?.super73Enabled && (
@@ -572,8 +595,8 @@ export function ProfilePage() {
                     disabled={updateProfile.isPending}
                     aria-label={
                       user?.super73Enabled
-                        ? "Désactiver le contrôle BLE"
-                        : "Activer le contrôle BLE"
+                        ? t("profile.settings.super73DisableAria")
+                        : t("profile.settings.super73EnableAria")
                     }
                     className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
                       user?.super73Enabled ? "bg-primary" : "bg-surface-high"
@@ -601,7 +624,7 @@ export function ProfilePage() {
             >
               <div className="flex items-center gap-4">
                 <MessageSquarePlus size={20} className="text-text-muted" />
-                <span className="text-sm font-medium">Signaler un problème</span>
+                <span className="text-sm font-medium">{t("profile.feedback.title")}</span>
               </div>
               {showFeedback ? (
                 <ChevronDown size={18} className="text-text-dim" />
@@ -615,7 +638,7 @@ export function ProfilePage() {
                   <div className="flex items-center gap-3 rounded-lg bg-primary/10 p-4">
                     <Check size={18} className="text-primary-light" />
                     <span className="text-sm font-medium text-primary-light">
-                      Merci pour votre retour !
+                      {t("profile.feedback.thanks")}
                     </span>
                   </div>
                 ) : (
@@ -640,18 +663,20 @@ export function ProfilePage() {
                     className="space-y-3"
                   >
                     <div className="flex gap-2">
-                      {(["bug", "feature"] as const).map((t) => (
+                      {(["bug", "feature"] as const).map((type) => (
                         <button
-                          key={t}
+                          key={type}
                           type="button"
-                          onClick={() => setFeedbackType(t)}
+                          onClick={() => setFeedbackType(type)}
                           className={`flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
-                            feedbackType === t
+                            feedbackType === type
                               ? "bg-primary/20 text-primary-light"
                               : "bg-surface-high text-text-muted"
                           }`}
                         >
-                          {t === "bug" ? "Bug" : "Idée"}
+                          {type === "bug"
+                            ? t("profile.feedback.bug")
+                            : t("profile.feedback.feature")}
                         </button>
                       ))}
                     </div>
@@ -659,7 +684,7 @@ export function ProfilePage() {
                       type="text"
                       value={feedbackTitle}
                       onChange={(e) => setFeedbackTitle(e.target.value)}
-                      placeholder="Titre"
+                      placeholder={t("profile.feedback.titlePlaceholder")}
                       required
                       minLength={3}
                       maxLength={200}
@@ -668,7 +693,7 @@ export function ProfilePage() {
                     <textarea
                       value={feedbackDesc}
                       onChange={(e) => setFeedbackDesc(e.target.value)}
-                      placeholder="Décrivez le problème ou votre idée..."
+                      placeholder={t("profile.feedback.descPlaceholder")}
                       required
                       minLength={10}
                       maxLength={2000}
@@ -680,11 +705,13 @@ export function ProfilePage() {
                       disabled={submitFeedback.isPending}
                       className="w-full rounded-lg bg-primary py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
                     >
-                      {submitFeedback.isPending ? "Envoi..." : "Envoyer"}
+                      {submitFeedback.isPending
+                        ? t("profile.feedback.sending")
+                        : t("profile.feedback.send")}
                     </button>
                     {submitFeedback.isError && (
                       <p className="text-center text-xs text-danger">
-                        Erreur lors de l&apos;envoi. Réessayez.
+                        {t("profile.feedback.error")}
                       </p>
                     )}
                   </form>
@@ -705,7 +732,7 @@ export function ProfilePage() {
             >
               <div className="flex items-center gap-4">
                 <Shield size={20} className="text-primary-light" />
-                <span className="text-sm font-medium">Administration</span>
+                <span className="text-sm font-medium">{t("profile.admin")}</span>
               </div>
               <ChevronRight size={18} className="text-text-dim" />
             </Link>
@@ -717,7 +744,7 @@ export function ProfilePage() {
           >
             <div className="flex items-center justify-center gap-2">
               <LogOut size={16} />
-              Déconnexion
+              {t("profile.logout")}
             </div>
           </button>
 
@@ -728,7 +755,7 @@ export function ProfilePage() {
           >
             <div className="flex items-center justify-center gap-2">
               <Download size={16} />
-              {exportData.isPending ? "Export en cours..." : "Exporter mes données"}
+              {exportData.isPending ? t("profile.export.exporting") : t("profile.export.label")}
             </div>
           </button>
 
@@ -746,7 +773,7 @@ export function ProfilePage() {
           >
             <div className="flex items-center justify-center gap-2">
               <Upload size={16} />
-              {importData.isPending ? "Import en cours..." : "Importer mes données"}
+              {importData.isPending ? t("profile.import.importing") : t("profile.import.label")}
             </div>
           </button>
 
@@ -757,7 +784,7 @@ export function ProfilePage() {
           >
             <div className="flex items-center justify-center gap-2">
               <Trash2 size={16} />
-              {deleteAccount.isPending ? "Suppression..." : "Supprimer mon compte"}
+              {deleteAccount.isPending ? t("profile.delete.deleting") : t("profile.delete.label")}
             </div>
           </button>
         </section>

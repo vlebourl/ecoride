@@ -108,6 +108,73 @@ describe("getFuelPrice", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  // Regression test for #94: trips starting outside France must NOT hit
+  // the French station API and must use the EU Oil Bulletin snapshot.
+  it("uses EU Oil Bulletin snapshot for Belgian coordinates and skips French API", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // Brussels
+    const result = await getFuelPrice("sp95", 50.85, 4.35);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.fuelType).toBe("sp95");
+    expect(result.priceEur).toBe(1.72); // BE sp95 from EU_COUNTRY_PRICES
+    expect(result.stationName).toBe("EU Oil Bulletin (BE)");
+  });
+
+  it("uses EU snapshot for German diesel and still skips the French API", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // Berlin
+    const result = await getFuelPrice("diesel", 52.52, 13.4);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.priceEur).toBe(1.65); // DE diesel
+    expect(result.stationName).toBe("EU Oil Bulletin (DE)");
+  });
+
+  it("falls back to French hardcoded average for coords outside any known country", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // Middle of the Atlantic
+    const result = await getFuelPrice("sp95", 0, -30);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.priceEur).toBe(FALLBACK_PRICES.sp95);
+    expect(result.stationName).toBeUndefined();
+  });
+
+  it("falls back to French hardcoded average when EU country has no price for the fuel type", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // Brussels + E85 (not published in EU Oil Bulletin for BE)
+    const result = await getFuelPrice("e85", 50.85, 4.35);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.priceEur).toBe(FALLBACK_PRICES.e85);
+    expect(result.stationName).toBeUndefined();
+  });
+
+  it("still uses the French API for coordinates inside France", async () => {
+    let capturedUrl: string | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      capturedUrl = String(url);
+      return new Response(
+        JSON.stringify({
+          results: [{ nom_ev: "Station Lyon", prix_valeur: 1710, prix_maj: "2025-06-15" }],
+        }),
+        { status: 200 },
+      );
+    });
+
+    // Lyon
+    const result = await getFuelPrice("sp95", 45.75, 4.85);
+
+    expect(capturedUrl).toContain("data.economie.gouv.fr");
+    expect(result.priceEur).toBe(1.71);
+    expect(result.stationName).toBe("Station Lyon");
+  });
+
   it("handles missing prix_valeur by falling back to hardcoded price", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(

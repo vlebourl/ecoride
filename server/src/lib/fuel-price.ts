@@ -1,4 +1,5 @@
 import type { FuelType } from "@ecoride/shared/types";
+import { detectEuCountry, isInFrance, lookupEuPrice } from "./fuel-price-eu";
 import { logger } from "./logger";
 
 interface CachedPrice {
@@ -70,6 +71,41 @@ export async function getFuelPrice(
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
     return cached;
+  }
+
+  // Outside France: skip the French station API entirely and use the EU
+  // Weekly Oil Bulletin snapshot for the detected country (issue #94).
+  // Check specific EU country bboxes before the France bbox, because the
+  // France bbox overlaps small neighbours like Belgium and Luxembourg.
+  if (lat !== undefined && lng !== undefined) {
+    const country = detectEuCountry(lat, lng);
+    const useEuPath = country !== undefined || !isInFrance(lat, lng);
+    if (useEuPath) {
+      const euPrice = country ? lookupEuPrice(country, fuelType) : undefined;
+      if (country && euPrice !== undefined) {
+        const result: CachedPrice = {
+          priceEur: euPrice,
+          fuelType,
+          stationName: `EU Oil Bulletin (${country})`,
+          updatedAt: new Date().toISOString(),
+          cachedAt: Date.now(),
+        };
+        evictIfNeeded();
+        cache.set(cacheKey, result);
+        return result;
+      }
+      // Unknown country or fuel type not in EU bulletin → fall back to the
+      // hardcoded national average (still skipping the French station API).
+      const fallback: CachedPrice = {
+        priceEur: FALLBACK_PRICES[fuelType],
+        fuelType,
+        updatedAt: new Date().toISOString(),
+        cachedAt: Date.now(),
+      };
+      evictIfNeeded();
+      cache.set(cacheKey, fallback);
+      return fallback;
+    }
   }
 
   try {

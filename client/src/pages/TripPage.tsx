@@ -8,10 +8,11 @@ import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useAppGpsTracking } from "@/hooks/useGpsTracking";
 import type { TrackingSession } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
+import { clearStoppedSession, setStoppedSession } from "@/lib/stopped-session";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
-import { buildTraceGeoJSON, speedTraceLayer, solidTraceLayer } from "@/lib/speedGeoJSON";
 import { formatTime } from "@/lib/format-utils";
+import { buildTraceGeoJSON, speedTraceLayer, solidTraceLayer } from "@/lib/speedGeoJSON";
 import { GpsStatusBadge } from "@/components/trip/GpsStatusBadge";
 import { TripRecoveryBanner } from "@/components/trip/TripRecoveryBanner";
 import { TrackingDashboard } from "@/components/trip/TrackingDashboard";
@@ -155,7 +156,7 @@ export function TripPage() {
       createTrip.mutate(tripData, {
         onSuccess: () => {
           setSaveError("");
-          sessionStorage.removeItem("ecoride-stopped-session");
+          clearStoppedSession();
           recovery.setPendingBackup(null);
           setUiState("idle");
           manual.resetManualForm();
@@ -168,7 +169,7 @@ export function TripPage() {
           setTimeout(() => {
             recovery.setPendingBackup(null);
             setUiState("idle");
-            sessionStorage.removeItem("ecoride-stopped-session");
+            clearStoppedSession();
             manual.resetManualForm();
             recovery.sessionRef.current = null;
             gps.reset();
@@ -196,9 +197,7 @@ export function TripPage() {
       recovery.sessionRef.current = session;
       resetMapState();
       setInterruptMenuOpen(false);
-      try {
-        sessionStorage.setItem("ecoride-stopped-session", JSON.stringify(session));
-      } catch {
+      if (!setStoppedSession(session)) {
         recovery.setSessionPersistFailed(true);
       }
       if (showStoppedPanel) setUiState("stopped");
@@ -224,7 +223,7 @@ export function TripPage() {
     setInterruptMenuOpen(false);
     recovery.setPendingBackup(null);
     recovery.setSessionPersistFailed(false);
-    sessionStorage.removeItem("ecoride-stopped-session");
+    clearStoppedSession();
     setUiState("idle");
     handleSaveTrip(session.distanceKm, session.durationSec, session);
   }, [gps, recovery, resetMapState, handleSaveTrip]);
@@ -232,7 +231,7 @@ export function TripPage() {
   const handleAbandonFromInterrupt = useCallback(() => {
     if (window.confirm("Abandonner ce trajet ? Les donn\u00e9es seront perdues.")) {
       recovery.setPendingBackup(null);
-      sessionStorage.removeItem("ecoride-stopped-session");
+      clearStoppedSession();
       setInterruptMenuOpen(false);
       setUiState("idle");
       recovery.sessionRef.current = null;
@@ -462,7 +461,7 @@ export function TripPage() {
           onAbandon={() => {
             if (window.confirm("Abandonner ce trajet ? Les donn\u00e9es seront perdues.")) {
               recovery.setPendingBackup(null);
-              sessionStorage.removeItem("ecoride-stopped-session");
+              clearStoppedSession();
               setUiState("idle");
               recovery.sessionRef.current = null;
               gps.reset();

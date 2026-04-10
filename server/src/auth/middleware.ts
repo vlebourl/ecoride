@@ -1,5 +1,8 @@
+import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import { auth } from "../auth";
+import { db } from "../db";
+import { user } from "../db/schema/auth";
 import { unauthorized } from "../lib/errors";
 
 type AuthSession = {
@@ -17,7 +20,13 @@ export const authMiddleware = createMiddleware<{
   if (!result?.user || !result?.session) {
     throw unauthorized();
   }
-  c.set("user", result.user);
+
+  const [currentUser] = await db.select().from(user).where(eq(user.id, result.user.id));
+  if (!currentUser) {
+    throw unauthorized();
+  }
+
+  c.set("user", currentUser);
   c.set("session", result.session);
   await next();
 });

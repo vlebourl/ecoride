@@ -145,4 +145,47 @@ describe("DashboardPage announcement banner", () => {
     expect(screen.getByText(/1 trajet en attente de synchronisation/i)).toBeTruthy();
     expect(screen.getByText(/1 trajet rejeté lors de la synchronisation/i)).toBeTruthy();
   });
+
+  it("allows dismissing the rejected sync warning until a new rejection appears", () => {
+    useActiveAnnouncementMock.mockReturnValue({ data: null });
+    getRejectedTripsMock.mockReturnValue([
+      {
+        trip: {
+          distanceKm: 2,
+          durationSec: 120,
+          startedAt: "2026-04-09T11:00:00.000Z",
+          endedAt: "2026-04-09T11:02:00.000Z",
+        },
+        rejectedAt: "2026-04-09T12:00:00.000Z",
+        status: 409,
+        reason: "Trajet rejeté : chevauchement avec un trajet déjà enregistré.",
+      },
+    ]);
+
+    const { rerender } = render(<DashboardPage />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Fermer l'avertissement de synchronisation" }),
+    );
+    expect(screen.queryByText(/trajet rejeté lors de la synchronisation/i)).toBeNull();
+
+    rerender(<DashboardPage />);
+    expect(screen.queryByText(/trajet rejeté lors de la synchronisation/i)).toBeNull();
+
+    getRejectedTripsMock.mockReturnValue([
+      {
+        trip: {
+          distanceKm: 3,
+          durationSec: 180,
+          startedAt: "2026-04-09T13:00:00.000Z",
+          endedAt: "2026-04-09T13:03:00.000Z",
+        },
+        rejectedAt: "2026-04-09T13:05:00.000Z",
+        status: 400,
+        reason: "Trajet rejeté : données incompatibles avec la version actuelle.",
+      },
+    ]);
+
+    rerender(<DashboardPage />);
+    expect(screen.getByText(/trajet rejeté lors de la synchronisation/i)).toBeTruthy();
+  });
 });

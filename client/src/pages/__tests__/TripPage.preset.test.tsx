@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TripPage } from "../TripPage";
+import { I18nProvider } from "@/i18n/provider";
+
+const renderTripPage = () =>
+  render(
+    <I18nProvider>
+      <TripPage />
+    </I18nProvider>,
+  );
 
 const mutateMock = vi.fn();
 const startMock = vi.fn();
@@ -82,7 +90,7 @@ describe("TripPage trip preset selection", () => {
   });
 
   it("creates a manual trip from the manual dropdown preset selection", () => {
-    render(<TripPage />);
+    renderTripPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Saisie manuelle" }));
     fireEvent.change(screen.getByLabelText("Trajet pré-enregistré"), {
@@ -105,7 +113,7 @@ describe("TripPage trip preset selection", () => {
   });
 
   it("resets the fields when switching back to custom mode", () => {
-    render(<TripPage />);
+    renderTripPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Saisie manuelle" }));
     fireEvent.change(screen.getByLabelText("Trajet pré-enregistré"), {

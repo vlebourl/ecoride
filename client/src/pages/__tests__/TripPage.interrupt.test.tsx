@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TripPage } from "../TripPage";
+import { I18nProvider } from "@/i18n/provider";
+
+const renderTripPage = () =>
+  render(
+    <I18nProvider>
+      <TripPage />
+    </I18nProvider>,
+  );
 
 const mutateMock = vi.fn();
 const pauseMock = vi.fn();
@@ -87,7 +95,7 @@ describe("TripPage interrupt finish flow", () => {
   it("saves directly from the interrupt menu without asking for save confirmation", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<TripPage />);
+    renderTripPage();
 
     await waitFor(() => {
       expect(screen.getByText("Interrompre")).toBeTruthy();

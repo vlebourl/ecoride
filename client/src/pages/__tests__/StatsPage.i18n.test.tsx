@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { StatsPage } from "../StatsPage";
 import { I18nProvider } from "@/i18n/provider";
 
@@ -20,9 +20,6 @@ const createLocalStorageMock = () => {
     },
   } as Storage;
 };
-
-const createTripPresetFromTripMutate = vi.fn();
-const deleteTripMutate = vi.fn();
 
 vi.mock("react-map-gl/maplibre", () => ({
   __esModule: true,
@@ -70,62 +67,49 @@ vi.mock("@/hooks/queries", () => ({
   useChartTrips: () => ({ data: [], isPending: false }),
   useAchievements: () => ({ data: [], isPending: false }),
   useProfile: () => ({ data: { user: { timezone: "Europe/Paris" } } }),
-  useDeleteTrip: () => ({ mutate: deleteTripMutate, isPending: false }),
-  useCreateTripPresetFromTrip: () => ({
-    mutate: createTripPresetFromTripMutate,
-    isPending: false,
-  }),
-}));
-
-vi.mock("@/lib/trip-utils", () => ({
-  tripLabel: () => "Trajet domicile-travail",
-  tripLabelKey: () => "stats.tripLabel.morning",
+  useDeleteTrip: () => ({ mutate: vi.fn(), isPending: false }),
+  useCreateTripPresetFromTrip: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock("@/lib/webgl", () => ({ isWebGLSupported: () => false }));
 vi.mock("@/components/MapNoWebGL", () => ({ MapNoWebGL: () => <div>Map fallback</div> }));
 
-describe("StatsPage preset creation flow", () => {
+describe("StatsPage i18n", () => {
   beforeEach(() => {
     vi.stubGlobal("localStorage", createLocalStorageMock());
-    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
-    createTripPresetFromTripMutate.mockReset();
-    createTripPresetFromTripMutate.mockImplementation((_vars, options) => options?.onSuccess?.());
-    deleteTripMutate.mockReset();
   });
 
-  it("opens an inline form and creates a preset without relying on window.prompt", async () => {
+  it("renders French copy by default", () => {
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
     render(
       <I18nProvider>
         <StatsPage />
       </I18nProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Trajet du matin/i }));
+    expect(screen.getByRole("heading", { name: "Statistiques" })).toBeTruthy();
+    expect(screen.getByText("Ce mois")).toBeTruthy();
+    expect(screen.getByText("Distance Totale")).toBeTruthy();
+    expect(screen.getByText("CO₂ Économisé")).toBeTruthy();
+    expect(screen.getByText("Évolution")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Semaine" })).toBeTruthy();
+    expect(screen.getByText("Activité récente")).toBeTruthy();
+  });
 
-    await waitFor(() => {
-      expect(screen.getByRole("dialog", { name: "Détail du trajet" })).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Créer un trajet pré-enregistré" }));
-
-    const input = screen.getByLabelText("Nom du trajet pré-enregistré") as HTMLInputElement;
-    expect(input.value).toBe("domicile-travail");
-
-    fireEvent.change(input, { target: { value: "Maison → Bureau" } });
-    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
-
-    expect(createTripPresetFromTripMutate).toHaveBeenCalledWith(
-      {
-        tripId: "trip-1",
-        label: "Maison → Bureau",
-      },
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
+  it("renders English copy when the persisted locale is 'en'", () => {
+    localStorage.setItem("ecoride-locale", "en");
+    render(
+      <I18nProvider>
+        <StatsPage />
+      </I18nProvider>,
     );
 
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Détail du trajet" })).toBeNull();
-      expect(screen.getByText("Trajet pré-enregistré créé.")).toBeTruthy();
-    });
+    expect(screen.getByRole("heading", { name: "Statistics" })).toBeTruthy();
+    expect(screen.getByText("This month")).toBeTruthy();
+    expect(screen.getByText("Total distance")).toBeTruthy();
+    expect(screen.getByText("CO₂ saved")).toBeTruthy();
+    expect(screen.getByText("Trend")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Week" })).toBeTruthy();
+    expect(screen.getByText("Recent activity")).toBeTruthy();
   });
 });

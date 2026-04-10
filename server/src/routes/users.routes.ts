@@ -6,6 +6,7 @@ import { user } from "../db/schema/auth";
 import { trips, achievements } from "../db/schema";
 import { updateUserSchema } from "../validators/users";
 import { validationHook } from "../lib/validation";
+import { forbidden } from "../lib/errors";
 import { logAudit } from "../lib/audit";
 import type { AuthEnv } from "../types/context";
 
@@ -49,6 +50,9 @@ usersRouter.patch("/profile", zValidator("json", updateUserSchema, validationHoo
 
   if (Object.keys(data).length === 0) {
     return c.json({ ok: true, data: { user: currentUser } });
+  }
+  if (data.super73Enabled === true && currentUser.super73Enabled !== true) {
+    throw forbidden("Super73 access required");
   }
 
   const [updated] = await db

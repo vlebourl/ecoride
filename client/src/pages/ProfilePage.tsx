@@ -500,63 +500,73 @@ export function ProfilePage() {
 
             <div className="mx-4 h-px bg-white/5" />
 
-            {/* Super73 BLE — toggle + navigate to /vehicle */}
-            <div className="flex w-full items-center justify-between p-4">
-              <button
-                type="button"
-                onClick={() => {
-                  if (user?.super73Enabled) navigate("/vehicle");
-                }}
-                disabled={!user?.super73Enabled}
-                className="flex min-w-0 items-center gap-4 text-left"
-              >
-                <Bluetooth
-                  size={20}
-                  className={user?.super73Enabled ? "text-primary-light" : "text-text-muted"}
-                />
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-medium">Vélo connecté (Super73)</span>
-                  {!isBleSupported() && (
-                    <span className="text-xs text-text-dim">Non supporté par ce navigateur</span>
-                  )}
-                  {user?.super73Enabled && <span className="text-xs text-primary/70">Activé</span>}
+            {user?.super73Enabled && (
+              <>
+                {/* Super73 BLE — toggle + navigate to /vehicle */}
+                <div className="flex w-full items-center justify-between p-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (user?.super73Enabled) navigate("/vehicle");
+                    }}
+                    disabled={!user?.super73Enabled}
+                    className="flex min-w-0 items-center gap-4 text-left"
+                  >
+                    <Bluetooth
+                      size={20}
+                      className={user?.super73Enabled ? "text-primary-light" : "text-text-muted"}
+                    />
+                    <div className="flex flex-col items-start">
+                      <span className="text-sm font-medium">Vélo connecté (Super73)</span>
+                      {!isBleSupported() && (
+                        <span className="text-xs text-text-dim">
+                          Non supporté par ce navigateur
+                        </span>
+                      )}
+                      {user?.super73Enabled && (
+                        <span className="text-xs text-primary/70">Activé</span>
+                      )}
+                    </div>
+                    {user?.super73Enabled && (
+                      <ChevronRight size={18} className="shrink-0 text-text-dim" />
+                    )}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (user?.super73Enabled) {
+                        // Disable — just toggle off
+                        updateProfile.mutate({ super73Enabled: false });
+                        return;
+                      }
+                      // Enable — launch pairing immediately
+                      if (!isBleSupported()) return;
+                      try {
+                        await scanAndConnect(); // opens picker, user selects bike
+                        updateProfile.mutate({ super73Enabled: true });
+                        navigate("/vehicle");
+                      } catch {
+                        // User cancelled picker — don't enable
+                      }
+                    }}
+                    disabled={updateProfile.isPending}
+                    aria-label={
+                      user?.super73Enabled
+                        ? "Désactiver le contrôle BLE"
+                        : "Activer le contrôle BLE"
+                    }
+                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
+                      user?.super73Enabled ? "bg-primary" : "bg-surface-high"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
+                        user?.super73Enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
                 </div>
-                {user?.super73Enabled && (
-                  <ChevronRight size={18} className="shrink-0 text-text-dim" />
-                )}
-              </button>
-              <button
-                onClick={async () => {
-                  if (user?.super73Enabled) {
-                    // Disable — just toggle off
-                    updateProfile.mutate({ super73Enabled: false });
-                    return;
-                  }
-                  // Enable — launch pairing immediately
-                  if (!isBleSupported()) return;
-                  try {
-                    await scanAndConnect(); // opens picker, user selects bike
-                    updateProfile.mutate({ super73Enabled: true });
-                    navigate("/vehicle");
-                  } catch {
-                    // User cancelled picker — don't enable
-                  }
-                }}
-                disabled={updateProfile.isPending}
-                aria-label={
-                  user?.super73Enabled ? "Désactiver le contrôle BLE" : "Activer le contrôle BLE"
-                }
-                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
-                  user?.super73Enabled ? "bg-primary" : "bg-surface-high"
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
-                    user?.super73Enabled ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
+              </>
+            )}
           </div>
 
           {/* Feedback form */}

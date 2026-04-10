@@ -57,6 +57,7 @@ vi.mock("@/hooks/queries", () => ({
   useDeleteAccount: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteTripPreset: () => ({ mutate: vi.fn(), isPending: false }),
   useExportData: () => ({ mutate: vi.fn(), isPending: false }),
+  useImportData: () => ({ mutate: vi.fn(), isPending: false }),
   useSubmitFeedback: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 

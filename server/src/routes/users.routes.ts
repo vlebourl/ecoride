@@ -1,13 +1,17 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { eq, sum, count } from "drizzle-orm";
+import { and, eq, sum, count, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips, achievements } from "../db/schema";
 import { updateUserSchema } from "../validators/users";
+import { importDataSchema } from "../validators/trips";
 import { validationHook } from "../lib/validation";
 import { forbidden } from "../lib/errors";
 import { logAudit } from "../lib/audit";
+import { evaluateAndUnlockBadges } from "../lib/badges";
+import { reportBackgroundError } from "../lib/background";
+import { logger } from "../lib/logger";
 import type { AuthEnv } from "../types/context";
 
 const usersRouter = new Hono<AuthEnv>();
@@ -94,6 +98,68 @@ usersRouter.get("/export", async (c) => {
   c.header("Content-Disposition", 'attachment; filename="ecoride-data-export.json"');
   c.header("Content-Type", "application/json");
   return c.json(exportData);
+});
+
+// POST /api/user/import — Restore exported trips (preserves historical values)
+usersRouter.post("/import", zValidator("json", importDataSchema, validationHook), async (c) => {
+  const currentUser = c.get("user");
+  const { trips: incoming } = c.req.valid("json");
+
+  if (incoming.length === 0) {
+    return c.json({ ok: true, data: { imported: 0, skipped: 0 } });
+  }
+
+  // Dedupe against existing trips by startedAt timestamp for this user.
+  const incomingStarts = incoming.map((t) => new Date(t.startedAt));
+  const existing = await db
+    .select({ startedAt: trips.startedAt })
+    .from(trips)
+    .where(and(eq(trips.userId, currentUser.id), inArray(trips.startedAt, incomingStarts)));
+
+  const existingSet = new Set(existing.map((r) => r.startedAt.getTime()));
+
+  const toInsert = incoming
+    .filter((t) => !existingSet.has(new Date(t.startedAt).getTime()))
+    .map((t) => ({
+      userId: currentUser.id,
+      distanceKm: t.distanceKm,
+      durationSec: t.durationSec,
+      co2SavedKg: t.co2SavedKg,
+      moneySavedEur: t.moneySavedEur,
+      fuelSavedL: t.fuelSavedL,
+      fuelPriceEur: t.fuelPriceEur ?? null,
+      startedAt: new Date(t.startedAt),
+      endedAt: new Date(t.endedAt),
+      gpsPoints: t.gpsPoints ?? null,
+      idempotencyKey: t.idempotencyKey ?? null,
+    }));
+
+  if (toInsert.length > 0) {
+    await db.insert(trips).values(toInsert);
+  }
+
+  // Re-evaluate badges since trip aggregates changed. Fire-and-forget so the
+  // import response is fast; badge engine is idempotent.
+  const requestLogger = logger.withContext(
+    c.get("requestId") as string | undefined,
+    currentUser.id,
+  );
+  reportBackgroundError(
+    evaluateAndUnlockBadges(currentUser.id),
+    requestLogger,
+    "import_badges_failed",
+    { imported: toInsert.length },
+  );
+
+  logAudit(currentUser.id, "data_import", undefined, {
+    imported: toInsert.length,
+    skipped: incoming.length - toInsert.length,
+  });
+
+  return c.json({
+    ok: true,
+    data: { imported: toInsert.length, skipped: incoming.length - toInsert.length },
+  });
 });
 
 // DELETE /api/user/profile — Delete account (GDPR right to erasure)

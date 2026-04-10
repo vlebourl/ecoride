@@ -25,6 +25,7 @@ import { useManualTrip } from "@/hooks/useManualTrip";
 import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapOrientation } from "@/hooks/useMapOrientation";
 import { MapOrientationButton } from "@/components/trip/MapOrientationButton";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -256,23 +257,19 @@ export function TripPage() {
       className="relative flex h-[calc(100dvh_-_6rem)] flex-col overflow-hidden"
       data-testid="trip-page-root"
     >
-      {/* Header with persistent GPS indicator */}
-      <header
-        role="banner"
-        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
-      >
-        <span className="text-lg font-bold tracking-tight">
-          <span className="text-text">eco</span>
-          <span className="text-primary-light">Ride</span>
-        </span>
-        <GpsStatusBadge
-          uiState={uiState}
-          gpsAccuracy={gps.state.lastAccuracy}
-          idleAccuracy={idleAccuracy}
-          isTracking={gps.state.isTracking}
-          gpsStatus={gpsStatus}
-        />
-      </header>
+      <PageHeader
+        title="Trajet"
+        titleHidden
+        right={
+          <GpsStatusBadge
+            uiState={uiState}
+            gpsAccuracy={gps.state.lastAccuracy}
+            idleAccuracy={idleAccuracy}
+            isTracking={gps.state.isTracking}
+            gpsStatus={gpsStatus}
+          />
+        }
+      />
 
       {/* Fix 1.3: Recovery banner for interrupted trip */}
       {recovery.pendingBackup && uiState === "idle" && (

@@ -28,6 +28,7 @@ import {
   SPEED_LEGEND,
 } from "@/lib/speedGeoJSON";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type Period = "week" | "month" | "year";
 type Metric = "km" | "co2" | "eur";
@@ -322,17 +323,7 @@ export function StatsPage() {
         </div>
       )}
 
-      {/* Header */}
-      <header
-        role="banner"
-        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
-      >
-        <span className="text-lg font-bold tracking-tight text-primary-light">Stats</span>
-        <span className="text-xl font-bold tracking-tighter">
-          <span className="text-text">eco</span>
-          <span className="text-primary-light">Ride</span>
-        </span>
-      </header>
+      <PageHeader title="Statistiques" />
 
       <div className="space-y-12 px-6 pb-6">
         {s.tripCount === 0 ? (

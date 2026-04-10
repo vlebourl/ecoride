@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, Link } from "react-router";
+import { useNavigate } from "react-router";
 import {
   Shield,
   Users,
@@ -9,12 +9,12 @@ import {
   CalendarDays,
   Database,
   Clock,
-  ArrowLeft,
   Bike,
   Check,
   Rocket,
   X,
 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   useAdminHealth,
   useAdminStats,
@@ -106,24 +106,11 @@ export function AdminPage() {
 
   return (
     <>
-      {/* Header */}
-      <header
-        role="banner"
-        className="sticky top-0 z-40 flex items-center gap-3 bg-bg/80 px-6 py-4 backdrop-blur-xl"
-      >
-        <Link to="/" className="rounded-lg p-1 text-text-muted hover:text-text" aria-label="Retour">
-          <ArrowLeft size={20} />
-        </Link>
-        <div className="flex items-center gap-2">
-          <Shield size={20} className="text-primary-light" />
-          <span className="text-xl font-bold tracking-tighter">
-            <span className="text-text">Admin</span>
-            <span className="text-text-dim"> — </span>
-            <span className="text-text">eco</span>
-            <span className="text-primary-light">Ride</span>
-          </span>
-        </div>
-      </header>
+      <PageHeader
+        title="Admin"
+        back={{ to: "/" }}
+        right={<Shield size={18} className="text-primary-light" aria-hidden="true" />}
+      />
 
       <div className="space-y-6 px-6 pb-6">
         {/* System Info Card */}

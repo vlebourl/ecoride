@@ -232,8 +232,8 @@ test.describe("admin dashboard", () => {
     const errorBoundary = page.getByText("Une erreur est survenue");
     await expect(errorBoundary).not.toBeVisible({ timeout: 3000 });
 
-    // Should show the admin page title in the sticky banner
-    const adminHeader = page.getByRole("banner").getByText("Admin", { exact: true });
-    await expect(adminHeader).toBeVisible({ timeout: 5000 });
+    // Should show the admin page title as the unique <h1>
+    const adminHeading = page.getByRole("heading", { level: 1, name: "Admin" });
+    await expect(adminHeading).toBeVisible({ timeout: 5000 });
   });
 });

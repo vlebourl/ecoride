@@ -18,6 +18,7 @@ import {
   MessageSquarePlus,
   Bluetooth,
 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { BADGES, FUEL_TYPES } from "@ecoride/shared/types";
 import type { FuelType, BadgeId } from "@ecoride/shared/types";
 import {
@@ -164,19 +165,10 @@ export function ProfilePage() {
 
   return (
     <>
-      {/* Header */}
-      <header
-        role="banner"
-        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
-      >
-        <div className="flex items-baseline gap-2">
-          <span className="text-xl font-bold tracking-tighter">
-            <span className="text-text">eco</span>
-            <span className="text-primary-light">Ride</span>
-          </span>
-          <span className="text-xs text-text-dim">v{__APP_VERSION__}</span>
-        </div>
-      </header>
+      <PageHeader
+        title="Profil"
+        right={<span className="text-xs text-text-dim">v{__APP_VERSION__}</span>}
+      />
 
       <div className="space-y-8 px-6 pb-6">
         {/* User Identity Hero */}
@@ -195,7 +187,7 @@ export function ProfilePage() {
             </div>
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-text">{user.name}</h1>
+            <h2 className="text-3xl font-bold tracking-tight text-text">{user.name}</h2>
             <div className="mt-1 inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary-light">
               Eco Rider
             </div>

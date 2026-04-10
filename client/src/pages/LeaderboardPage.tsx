@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Trophy, Leaf, Flame, MapPin, Zap, Euro, Route } from "lucide-react";
 import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
+import { PageHeader } from "@/components/layout/PageHeader";
 import type { StatsPeriod, LeaderboardCategory } from "@ecoride/shared/api-contracts";
 
 const periodOptions = [
@@ -85,26 +86,13 @@ export function LeaderboardPage() {
 
   return (
     <>
-      {/* Header */}
-      <header
-        role="banner"
-        className="sticky top-0 z-40 flex items-center justify-between bg-bg/80 px-6 py-4 backdrop-blur-xl"
-      >
-        <span className="text-lg font-bold tracking-tight">
-          <span className="text-text">eco</span>
-          <span className="text-primary-light">Ride</span>
-        </span>
-      </header>
+      <PageHeader
+        title="Classement"
+        subtitle={`${categorySubtitles[category]}${periodSuffixes[period] ?? ""}`}
+      />
 
       <div className="px-6 pb-6">
-        {/* Title */}
         <section className="mb-10">
-          <h2 className="mb-2 text-4xl font-extrabold tracking-tighter">Classement</h2>
-          <p className="text-sm font-medium text-text-dim">
-            {categorySubtitles[category]}
-            {periodSuffixes[period] ?? ""}
-          </p>
-
           {/* Period switcher */}
           <div className="mt-4 flex gap-2" data-testid="period-switcher">
             {periodOptions.map((opt) => (

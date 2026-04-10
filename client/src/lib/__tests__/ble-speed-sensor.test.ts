@@ -1,5 +1,14 @@
-import { describe, expect, it } from "vitest";
-import { parseCscMeasurement, computeCscSpeed, type CscSample } from "../ble-speed-sensor";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import {
+  parseCscMeasurement,
+  computeCscSpeed,
+  isBleSpeedSensorSupported,
+  scanAndConnectSpeedSensor,
+  reconnectPairedSpeedSensor,
+  subscribeSpeedSensor,
+  clearSelectedDeviceId,
+  type CscSample,
+} from "../ble-speed-sensor";
 
 // Helper: build a DataView for CSC Measurement bytes
 function makeDataView(bytes: number[]): DataView {
@@ -204,5 +213,204 @@ describe("computeCscSpeed", () => {
     const result = computeCscSpeed(prev, curr, WHEEL_MM_700C);
     // 2.096 m/s × 3.6 = 7.546 km/h
     expect(result.speedKmh).toBeCloseTo(7.546, 1);
+  });
+});
+
+// ---- BLE operations (mocked navigator.bluetooth) ----
+
+function makeLocalStorageStub() {
+  const store: Record<string, string> = {};
+  return {
+    getItem: vi.fn((key: string) => store[key] ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value;
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: vi.fn(() => {
+      for (const k in store) delete store[k];
+    }),
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: vi.fn((index: number) => Object.keys(store)[index] ?? null),
+  };
+}
+
+describe("isBleSpeedSensorSupported", () => {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, "bluetooth");
+
+  afterEach(() => {
+    if (originalDescriptor) {
+      Object.defineProperty(navigator, "bluetooth", originalDescriptor);
+    } else {
+      delete (navigator as Record<string, unknown>)["bluetooth"];
+    }
+  });
+
+  it("returns true when navigator.bluetooth exists", () => {
+    Object.defineProperty(navigator, "bluetooth", { value: {}, configurable: true });
+    expect(isBleSpeedSensorSupported()).toBe(true);
+  });
+
+  it("returns false when navigator.bluetooth is absent", () => {
+    delete (navigator as Record<string, unknown>)["bluetooth"];
+    expect(isBleSpeedSensorSupported()).toBe(false);
+  });
+});
+
+describe("clearSelectedDeviceId", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("removes the stored device id from localStorage", () => {
+    localStorage.setItem("ecoride-ble-speed-device-id", "sensor-001");
+    clearSelectedDeviceId();
+    expect(localStorage.removeItem).toHaveBeenCalledWith("ecoride-ble-speed-device-id");
+  });
+});
+
+describe("scanAndConnectSpeedSensor", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("requests device with CSC service filter, connects, and saves device id", async () => {
+    const gatt = { connect: vi.fn().mockResolvedValue(undefined) };
+    const device = { id: "sensor-001", gatt } as BluetoothDevice;
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { requestDevice: vi.fn().mockResolvedValue(device) },
+      configurable: true,
+    });
+
+    const result = await scanAndConnectSpeedSensor();
+
+    expect(result).toBe(device);
+    expect(navigator.bluetooth.requestDevice).toHaveBeenCalledWith({
+      filters: [{ services: [0x1816] }],
+    });
+    expect(gatt.connect).toHaveBeenCalled();
+    expect(localStorage.setItem).toHaveBeenCalledWith("ecoride-ble-speed-device-id", "sensor-001");
+  });
+
+  it("throws when GATT is not available", async () => {
+    const device = { id: "sensor-001", gatt: null };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { requestDevice: vi.fn().mockResolvedValue(device) },
+      configurable: true,
+    });
+
+    await expect(scanAndConnectSpeedSensor()).rejects.toThrow("GATT not available");
+  });
+});
+
+describe("reconnectPairedSpeedSensor", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("returns null when getDevices is unavailable", async () => {
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { requestDevice: vi.fn() },
+      configurable: true,
+    });
+    expect(await reconnectPairedSpeedSensor()).toBeNull();
+  });
+
+  it("reconnects to the stored preferred device id", async () => {
+    const gatt = { connect: vi.fn().mockResolvedValue(undefined) };
+    const device = { id: "sensor-001", name: "XOSS Speed", gatt };
+    localStorage.setItem("ecoride-ble-speed-device-id", "sensor-001");
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([device]) },
+      configurable: true,
+    });
+
+    const result = await reconnectPairedSpeedSensor();
+    expect(result).toBe(device);
+    expect(gatt.connect).toHaveBeenCalled();
+  });
+
+  it("returns null when no preferred device found and no fallback", async () => {
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([]) },
+      configurable: true,
+    });
+    expect(await reconnectPairedSpeedSensor()).toBeNull();
+  });
+
+  it("returns null when preferred device id is not in paired list", async () => {
+    localStorage.setItem("ecoride-ble-speed-device-id", "sensor-999");
+    const other = { id: "sensor-001", name: "Other", gatt: { connect: vi.fn() } };
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([other]) },
+      configurable: true,
+    });
+
+    expect(await reconnectPairedSpeedSensor()).toBeNull();
+    expect(other.gatt.connect).not.toHaveBeenCalled();
+  });
+
+  it("returns null when connect fails (device out of range)", async () => {
+    const gatt = { connect: vi.fn().mockRejectedValue(new Error("connection failed")) };
+    const device = { id: "sensor-001", name: "Wahoo Speed", gatt };
+    localStorage.setItem("ecoride-ble-speed-device-id", "sensor-001");
+    Object.defineProperty(navigator, "bluetooth", {
+      value: { getDevices: vi.fn().mockResolvedValue([device]) },
+      configurable: true,
+    });
+
+    expect(await reconnectPairedSpeedSensor()).toBeNull();
+  });
+});
+
+describe("subscribeSpeedSensor", () => {
+  it("starts notifications and calls onSample with computed speed", async () => {
+    const wheelMm = 2215;
+    const onSample = vi.fn();
+
+    let notifyHandler: ((e: Event) => void) | null = null;
+    const char = {
+      addEventListener: vi.fn((_: string, h: (e: Event) => void) => {
+        notifyHandler = h;
+      }),
+      removeEventListener: vi.fn(),
+      startNotifications: vi.fn().mockResolvedValue(undefined),
+      stopNotifications: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = { getCharacteristic: vi.fn().mockResolvedValue(char) };
+    const server = {
+      getPrimaryService: vi.fn().mockResolvedValue(service),
+    } as unknown as BluetoothRemoteGATTServer;
+
+    const unsub = await subscribeSpeedSensor(server, onSample, wheelMm);
+
+    // First notification: establishes prevSample, no output
+    const payload1 = new DataView(new Uint8Array(wheelOnlyPayload(0, 0)).buffer);
+    notifyHandler!({ target: { value: payload1 } } as unknown as Event);
+    expect(onSample).not.toHaveBeenCalled();
+
+    // Second notification: 1 rev in 1024 ticks (1 s) → ~7.974 km/h
+    const payload2 = new DataView(new Uint8Array(wheelOnlyPayload(1, 1024)).buffer);
+    notifyHandler!({ target: { value: payload2 } } as unknown as Event);
+    expect(onSample).toHaveBeenCalledOnce();
+    expect(onSample.mock.calls[0][0].speedKmh).toBeCloseTo(7.974, 1);
+
+    // Unsubscribe cleans up
+    unsub();
+    expect(char.removeEventListener).toHaveBeenCalled();
   });
 });

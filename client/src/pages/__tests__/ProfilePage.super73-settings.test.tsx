@@ -3,6 +3,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ProfilePage } from "../ProfilePage";
 
+const mockUser = vi.hoisted(() => ({
+  id: "user-1",
+  name: "Lyra",
+  email: "lyra@example.com",
+  image: null,
+  vehicleModel: null,
+  fuelType: "sp95",
+  consumptionL100: 7,
+  mileage: null,
+  timezone: null,
+  leaderboardOptOut: false,
+  reminderEnabled: false,
+  reminderTime: null,
+  reminderDays: null,
+  isAdmin: false,
+  super73Enabled: true,
+  super73AutoModeEnabled: true,
+  super73DefaultMode: "sport",
+  super73DefaultAssist: 3,
+  super73DefaultLight: true,
+  super73AutoModeLowSpeedKmh: 10,
+  super73AutoModeHighSpeedKmh: 17,
+  createdAt: "2026-04-08T10:00:00.000Z",
+}));
+
 vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
@@ -11,30 +36,7 @@ vi.mock("react-router", () => ({
 vi.mock("@/hooks/queries", () => ({
   useProfile: () => ({
     data: {
-      user: {
-        id: "user-1",
-        name: "Lyra",
-        email: "lyra@example.com",
-        image: null,
-        vehicleModel: null,
-        fuelType: "sp95",
-        consumptionL100: 7,
-        mileage: null,
-        timezone: null,
-        leaderboardOptOut: false,
-        reminderEnabled: false,
-        reminderTime: null,
-        reminderDays: null,
-        isAdmin: false,
-        super73Enabled: true,
-        super73AutoModeEnabled: true,
-        super73DefaultMode: "sport",
-        super73DefaultAssist: 3,
-        super73DefaultLight: true,
-        super73AutoModeLowSpeedKmh: 10,
-        super73AutoModeHighSpeedKmh: 17,
-        createdAt: "2026-04-08T10:00:00.000Z",
-      },
+      user: mockUser,
       stats: {
         totalDistanceKm: 100,
         totalCo2SavedKg: 15,
@@ -75,6 +77,15 @@ vi.mock("@/lib/super73-ble", () => ({ isBleSupported: () => true, scanAndConnect
 describe("ProfilePage Super73 settings", () => {
   beforeEach(() => {
     (globalThis as typeof globalThis & { __APP_VERSION__?: string }).__APP_VERSION__ = "test";
+    Object.assign(mockUser, {
+      super73Enabled: true,
+      super73AutoModeEnabled: true,
+      super73DefaultMode: "sport",
+      super73DefaultAssist: 3,
+      super73DefaultLight: true,
+      super73AutoModeLowSpeedKmh: 10,
+      super73AutoModeHighSpeedKmh: 17,
+    });
   });
 
   afterEach(() => {
@@ -84,7 +95,6 @@ describe("ProfilePage Super73 settings", () => {
   it("does not show bike default settings popup (moved to VehiclePage)", () => {
     render(<ProfilePage />);
 
-    // Settings popup and button should no longer exist in ProfilePage
     expect(screen.queryByRole("dialog", { name: "Réglages par défaut du vélo" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Réglages par défaut du vélo/i })).toBeNull();
   });
@@ -94,5 +104,13 @@ describe("ProfilePage Super73 settings", () => {
 
     expect(screen.getByText("Vélo connecté (Super73)")).toBeTruthy();
     expect(screen.getByText("Activé")).toBeTruthy();
+  });
+
+  it("hides Vélo connecté settings when super73 access is disabled", () => {
+    mockUser.super73Enabled = false;
+
+    render(<ProfilePage />);
+
+    expect(screen.queryByText("Vélo connecté (Super73)")).toBeNull();
   });
 });

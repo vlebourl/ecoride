@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Bell, Check, Send } from "lucide-react";
 import { useAdminNotifications, useSendAdminNotification } from "@/hooks/queries";
 import { formatDate } from "@/lib/format-utils";
+import { useT } from "@/i18n/provider";
 
 export function NotificationSection({
   users,
 }: {
   users?: { id: string; name: string; email: string }[];
 }) {
+  const t = useT();
   const { data: history, isPending: historyPending } = useAdminNotifications();
   const sendNotification = useSendAdminNotification();
   const [title, setTitle] = useState("");
@@ -43,7 +45,7 @@ export function NotificationSection({
       <div className="flex items-center gap-2">
         <Bell size={18} className="text-primary-light" />
         <h3 className="text-sm font-bold uppercase tracking-widest text-text-dim">
-          Notifications push
+          {t("admin.notifications.title")}
         </h3>
       </div>
 
@@ -53,7 +55,7 @@ export function NotificationSection({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Titre de la notification"
+          placeholder={t("admin.notifications.titlePlaceholder")}
           required
           maxLength={100}
           className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -61,7 +63,7 @@ export function NotificationSection({
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Contenu de la notification..."
+          placeholder={t("admin.notifications.bodyPlaceholder")}
           required
           maxLength={500}
           rows={3}
@@ -71,7 +73,7 @@ export function NotificationSection({
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Lien notification (optionnel)"
+          placeholder={t("admin.notifications.urlPlaceholder")}
           className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
 
@@ -84,7 +86,9 @@ export function NotificationSection({
               onChange={(e) => setSendAll(e.target.checked)}
               className="accent-primary"
             />
-            <span className="text-sm font-medium text-text">Tous les utilisateurs</span>
+            <span className="text-sm font-medium text-text">
+              {t("admin.notifications.allUsers")}
+            </span>
           </label>
 
           {!sendAll && users && (
@@ -116,27 +120,29 @@ export function NotificationSection({
           {sent ? (
             <>
               <Check size={16} />
-              {"Envoyé !"}
+              {t("admin.notifications.sent")}
             </>
           ) : sendNotification.isPending ? (
-            "Envoi..."
+            t("admin.notifications.sending")
           ) : (
             <>
               <Send size={16} />
-              Envoyer
+              {t("admin.notifications.send")}
             </>
           )}
         </button>
 
         {sendNotification.isError && (
-          <p className="text-center text-xs text-danger">Erreur lors de l&apos;envoi.</p>
+          <p className="text-center text-xs text-danger">{t("admin.notifications.error")}</p>
         )}
       </form>
 
       {/* History */}
       {!historyPending && history && history.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-widest text-text-dim">Historique</h4>
+          <h4 className="text-xs font-bold uppercase tracking-widest text-text-dim">
+            {t("admin.notifications.history")}
+          </h4>
           <div className="max-h-80 space-y-2 overflow-auto">
             {history.map((n) => (
               <div key={n.id} className="rounded-lg bg-surface-low p-4">
@@ -147,17 +153,21 @@ export function NotificationSection({
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-bold text-primary-light">
-                      {n.sentCount} {"envoyés"}
+                      {n.sentCount} {t("admin.notifications.sentCount")}
                     </span>
                     {n.failedCount > 0 && (
                       <span className="ml-1 text-xs text-danger">
-                        {n.failedCount} {"échecs"}
+                        {n.failedCount} {t("admin.notifications.failedCount")}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="mt-2 flex items-center gap-2 text-xs text-text-dim">
-                  <span>{n.targetUserIds ? `${n.targetUserIds.length} utilisateurs` : "Tous"}</span>
+                  <span>
+                    {n.targetUserIds
+                      ? t("admin.notifications.targetUsers", { count: n.targetUserIds.length })
+                      : t("admin.notifications.targetAll")}
+                  </span>
                   <span>{"\u00b7"}</span>
                   <span>{formatDate(n.createdAt)}</span>
                 </div>

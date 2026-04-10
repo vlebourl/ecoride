@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Activity } from "lucide-react";
 import { useAdminAuditLogs } from "@/hooks/queries";
+import { useT } from "@/i18n/provider";
 
 export function AuditLogSection() {
+  const t = useT();
   const [userId, setUserId] = useState("");
   const [action, setAction] = useState("");
   const { data: logs, isPending } = useAdminAuditLogs({
@@ -15,20 +17,20 @@ export function AuditLogSection() {
       <div className="mb-4 flex items-center gap-2">
         <Activity size={14} className="text-text-dim" />
         <h2 className="text-xs font-bold uppercase tracking-widest text-text-muted">
-          Activité récente
+          {t("admin.audit.title")}
         </h2>
       </div>
       <div className="mb-3 flex gap-2">
         <input
           type="text"
-          placeholder="Filtrer par user ID"
+          placeholder={t("admin.audit.filterUserId")}
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           className="flex-1 rounded-lg bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <input
           type="text"
-          placeholder="Filtrer par action"
+          placeholder={t("admin.audit.filterAction")}
           value={action}
           onChange={(e) => setAction(e.target.value)}
           className="flex-1 rounded-lg bg-surface px-3 py-1.5 text-xs text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
@@ -43,9 +45,9 @@ export function AuditLogSection() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-white/5 text-xs font-bold uppercase tracking-widest text-text-dim">
-                <th className="pb-3 pr-4">Action</th>
-                <th className="pb-3 pr-4">Utilisateur</th>
-                <th className="pb-3 text-right">Date</th>
+                <th className="pb-3 pr-4">{t("admin.audit.col.action")}</th>
+                <th className="pb-3 pr-4">{t("admin.audit.col.user")}</th>
+                <th className="pb-3 text-right">{t("admin.audit.col.date")}</th>
               </tr>
             </thead>
             <tbody>
@@ -67,7 +69,7 @@ export function AuditLogSection() {
           </table>
         </div>
       ) : (
-        <p className="py-4 text-center text-sm text-text-muted">Aucune activité</p>
+        <p className="py-4 text-center text-sm text-text-muted">{t("admin.audit.empty")}</p>
       )}
     </section>
   );

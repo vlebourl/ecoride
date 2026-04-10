@@ -3,56 +3,69 @@ import { Trophy, Leaf, Flame, MapPin, Zap, Euro, Route } from "lucide-react";
 import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useT } from "@/i18n/provider";
 import type { StatsPeriod, LeaderboardCategory } from "@ecoride/shared/api-contracts";
+import type { TranslationKey } from "@/i18n/locales/fr";
 
-const periodOptions = [
-  { label: "Semaine", value: "week" as StatsPeriod },
-  { label: "Mois", value: "month" as StatsPeriod },
-  { label: "Tout", value: "all" as StatsPeriod },
-];
-
-const categoryOptions: { label: string; value: LeaderboardCategory; icon: typeof Leaf }[] = [
-  { label: "CO₂", value: "co2", icon: Leaf },
-  { label: "Série", value: "streak", icon: Flame },
-  { label: "Trajets", value: "trips", icon: MapPin },
-  { label: "Vitesse", value: "speed", icon: Zap },
-  { label: "€", value: "money", icon: Euro },
-  { label: "KM", value: "distance", icon: Route },
-];
-
-const categorySubtitles: Record<LeaderboardCategory, string> = {
-  co2: "L'impact écologique",
-  streak: "La régularité",
-  trips: "L'activité",
-  speed: "La performance",
-  money: "Les économies",
-  distance: "La distance",
+const periodValues: StatsPeriod[] = ["week", "month", "all"];
+const periodLabelKeys: Record<"week" | "month" | "all", TranslationKey> = {
+  week: "leaderboard.period.week",
+  month: "leaderboard.period.month",
+  all: "leaderboard.period.all",
 };
 
-const categoryUnits: Record<LeaderboardCategory, string> = {
-  co2: "KG",
-  streak: "JOURS",
-  trips: "TRAJETS",
-  speed: "KM/H",
-  money: "€",
-  distance: "KM",
+const categoryOptions: { value: LeaderboardCategory; icon: typeof Leaf }[] = [
+  { value: "co2", icon: Leaf },
+  { value: "streak", icon: Flame },
+  { value: "trips", icon: MapPin },
+  { value: "speed", icon: Zap },
+  { value: "money", icon: Euro },
+  { value: "distance", icon: Route },
+];
+
+const categoryLabelKeys: Record<LeaderboardCategory, TranslationKey> = {
+  co2: "leaderboard.category.co2",
+  streak: "leaderboard.category.streak",
+  trips: "leaderboard.category.trips",
+  speed: "leaderboard.category.speed",
+  money: "leaderboard.category.money",
+  distance: "leaderboard.category.distance",
 };
 
-const periodSuffixes: Record<StatsPeriod, string> = {
-  day: " aujourd'hui",
-  week: " cette semaine",
-  month: " ce mois-ci",
-  year: " cette année",
-  all: " global",
+const categorySubtitleKeys: Record<LeaderboardCategory, TranslationKey> = {
+  co2: "leaderboard.subtitle.co2",
+  streak: "leaderboard.subtitle.streak",
+  trips: "leaderboard.subtitle.trips",
+  speed: "leaderboard.subtitle.speed",
+  money: "leaderboard.subtitle.money",
+  distance: "leaderboard.subtitle.distance",
+};
+
+const categoryUnitKeys: Record<LeaderboardCategory, TranslationKey> = {
+  co2: "leaderboard.unit.co2",
+  streak: "leaderboard.unit.streak",
+  trips: "leaderboard.unit.trips",
+  speed: "leaderboard.unit.speed",
+  money: "leaderboard.unit.money",
+  distance: "leaderboard.unit.distance",
+};
+
+const periodSuffixKeys: Record<StatsPeriod, TranslationKey> = {
+  day: "leaderboard.periodSuffix.day",
+  week: "leaderboard.periodSuffix.week",
+  month: "leaderboard.periodSuffix.month",
+  year: "leaderboard.periodSuffix.year",
+  all: "leaderboard.periodSuffix.all",
 };
 
 export function LeaderboardPage() {
+  const t = useT();
   const { data: session } = useSession();
   const [period, setPeriod] = useState<StatsPeriod>("all");
   const [category, setCategory] = useState<LeaderboardCategory>("co2");
   const { data, isPending } = useLeaderboard(period, category);
 
-  const unit = categoryUnits[category];
+  const unit = t(categoryUnitKeys[category]);
 
   const formatValue = (v: number) => {
     switch (category) {
@@ -72,7 +85,7 @@ export function LeaderboardPage() {
       <div
         className="flex flex-1 items-center justify-center"
         role="status"
-        aria-label="Chargement"
+        aria-label={t("leaderboard.loadingAria")}
       >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
@@ -87,27 +100,30 @@ export function LeaderboardPage() {
   return (
     <>
       <PageHeader
-        title="Classement"
-        subtitle={`${categorySubtitles[category]}${periodSuffixes[period] ?? ""}`}
+        title={t("leaderboard.header.title")}
+        subtitle={`${t(categorySubtitleKeys[category])}${t(periodSuffixKeys[period])}`}
       />
 
       <div className="px-6 pb-6">
         <section className="mb-10">
           {/* Period switcher */}
           <div className="mt-4 flex gap-2" data-testid="period-switcher">
-            {periodOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setPeriod(opt.value)}
-                className={`flex-1 rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                  opt.value === period
-                    ? "bg-primary/20 text-primary-light"
-                    : "bg-surface-high text-text-muted"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {periodValues.map((value) => {
+              const periodKey = value as "week" | "month" | "all";
+              return (
+                <button
+                  key={value}
+                  onClick={() => setPeriod(value)}
+                  className={`flex-1 rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                    value === period
+                      ? "bg-primary/20 text-primary-light"
+                      : "bg-surface-high text-text-muted"
+                  }`}
+                >
+                  {t(periodLabelKeys[periodKey])}
+                </button>
+              );
+            })}
           </div>
 
           {/* Category switcher — icons only, label below */}
@@ -115,6 +131,7 @@ export function LeaderboardPage() {
             <div className="flex w-full gap-2" data-testid="category-switcher">
               {categoryOptions.map((opt) => {
                 const Icon = opt.icon;
+                const label = t(categoryLabelKeys[opt.value]);
                 return (
                   <button
                     key={opt.value}
@@ -124,7 +141,7 @@ export function LeaderboardPage() {
                         ? "bg-primary/20 text-primary-light"
                         : "bg-surface-high text-text-muted"
                     }`}
-                    aria-label={opt.label}
+                    aria-label={label}
                   >
                     <Icon size={18} />
                   </button>
@@ -132,7 +149,7 @@ export function LeaderboardPage() {
               })}
             </div>
             <span className="text-xs font-bold uppercase tracking-wider text-primary-light">
-              {categoryOptions.find((o) => o.value === category)?.label}
+              {t(categoryLabelKeys[category])}
             </span>
           </div>
         </section>
@@ -143,10 +160,8 @@ export function LeaderboardPage() {
               <Trophy size={40} className="text-primary-light" />
             </div>
             <div className="flex flex-col items-center gap-2 text-center">
-              <h3 className="text-xl font-bold">Pas encore de classement</h3>
-              <p className="max-w-xs text-sm text-text-muted">
-                Enregistrez des trajets pour apparaître ici.
-              </p>
+              <h3 className="text-xl font-bold">{t("leaderboard.empty.title")}</h3>
+              <p className="max-w-xs text-sm text-text-muted">{t("leaderboard.empty.body")}</p>
             </div>
           </div>
         ) : (
@@ -247,10 +262,12 @@ export function LeaderboardPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold">{isMe ? "Vous" : entry.name}</h4>
+                        <h4 className="text-sm font-bold">
+                          {isMe ? t("leaderboard.you") : entry.name}
+                        </h4>
                         {isMe && (
                           <span className="rounded bg-primary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-light">
-                            Moi
+                            {t("leaderboard.meBadge")}
                           </span>
                         )}
                       </div>

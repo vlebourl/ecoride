@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { I18nProvider } from "./i18n/provider";
 import { App } from "./App";
 import { hasBlockingTripDataForUpdate } from "@/lib/update-guard";
 import "./app.css";
@@ -113,9 +114,11 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <I18nProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </I18nProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,

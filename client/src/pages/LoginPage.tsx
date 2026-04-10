@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { signIn, signUp } from "@/lib/auth";
+import { useT } from "@/i18n/provider";
 import appLogo from "/pwa-192x192.png?url";
 
 export function LoginPage() {
+  const t = useT();
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
@@ -47,7 +49,7 @@ export function LoginPage() {
           name,
         });
         if (err) {
-          setError(err.message || "Erreur lors de la création du compte");
+          setError(err.message || t("login.errors.signup"));
           setLoading(false);
           return;
         }
@@ -57,14 +59,14 @@ export function LoginPage() {
           password,
         });
         if (err) {
-          setError(err.message || "Email ou mot de passe incorrect");
+          setError(err.message || t("login.errors.signin"));
           setLoading(false);
           return;
         }
       }
       navigate("/");
     } catch {
-      setError("Une erreur est survenue. Réessayez.");
+      setError(t("login.errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -79,16 +81,14 @@ export function LoginPage() {
           <span className="text-text">eco</span>
           <span className="text-primary-light">Ride</span>
         </h1>
-        <p className="text-center text-sm text-text-muted">
-          Suivez vos trajets vélo et vos économies CO₂
-        </p>
+        <p className="text-center text-sm text-text-muted">{t("login.tagline")}</p>
       </div>
 
       <div className="w-full max-w-sm">
         {/* Google Sign In */}
         <button
           onClick={handleGoogleLogin}
-          aria-label="Se connecter avec Google"
+          aria-label={t("login.google")}
           className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-6 py-4 text-sm font-bold text-gray-800 shadow-lg active:scale-95"
         >
           <svg width="20" height="20" viewBox="0 0 24 24">
@@ -109,13 +109,13 @@ export function LoginPage() {
               fill="#EA4335"
             />
           </svg>
-          Se connecter avec Google
+          {t("login.google")}
         </button>
 
         {/* Separator */}
         <div className="my-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-surface-high" />
-          <span className="text-sm text-text-muted">ou</span>
+          <span className="text-sm text-text-muted">{t("login.or")}</span>
           <div className="h-px flex-1 bg-surface-high" />
         </div>
 
@@ -123,10 +123,10 @@ export function LoginPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {isRegister && (
             <label>
-              <span className="sr-only">Nom</span>
+              <span className="sr-only">{t("login.name")}</span>
               <input
                 type="text"
-                placeholder="Nom"
+                placeholder={t("login.name")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -136,10 +136,10 @@ export function LoginPage() {
             </label>
           )}
           <label>
-            <span className="sr-only">Email</span>
+            <span className="sr-only">{t("login.email")}</span>
             <input
               type="email"
-              placeholder="Email"
+              placeholder={t("login.email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -148,10 +148,10 @@ export function LoginPage() {
             />
           </label>
           <label>
-            <span className="sr-only">Mot de passe</span>
+            <span className="sr-only">{t("login.password")}</span>
             <input
               type="password"
-              placeholder="Mot de passe"
+              placeholder={t("login.password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -172,13 +172,17 @@ export function LoginPage() {
             disabled={loading}
             className="mt-1 rounded-xl bg-primary py-3 font-bold text-black active:scale-95 disabled:opacity-50"
           >
-            {loading ? "Chargement..." : isRegister ? "Créer un compte" : "Se connecter"}
+            {loading
+              ? t("login.loading")
+              : isRegister
+                ? t("login.submit.signup")
+                : t("login.submit.signin")}
           </button>
         </form>
 
         {/* Toggle login/register */}
         <p className="mt-4 text-center text-sm text-text-muted">
-          {isRegister ? "Déjà un compte ?" : "Pas encore de compte ?"}{" "}
+          {isRegister ? t("login.toggle.haveAccount") : t("login.toggle.noAccount")}{" "}
           <button
             type="button"
             onClick={() => {
@@ -187,14 +191,14 @@ export function LoginPage() {
             }}
             className="text-primary underline"
           >
-            {isRegister ? "Se connecter" : "Créer un compte"}
+            {isRegister ? t("login.submit.signin") : t("login.submit.signup")}
           </button>
         </p>
 
         {/* Privacy policy */}
         <p className="mt-6 text-center text-xs text-text-muted">
           <Link to="/privacy" className="underline hover:text-text">
-            Politique de confidentialit&eacute;
+            {t("login.privacy")}
           </Link>
         </p>
       </div>

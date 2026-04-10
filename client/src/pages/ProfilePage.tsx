@@ -37,6 +37,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { signOut } from "@/lib/auth";
 import { formatFullDate } from "@/lib/format-utils";
 import { isBleSupported, scanAndConnect } from "@/lib/super73-ble";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const allBadgeIds = Object.keys(BADGES) as BadgeId[];
 
@@ -690,6 +691,10 @@ export function ProfilePage() {
                 )}
               </div>
             )}
+
+            <div className="mx-4 h-px bg-white/5" />
+
+            <LanguageSwitcher />
           </div>
 
           {/* Admin link (only visible for admins) */}

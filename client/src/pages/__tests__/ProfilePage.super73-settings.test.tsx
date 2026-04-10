@@ -74,6 +74,7 @@ vi.mock("@/hooks/usePushNotifications", () => ({
 
 vi.mock("@/lib/auth", () => ({ signOut: vi.fn() }));
 vi.mock("@/lib/super73-ble", () => ({ isBleSupported: () => true, scanAndConnect: vi.fn() }));
+vi.mock("@/components/LanguageSwitcher", () => ({ LanguageSwitcher: () => null }));
 
 describe("ProfilePage Super73 settings", () => {
   beforeEach(() => {

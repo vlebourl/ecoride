@@ -26,6 +26,30 @@ describe("useMapCamera", () => {
     vi.restoreAllMocks();
   });
 
+  it("retries flyTo when style is not yet loaded instead of silently dropping the update", () => {
+    const flyTo = vi.fn();
+    let styleLoaded = false;
+    const mapRef = createRef<MapRef | null>();
+    mapRef.current = {
+      flyTo,
+      isStyleLoaded: () => styleLoaded,
+    } as unknown as MapRef;
+
+    render(<CameraHarness mapRef={mapRef} position={[48.8566, 2.3522]} />);
+
+    // Style not ready yet — flyTo must not have fired, but a retry should be pending.
+    expect(flyTo).not.toHaveBeenCalled();
+
+    // Style finishes loading after a short delay. The pending retry must catch it.
+    styleLoaded = true;
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(flyTo).toHaveBeenCalledTimes(1);
+    expect(flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [2.3522, 48.8566] }));
+  });
+
   it("replays the latest position after the throttle window instead of dropping it", () => {
     const flyTo = vi.fn();
     const mapRef = createRef<MapRef | null>();

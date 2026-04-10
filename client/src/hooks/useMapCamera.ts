@@ -44,12 +44,17 @@ export function useMapCamera(
       return;
     }
 
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return; // map or style not ready; onLoad will replay
-
     const flyCamera = () => {
       const nextMap = mapRef.current;
-      if (!nextMap || !nextMap.isStyleLoaded()) return;
+      if (!nextMap) {
+        // Map unmounted while retry was pending — bail. Next render replays.
+        return;
+      }
+      if (!nextMap.isStyleLoaded()) {
+        // Style still loading (or reloading): retry soon instead of dropping.
+        retryTimerRef.current = setTimeout(flyCamera, 100);
+        return;
+      }
       flyToRef.current = Date.now();
       nextMap.flyTo({
         center: [position[1], position[0]],
@@ -61,18 +66,17 @@ export function useMapCamera(
       });
     };
 
+    clearRetryTimer();
+
     const remaining = 500 - (Date.now() - flyToRef.current);
     if (remaining <= 0) {
-      clearRetryTimer();
       flyCamera();
-      return;
+    } else {
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        flyCamera();
+      }, remaining);
     }
-
-    clearRetryTimer();
-    retryTimerRef.current = setTimeout(() => {
-      retryTimerRef.current = null;
-      flyCamera();
-    }, remaining);
 
     return clearRetryTimer;
     // flyToRef is a ref (stable) — mapLoadSeq is intentionally listed

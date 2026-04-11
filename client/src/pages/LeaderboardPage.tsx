@@ -3,6 +3,7 @@ import { Trophy, Leaf, Flame, MapPin, Zap, Euro, Route } from "lucide-react";
 import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { CommunityImpactBanner } from "@/components/leaderboard/CommunityImpactBanner";
 import { useT } from "@/i18n/provider";
 import type { StatsPeriod, LeaderboardCategory } from "@ecoride/shared/api-contracts";
 import type { TranslationKey } from "@/i18n/locales/fr";
@@ -125,6 +126,9 @@ export function LeaderboardPage() {
               );
             })}
           </div>
+
+          {/* Community impact banner — shared period with the leaderboard */}
+          <CommunityImpactBanner period={period} />
 
           {/* Category switcher — icons only, label below */}
           <div className="mt-3 flex flex-col gap-2">

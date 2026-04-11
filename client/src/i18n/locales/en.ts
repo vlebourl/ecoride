@@ -535,4 +535,19 @@ export const en: Record<TranslationKey, string> = {
 
   "trip.speedSource.gps": "GPS",
   "trip.speedSource.sensor": "Sensor",
+
+  "community.title": "Community Impact",
+  "community.co2": "CO₂ saved",
+  "community.fuel": "Fuel saved",
+  "community.money": "Saved",
+  "community.distance": "km ridden",
+  "community.activeUsers": "Active riders",
+  "community.unit.tonnes": "t",
+  "community.unit.kg": "kg",
+  "community.unit.liters": "L",
+  "community.unit.euros": "€",
+  "community.unit.km": "km",
+  "community.unit.users": "riders",
+  "community.comparisons.flights": "= {count} Paris-NY flights avoided",
+  "community.comparisons.trees": "= {count} trees absorbing CO₂ for 1 year",
 };

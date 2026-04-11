@@ -57,7 +57,7 @@ describe("LeaderboardPage i18n", () => {
       </I18nProvider>,
     );
 
-    expect(screen.getByRole("heading", { name: "Classement" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Commu" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Semaine" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Mois" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Tout" })).toBeTruthy();
@@ -74,7 +74,7 @@ describe("LeaderboardPage i18n", () => {
       </I18nProvider>,
     );
 
-    expect(screen.getByRole("heading", { name: "Leaderboard" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Community" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Week" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Month" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "All-time" })).toBeTruthy();

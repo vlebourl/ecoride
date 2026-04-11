@@ -275,7 +275,7 @@ export const en: Record<TranslationKey, string> = {
   "stats.tripLabel.evening": "Evening ride",
   "stats.tripLabel.prefix": "",
 
-  "leaderboard.header.title": "Leaderboard",
+  "leaderboard.header.title": "Community",
   "leaderboard.loadingAria": "Loading",
   "leaderboard.period.week": "Week",
   "leaderboard.period.month": "Month",
@@ -503,7 +503,7 @@ export const en: Record<TranslationKey, string> = {
   "shared.nav.home": "Home",
   "shared.nav.trip": "Trip",
   "shared.nav.stats": "Stats",
-  "shared.nav.leaderboard": "Leaderboard",
+  "shared.nav.leaderboard": "Community",
   "shared.nav.profile": "Profile",
   "shared.pageHeader.back": "Back",
 

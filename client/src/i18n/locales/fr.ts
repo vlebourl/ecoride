@@ -273,7 +273,7 @@ export const fr = {
   "stats.tripLabel.evening": "Trajet du soir",
   "stats.tripLabel.prefix": "Trajet ",
 
-  "leaderboard.header.title": "Classement",
+  "leaderboard.header.title": "Commu",
   "leaderboard.loadingAria": "Chargement",
   "leaderboard.period.week": "Semaine",
   "leaderboard.period.month": "Mois",
@@ -506,7 +506,7 @@ export const fr = {
   "shared.nav.home": "Accueil",
   "shared.nav.trip": "Trajet",
   "shared.nav.stats": "Stats",
-  "shared.nav.leaderboard": "Classement",
+  "shared.nav.leaderboard": "Commu",
   "shared.nav.profile": "Profil",
   "shared.pageHeader.back": "Retour",
 

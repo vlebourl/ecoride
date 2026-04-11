@@ -3,7 +3,6 @@ import { useT } from "@/i18n/provider";
 export interface TrackingDashboardProps {
   isPaused: boolean;
   speedKmh: number | null;
-  bleSpeedKmh: number | null;
   distance: number;
   co2Saved: number;
   elapsed: number;
@@ -13,15 +12,12 @@ export interface TrackingDashboardProps {
 export function TrackingDashboard({
   isPaused,
   speedKmh,
-  bleSpeedKmh,
   distance,
   co2Saved,
   elapsed,
   formatTime,
 }: TrackingDashboardProps) {
   const t = useT();
-  const displaySpeedKmh = bleSpeedKmh ?? speedKmh;
-  const speedSource = bleSpeedKmh != null ? "sensor" : "gps";
 
   return (
     <>
@@ -36,17 +32,12 @@ export function TrackingDashboard({
           </span>
         ) : (
           <span className="text-7xl font-black tracking-tighter text-text">
-            {displaySpeedKmh != null ? displaySpeedKmh.toFixed(0) : "—"}
+            {speedKmh != null ? speedKmh.toFixed(0) : "—"}
           </span>
         )}
         <span className="text-sm font-bold uppercase tracking-widest text-text-dim">
           {isPaused ? t("trip.dashboard.pausedUnit") : t("trip.dashboard.speedUnit")}
         </span>
-        {!isPaused && (
-          <span className="mt-1 rounded-full bg-surface-high px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-text-dim">
-            {speedSource === "sensor" ? t("trip.speedSource.sensor") : t("trip.speedSource.gps")}
-          </span>
-        )}
       </div>
 
       {/* Distance / CO₂ / Temps — row */}

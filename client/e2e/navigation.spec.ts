@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 test.use({ serviceWorkers: "block" });
 
@@ -15,10 +15,21 @@ const NOMINATIM_FIXTURE = [
   },
 ];
 
+// Approximate road-following coordinates: Hôtel de Ville → Rue de Rivoli → Tour Eiffel
+// (simplified — real ORS returns ~200 pts; enough to look like a road route in tests)
 const ROUTE_FIXTURE = {
   coordinates: [
-    [2.3522, 48.8566],
-    [2.2945, 48.8584],
+    [2.3522, 48.8566], // Hôtel de Ville
+    [2.3468, 48.857],
+    [2.3395, 48.8572],
+    [2.332, 48.8574],
+    [2.325, 48.8575],
+    [2.317, 48.8573],
+    [2.309, 48.857],
+    [2.302, 48.857],
+    [2.2985, 48.8603],
+    [2.2959, 48.862],
+    [2.2945, 48.8584], // Tour Eiffel
   ],
   steps: [
     {
@@ -26,11 +37,18 @@ const ROUTE_FIXTURE = {
       distance: 3200,
       duration: 600,
       type: 0,
-      wayPoints: [0, 1],
+      wayPoints: [0, 7],
+    },
+    {
+      instruction: "Tournez à gauche vers la Tour Eiffel",
+      distance: 800,
+      duration: 120,
+      type: 1,
+      wayPoints: [7, 10],
     },
   ],
-  totalDistance: 3200,
-  totalDuration: 600,
+  totalDistance: 4000,
+  totalDuration: 720,
 };
 
 const BASE_USER = {
@@ -58,7 +76,7 @@ const BASE_USER = {
   createdAt: new Date().toISOString(),
 };
 
-async function stubApiRoutes(page: import("@playwright/test").Page) {
+async function stubApiRoutes(page: Page): Promise<void> {
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
 
@@ -154,13 +172,7 @@ test("clearing destination removes badge", async ({ page }) => {
   await page.getByRole("button", { name: "Rechercher" }).click();
   await page.getByText("Tour Eiffel, Paris, Île-de-France, France").first().click();
 
-  // Clear the destination
-  const clearBtn = page
-    .locator("[data-testid='trip-page-root']")
-    .getByRole("button")
-    .filter({ hasText: "" })
-    .last();
-  // Use the X button next to the destination label
+  // Clear the destination via the X button next to the label
   await page
     .getByText("Tour Eiffel, Paris, Île-de-France, France")
     .locator("..")

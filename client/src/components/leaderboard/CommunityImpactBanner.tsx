@@ -1,6 +1,5 @@
 import { Leaf, Droplets, Euro, Route, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { StatCard } from "@/components/ui/StatCard";
 import { useCountUp } from "@/hooks/useCountUp";
 import { useCommunityStats } from "@/hooks/queries";
 import { useT } from "@/i18n/provider";
@@ -19,8 +18,8 @@ function formatCo2(kg: number): { value: string; unit: string } {
   return { value: kg.toFixed(1), unit: "kg" };
 }
 
-function AnimatedStatCard({
-  icon,
+function CompactStat({
+  icon: Icon,
   rawValue,
   displayValue,
   unit,
@@ -34,8 +33,17 @@ function AnimatedStatCard({
 }) {
   const animated = useCountUp(rawValue);
   return (
-    <div data-testid={testId}>
-      <StatCard icon={icon} value={displayValue(animated)} unit={unit} />
+    <div
+      data-testid={testId}
+      className="flex flex-col items-center gap-0.5 rounded-xl bg-surface-container px-1 py-2"
+    >
+      <Icon size={13} className="text-primary-light" strokeWidth={1.8} />
+      <span className="text-sm font-black leading-none tracking-tight">
+        {displayValue(animated)}
+      </span>
+      <span className="text-[9px] font-medium uppercase tracking-wider text-text-muted">
+        {unit}
+      </span>
     </div>
   );
 }
@@ -51,14 +59,13 @@ export function CommunityImpactBanner({ period }: Props) {
   if (isPending || !data) {
     return (
       <div
-        className="mb-4 grid grid-cols-3 gap-2"
+        className="mb-3 grid grid-cols-5 gap-1.5"
         data-testid="community-banner-skeleton"
         aria-busy="true"
       >
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="aspect-square rounded-xl bg-surface-container animate-pulse" />
+          <div key={i} className="h-16 rounded-xl bg-surface-container animate-pulse" />
         ))}
-        <div className="rounded-xl bg-surface-container animate-pulse h-10" />
       </div>
     );
   }
@@ -71,41 +78,41 @@ export function CommunityImpactBanner({ period }: Props) {
   const trees = Math.round(totalCo2SavedKg / KG_PER_TREE_YEAR);
 
   return (
-    <div className="mb-4">
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-text-muted">
+    <div className="mb-3">
+      <h2 className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
         {t("community.title")}
       </h2>
 
-      <div className="grid grid-cols-3 gap-2" data-testid="community-banner">
-        <AnimatedStatCard
+      <div className="grid grid-cols-5 gap-1.5" data-testid="community-banner">
+        <CompactStat
           icon={Leaf}
           rawValue={totalCo2SavedKg >= 1000 ? totalCo2SavedKg / 1000 : totalCo2SavedKg}
           displayValue={(v) => (totalCo2SavedKg >= 1000 ? v.toFixed(1) : Math.round(v).toString())}
           unit={co2.unit}
           testId="community-banner-co2"
         />
-        <AnimatedStatCard
+        <CompactStat
           icon={Droplets}
           rawValue={totalFuelSavedL}
           displayValue={(v) => Math.round(v).toString()}
           unit={t("community.unit.liters")}
           testId="community-banner-fuel"
         />
-        <AnimatedStatCard
+        <CompactStat
           icon={Euro}
           rawValue={totalMoneySavedEur}
           displayValue={(v) => Math.round(v).toString()}
           unit={t("community.unit.euros")}
           testId="community-banner-money"
         />
-        <AnimatedStatCard
+        <CompactStat
           icon={Route}
           rawValue={totalDistanceKm}
           displayValue={(v) => Math.round(v).toString()}
           unit={t("community.unit.km")}
           testId="community-banner-distance"
         />
-        <AnimatedStatCard
+        <CompactStat
           icon={Users}
           rawValue={activeUsers}
           displayValue={(v) => Math.round(v).toString()}
@@ -116,7 +123,7 @@ export function CommunityImpactBanner({ period }: Props) {
 
       {totalCo2SavedKg > 0 && (
         <p
-          className="mt-2 text-[11px] text-text-dim leading-relaxed"
+          className="mt-1.5 text-[10px] text-text-dim leading-relaxed"
           data-testid="community-banner-comparisons"
         >
           {flights > 0 && t("community.comparisons.flights", { count: flights.toString() })}

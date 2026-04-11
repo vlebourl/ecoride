@@ -54,6 +54,27 @@ test.describe("Leaderboard period filter", () => {
         });
       }
 
+      // Stub community stats so CommunityImpactBanner doesn't crash
+      if (url.includes("/api/stats/community")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              period: "all",
+              totalCo2SavedKg: 0,
+              totalFuelSavedL: 0,
+              totalMoneySavedEur: 0,
+              totalDistanceKm: 0,
+              activeUsers: 0,
+              tripCount: 0,
+              generatedAt: new Date().toISOString(),
+            },
+          }),
+        });
+      }
+
       // Return empty leaderboard for all other API calls
       return route.fulfill({
         status: 200,

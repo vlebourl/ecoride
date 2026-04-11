@@ -30,6 +30,7 @@ export const API_ROUTES = {
   // Stats
   STATS_SUMMARY: { method: "GET", path: "/api/stats/summary" },
   STATS_LEADERBOARD: { method: "GET", path: "/api/stats/leaderboard" },
+  STATS_COMMUNITY: { method: "GET", path: "/api/stats/community" },
 
   // User profile
   USER_PROFILE: { method: "GET", path: "/api/user/profile" },
@@ -162,6 +163,17 @@ export interface TripPresetListResponse {
 
 export interface TripPresetResponse {
   tripPreset: TripPreset;
+}
+
+export interface CommunityStatsResponse {
+  period: StatsPeriod;
+  totalCo2SavedKg: number;
+  totalFuelSavedL: number;
+  totalMoneySavedEur: number;
+  totalDistanceKm: number;
+  activeUsers: number;
+  tripCount: number;
+  generatedAt: string; // ISO 8601
 }
 
 export interface StatsSummaryResponse {

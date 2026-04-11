@@ -275,7 +275,7 @@ export const en: Record<TranslationKey, string> = {
   "stats.tripLabel.evening": "Evening ride",
   "stats.tripLabel.prefix": "",
 
-  "leaderboard.header.title": "Leaderboard",
+  "leaderboard.header.title": "Community",
   "leaderboard.loadingAria": "Loading",
   "leaderboard.period.week": "Week",
   "leaderboard.period.month": "Month",
@@ -503,7 +503,7 @@ export const en: Record<TranslationKey, string> = {
   "shared.nav.home": "Home",
   "shared.nav.trip": "Trip",
   "shared.nav.stats": "Stats",
-  "shared.nav.leaderboard": "Leaderboard",
+  "shared.nav.leaderboard": "Community",
   "shared.nav.profile": "Profile",
   "shared.pageHeader.back": "Back",
 
@@ -535,4 +535,19 @@ export const en: Record<TranslationKey, string> = {
 
   "trip.speedSource.gps": "GPS",
   "trip.speedSource.sensor": "Sensor",
+
+  "community.title": "Community Impact",
+  "community.co2": "CO₂ saved",
+  "community.fuel": "Fuel saved",
+  "community.money": "Saved",
+  "community.distance": "km ridden",
+  "community.activeUsers": "Active riders",
+  "community.unit.tonnes": "t",
+  "community.unit.kg": "kg",
+  "community.unit.liters": "L",
+  "community.unit.euros": "€",
+  "community.unit.km": "km",
+  "community.unit.users": "riders",
+  "community.comparisons.flights": "= {{count}} Paris-NY flights avoided",
+  "community.comparisons.trees": "= {{count}} trees absorbing CO₂ for 1 year",
 };

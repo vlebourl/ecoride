@@ -42,7 +42,7 @@ describe("BottomNav i18n", () => {
     expect(screen.getByRole("navigation", { name: "Navigation principale" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Accueil/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Trajet/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Classement/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Commu/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Profil/ })).toBeTruthy();
   });
 
@@ -52,7 +52,7 @@ describe("BottomNav i18n", () => {
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Home/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Trip/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Leaderboard/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Community/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Profile/ })).toBeTruthy();
   });
 });

@@ -1,17 +1,27 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { eq, sum, count, gte, and } from "drizzle-orm";
+import { eq, sum, count, gte, and, sql } from "drizzle-orm";
 import { db } from "../db";
 import { trips } from "../db/schema";
 import { validationHook } from "../lib/validation";
 import { computeStreak } from "../lib/streaks";
+import { rateLimit } from "../lib/rate-limit";
 import type { AuthEnv } from "../types/context";
-import type { StatsPeriod } from "@ecoride/shared/api-contracts";
+import type { StatsPeriod, CommunityStatsResponse } from "@ecoride/shared/api-contracts";
 
 const statsQuery = z.object({
   period: z.enum(["day", "week", "month", "year", "all"]).default("month"),
 });
+
+const communityStatsQuery = z.object({
+  period: z.enum(["week", "month", "year", "all"]).default("all"),
+});
+
+// In-memory cache for community stats — keyed by period, TTL 5 minutes
+const COMMUNITY_CACHE_TTL_MS = 5 * 60 * 1000;
+type CacheEntry = { data: CommunityStatsResponse; cachedAt: number };
+const communityCache = new Map<StatsPeriod, CacheEntry>();
 
 function getPeriodStart(period: StatsPeriod): Date | null {
   if (period === "all") return null;
@@ -69,5 +79,51 @@ statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), asy
     },
   });
 });
+
+// GET /api/stats/community — Cumulative community impact (all users)
+statsRouter.get(
+  "/community",
+  rateLimit({ maxRequests: 30, windowMs: 60_000, prefix: "stats-community" }),
+  zValidator("query", communityStatsQuery, validationHook),
+  async (c) => {
+    const { period } = c.req.valid("query");
+
+    // Serve from cache if fresh
+    const cached = communityCache.get(period);
+    if (cached && Date.now() - cached.cachedAt < COMMUNITY_CACHE_TTL_MS) {
+      return c.json({ ok: true, data: cached.data });
+    }
+
+    const periodStart = getPeriodStart(period);
+    const conditions = periodStart ? [gte(trips.startedAt, periodStart)] : [];
+
+    const [row] = await db
+      .select({
+        totalCo2SavedKg: sql<number>`coalesce(${sum(trips.co2SavedKg)}, 0)`.mapWith(Number),
+        totalFuelSavedL: sql<number>`coalesce(${sum(trips.fuelSavedL)}, 0)`.mapWith(Number),
+        totalMoneySavedEur: sql<number>`coalesce(${sum(trips.moneySavedEur)}, 0)`.mapWith(Number),
+        totalDistanceKm: sql<number>`coalesce(${sum(trips.distanceKm)}, 0)`.mapWith(Number),
+        activeUsers: sql<number>`count(distinct ${trips.userId})`.mapWith(Number),
+        tripCount: count(),
+      })
+      .from(trips)
+      .where(and(...conditions));
+
+    const data: CommunityStatsResponse = {
+      period,
+      totalCo2SavedKg: row?.totalCo2SavedKg ?? 0,
+      totalFuelSavedL: row?.totalFuelSavedL ?? 0,
+      totalMoneySavedEur: row?.totalMoneySavedEur ?? 0,
+      totalDistanceKm: row?.totalDistanceKm ?? 0,
+      activeUsers: row?.activeUsers ?? 0,
+      tripCount: row?.tripCount ?? 0,
+      generatedAt: new Date().toISOString(),
+    };
+
+    communityCache.set(period, { data, cachedAt: Date.now() });
+
+    return c.json({ ok: true, data });
+  },
+);
 
 export { statsRouter };

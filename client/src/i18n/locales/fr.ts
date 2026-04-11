@@ -273,7 +273,7 @@ export const fr = {
   "stats.tripLabel.evening": "Trajet du soir",
   "stats.tripLabel.prefix": "Trajet ",
 
-  "leaderboard.header.title": "Classement",
+  "leaderboard.header.title": "Commu",
   "leaderboard.loadingAria": "Chargement",
   "leaderboard.period.week": "Semaine",
   "leaderboard.period.month": "Mois",
@@ -506,7 +506,7 @@ export const fr = {
   "shared.nav.home": "Accueil",
   "shared.nav.trip": "Trajet",
   "shared.nav.stats": "Stats",
-  "shared.nav.leaderboard": "Classement",
+  "shared.nav.leaderboard": "Commu",
   "shared.nav.profile": "Profil",
   "shared.pageHeader.back": "Retour",
 
@@ -538,6 +538,21 @@ export const fr = {
 
   "trip.speedSource.gps": "GPS",
   "trip.speedSource.sensor": "Capteur",
+
+  "community.title": "Impact de la communauté",
+  "community.co2": "CO₂ évité",
+  "community.fuel": "Essence éco.",
+  "community.money": "Économisé",
+  "community.distance": "km parcourus",
+  "community.activeUsers": "Cyclistes actifs",
+  "community.unit.tonnes": "t",
+  "community.unit.kg": "kg",
+  "community.unit.liters": "L",
+  "community.unit.euros": "€",
+  "community.unit.km": "km",
+  "community.unit.users": "cyclistes",
+  "community.comparisons.flights": "= {{count}} vols Paris-NY évités",
+  "community.comparisons.trees": "= {{count}} arbres absorbant 1 an",
 } as const;
 
 export type TranslationKey = keyof typeof fr;

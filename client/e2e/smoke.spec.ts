@@ -89,6 +89,26 @@ for (const { path, name } of PAGES) {
         });
       }
 
+      if (url.includes("/api/stats/community")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              period: "all",
+              totalCo2SavedKg: 0,
+              totalFuelSavedL: 0,
+              totalMoneySavedEur: 0,
+              totalDistanceKm: 0,
+              activeUsers: 0,
+              tripCount: 0,
+              generatedAt: new Date().toISOString(),
+            },
+          }),
+        });
+      }
+
       return route.fulfill({
         status: 200,
         contentType: "application/json",

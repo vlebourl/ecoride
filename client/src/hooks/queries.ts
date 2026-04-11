@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 import type { Trip, Achievement, TripPreset } from "@ecoride/shared/types";
 import type {
   StatsSummaryResponse,
+  CommunityStatsResponse,
   LeaderboardEntry,
   CreateTripRequest,
   CreateTripPresetRequest,
@@ -92,6 +93,17 @@ export function useChartTrips(period: "week" | "month" | "year") {
       }>(
         `/trips?from=${encodeURIComponent(fromStr)}&to=${encodeURIComponent(toStr)}&limit=100`,
       ).then((r) => r.data.trips),
+  });
+}
+
+export function useCommunityStats(period: StatsPeriod = "all") {
+  return useQuery({
+    queryKey: ["community-stats", period],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: CommunityStatsResponse }>(
+        `/stats/community?period=${period}`,
+      ).then((r) => r.data),
+    staleTime: 5 * 60 * 1000, // aligned with server cache TTL
   });
 }
 

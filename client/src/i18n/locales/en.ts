@@ -548,6 +548,6 @@ export const en: Record<TranslationKey, string> = {
   "community.unit.euros": "€",
   "community.unit.km": "km",
   "community.unit.users": "riders",
-  "community.comparisons.flights": "= {count} Paris-NY flights avoided",
-  "community.comparisons.trees": "= {count} trees absorbing CO₂ for 1 year",
+  "community.comparisons.flights": "= {{count}} Paris-NY flights avoided",
+  "community.comparisons.trees": "= {{count}} trees absorbing CO₂ for 1 year",
 };

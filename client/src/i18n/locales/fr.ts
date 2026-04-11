@@ -551,8 +551,8 @@ export const fr = {
   "community.unit.euros": "€",
   "community.unit.km": "km",
   "community.unit.users": "cyclistes",
-  "community.comparisons.flights": "= {count} vols Paris-NY évités",
-  "community.comparisons.trees": "= {count} arbres absorbant 1 an",
+  "community.comparisons.flights": "= {{count}} vols Paris-NY évités",
+  "community.comparisons.trees": "= {{count}} arbres absorbant 1 an",
 } as const;
 
 export type TranslationKey = keyof typeof fr;

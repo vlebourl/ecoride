@@ -533,4 +533,15 @@ export const en: Record<TranslationKey, string> = {
   "community.unit.users": "riders",
   "community.comparisons.flights": "= {{count}} Paris-NY flights avoided",
   "community.comparisons.trees": "= {{count}} trees absorbing CO₂ for 1 year",
+
+  "trip.navigation.addDestination": "Add a destination",
+  "trip.navigation.clear": "Clear",
+  "trip.navigation.search.placeholder": "Where to?",
+  "trip.navigation.search.button": "Search",
+  "trip.navigation.search.loading": "Searching…",
+  "trip.navigation.search.empty": "No results",
+  "trip.navigation.search.error": "Search error, please try again",
+  "trip.navigation.recalculating": "Recalculating route…",
+  "trip.navigation.arrived": "You have arrived!",
+  "trip.navigation.fetchError": "Unable to calculate route",
 };

@@ -10,6 +10,7 @@ import { pushRouter } from "./push.routes";
 import { adminRouter } from "./admin.routes";
 import { feedbackRouter } from "./feedback.routes";
 import { healthRouter } from "./health.routes";
+import { navigationRouter } from "./navigation.routes";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { announcements } from "../db/schema";
@@ -44,5 +45,6 @@ apiRouter.route("/fuel-price", fuelPriceRouter);
 apiRouter.route("/push", pushRouter);
 apiRouter.route("/admin", adminRouter);
 apiRouter.route("/feedback", feedbackRouter);
+apiRouter.route("/navigation", navigationRouter);
 
 export { apiRouter };

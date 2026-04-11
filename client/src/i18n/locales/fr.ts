@@ -536,6 +536,17 @@ export const fr = {
   "community.unit.users": "cyclistes",
   "community.comparisons.flights": "= {{count}} vols Paris-NY évités",
   "community.comparisons.trees": "= {{count}} arbres absorbant 1 an",
+
+  "trip.navigation.addDestination": "Ajouter une destination",
+  "trip.navigation.clear": "Effacer",
+  "trip.navigation.search.placeholder": "Où allez-vous ?",
+  "trip.navigation.search.button": "Rechercher",
+  "trip.navigation.search.loading": "Recherche…",
+  "trip.navigation.search.empty": "Aucun résultat",
+  "trip.navigation.search.error": "Erreur de recherche, réessayez",
+  "trip.navigation.recalculating": "Recalcul de l'itinéraire…",
+  "trip.navigation.arrived": "Vous êtes arrivé !",
+  "trip.navigation.fetchError": "Impossible de calculer l'itinéraire",
 } as const;
 
 export type TranslationKey = keyof typeof fr;

@@ -55,6 +55,9 @@ export const API_ROUTES = {
 
   // Health
   HEALTH: { method: "GET", path: "/api/health" },
+
+  // Navigation
+  NAVIGATION_ROUTE: { method: "POST", path: "/api/navigation/route" },
 } as const;
 
 // ---- Request payloads ----
@@ -140,6 +143,11 @@ export interface FuelPriceQuery {
   lat: number;
   lng: number;
   type: FuelType;
+}
+
+export interface GetNavigationRouteRequest {
+  start: [number, number]; // [lon, lat]
+  end: [number, number]; // [lon, lat]
 }
 
 export type StatsPeriod = "day" | "week" | "month" | "year" | "all";

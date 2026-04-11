@@ -37,6 +37,7 @@ vi.mock("@/hooks/queries", () => ({
     },
     isPending: false,
   }),
+  useCommunityStats: () => ({ data: undefined, isPending: true }),
 }));
 
 vi.mock("@/lib/auth", () => ({

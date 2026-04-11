@@ -522,23 +522,6 @@ export const fr = {
   "super73.full.disconnect": "Déconnecter",
   "super73.full.connect": "Connecter",
 
-  "profile.bleSpeedSensor.row": "Capteur de vitesse BLE",
-  "profile.bleSpeedSensor.description":
-    "Utilisez un capteur de vitesse Bluetooth (CSC) à la place du GPS pendant vos trajets.",
-  "profile.bleSpeedSensor.pair": "Appairer un capteur",
-  "profile.bleSpeedSensor.pairing": "Connexion...",
-  "profile.bleSpeedSensor.disconnect": "Déconnecter",
-  "profile.bleSpeedSensor.statusConnected": "Connecté — {{name}}",
-  "profile.bleSpeedSensor.statusDisconnected": "Aucun capteur connecté",
-  "profile.bleSpeedSensor.statusConnecting": "Connexion en cours...",
-  "profile.bleSpeedSensor.statusError": "Erreur de connexion",
-  "profile.bleSpeedSensor.wheelCircumference": "Circonférence de roue (mm)",
-  "profile.bleSpeedSensor.wheelCircumferenceHelp":
-    "Mesurez le périmètre de la roue ou utilisez un preset : 2215 (27,5×2,4), 2096 (700×25c), 2155 (700×32c).",
-
-  "trip.speedSource.gps": "GPS",
-  "trip.speedSource.sensor": "Capteur",
-
   "community.title": "Impact de la communauté",
   "community.co2": "CO₂ évité",
   "community.fuel": "Essence éco.",

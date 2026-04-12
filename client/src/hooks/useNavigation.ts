@@ -24,6 +24,10 @@ export interface UseNavigationResult {
   distanceToNextStep: number | null;
   totalRemaining: number | null;
   isArrived: boolean;
+  /** ORS maneuver type of the current step (0=left, 1=right, 2=sharp-left, …) */
+  currentStepType: number | null;
+  /** Coordinates slice from current step start → destination (for remaining-route polyline) */
+  remainingCoordinates: [number, number][];
   setDestination: (dest: Destination | null, currentPoint?: GpsPoint | null) => void;
   clearRoute: () => void;
 }
@@ -199,14 +203,18 @@ export function useNavigation({
   }, [currentPoint, lastAccuracy, route, currentStepIndex, isArrived, loadRoute]);
 
   // Derived values
-  const nextInstruction =
-    route && !isArrived ? (route.steps[currentStepIndex]?.instruction ?? null) : null;
+  const currentStep = route && !isArrived ? (route.steps[currentStepIndex] ?? null) : null;
 
-  const distanceToNextStep =
-    route && !isArrived ? (route.steps[currentStepIndex]?.distance ?? null) : null;
+  const nextInstruction = currentStep?.instruction ?? null;
+  const distanceToNextStep = currentStep?.distance ?? null;
+  const currentStepType = currentStep?.type ?? null;
 
   const totalRemaining =
     route && !isArrived ? computeRemainingDistance(route, currentStepIndex) : null;
+
+  // Polyline showing only the portion from current step onward
+  const remainingCoordinates: [number, number][] =
+    route && !isArrived ? route.coordinates.slice(currentStep?.wayPoints[0] ?? 0) : [];
 
   return {
     destination,
@@ -218,6 +226,8 @@ export function useNavigation({
     distanceToNextStep,
     totalRemaining,
     isArrived,
+    currentStepType,
+    remainingCoordinates,
     setDestination,
     clearRoute,
   };

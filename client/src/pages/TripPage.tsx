@@ -129,7 +129,8 @@ export function TripPage() {
 
   const traceGeoJSON = useMemo(() => buildTraceGeoJSON(gps.state.gpsPoints), [gps.state.gpsPoints]);
 
-  const routeGeoJSON = useMemo(() => {
+  // Full route for idle map (user hasn't started yet)
+  const fullRouteGeoJSON = useMemo(() => {
     if (!navigation.route) return null;
     return {
       type: "Feature" as const,
@@ -137,6 +138,16 @@ export function TripPage() {
       properties: {},
     };
   }, [navigation.route]);
+
+  // Remaining route for tracking map (shrinks as steps advance)
+  const remainingRouteGeoJSON = useMemo(() => {
+    if (navigation.remainingCoordinates.length < 2) return null;
+    return {
+      type: "Feature" as const,
+      geometry: { type: "LineString" as const, coordinates: navigation.remainingCoordinates },
+      properties: {},
+    };
+  }, [navigation.remainingCoordinates]);
   const hasSpeedData = traceGeoJSON.type === "FeatureCollection";
 
   const webGLSupported = useMemo(() => isWebGLSupported(), []);
@@ -314,6 +325,7 @@ export function TripPage() {
               distanceToNextStep={navigation.distanceToNextStep}
               isRecalculating={navigation.isLoading}
               isArrived={navigation.isArrived}
+              maneuverType={navigation.currentStepType}
             />
           )}
 
@@ -354,8 +366,8 @@ export function TripPage() {
                     if (!mapStyleReadyRef.current) setMapLoadError(true);
                   }}
                 >
-                  {routeGeoJSON && (
-                    <Source id="nav-route-tracking" type="geojson" data={routeGeoJSON}>
+                  {remainingRouteGeoJSON && (
+                    <Source id="nav-route-tracking" type="geojson" data={remainingRouteGeoJSON}>
                       <Layer
                         id="nav-route-tracking-line"
                         type="line"
@@ -464,8 +476,8 @@ export function TripPage() {
                   if (!mapStyleReadyRef.current) setMapLoadError(true);
                 }}
               >
-                {routeGeoJSON && (
-                  <Source id="nav-route-idle" type="geojson" data={routeGeoJSON}>
+                {fullRouteGeoJSON && (
+                  <Source id="nav-route-idle" type="geojson" data={fullRouteGeoJSON}>
                     <Layer
                       id="nav-route-idle-line"
                       type="line"

@@ -96,6 +96,10 @@ describe("useNavigation", () => {
     expect(result.current.destination).toEqual(FIXTURE_DESTINATION);
     expect(result.current.route).toEqual(FIXTURE_ROUTE);
     expect(result.current.isLoading).toBe(false);
+    // currentStepType: first step has type 0 (straight)
+    expect(result.current.currentStepType).toBe(0);
+    // remainingCoordinates: full route from step 0 wayPoint[0]=0
+    expect(result.current.remainingCoordinates).toEqual(FIXTURE_ROUTE.coordinates);
   });
 
   it("clearRoute resets all state", async () => {
@@ -206,5 +210,31 @@ describe("useNavigation", () => {
     expect(mockFetch.mock.calls.length).toBeGreaterThan(callsBefore);
     // isDeviated stays true while recalculating (isLoading is true, route not yet updated)
     expect(result.current.isDeviated).toBe(true);
+  });
+
+  it("remainingCoordinates shrinks as steps advance", async () => {
+    // Start at the waypoint that ends step 0 (coord index 1) to trigger step advancement
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    // At step 0, remainingCoordinates starts at coords[0] → full route
+    const initialLength = result.current.remainingCoordinates.length;
+    expect(initialLength).toBe(FIXTURE_ROUTE.coordinates.length);
+
+    // Move very close to the end-waypoint of step 0 (coord index 1: lon=2.3, lat=48.84)
+    // step 0 distance=5000m, so distToWaypoint < 20m triggers advancement
+    rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } });
+
+    // After advancing to step 1, remainingCoordinates starts at coords[1]
+    expect(result.current.remainingCoordinates.length).toBeLessThan(initialLength);
+    // currentStepType should now be step 1's type (1 = right turn)
+    expect(result.current.currentStepType).toBe(1);
   });
 });

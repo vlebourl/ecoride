@@ -16,6 +16,7 @@ const envSchema = z.object({
   COOLIFY_WEBHOOK_URL: z.string().url().optional(),
   COOLIFY_API_TOKEN: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
+  ORS_API_KEY: z.string().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;

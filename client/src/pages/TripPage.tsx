@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Play, Keyboard, AlertTriangle } from "lucide-react";
+import { Play, Keyboard, AlertTriangle, MapPin, X } from "lucide-react";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef, LayerProps } from "react-map-gl/maplibre";
 // maplibre-gl.css imported in app.css to avoid orphan CSS chunks
@@ -27,6 +27,9 @@ import { useMapOrientation } from "@/hooks/useMapOrientation";
 import { MapOrientationButton } from "@/components/trip/MapOrientationButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useT } from "@/i18n/provider";
+import { useNavigation } from "@/hooks/useNavigation";
+import { DestinationSearch } from "@/components/trip/DestinationSearch";
+import { NavigationBanner } from "@/components/trip/NavigationBanner";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -50,6 +53,12 @@ export function TripPage() {
   const { data: profileData } = useProfile();
   const { data: tripPresetsData } = useTripPresets();
   const gps = useAppGpsTracking();
+  const currentGpsPoint = gps.state.gpsPoints.at(-1) ?? null;
+  const navigation = useNavigation({
+    currentPoint: currentGpsPoint,
+    lastAccuracy: gps.state.lastAccuracy,
+  });
+  const [showDestinationSearch, setShowDestinationSearch] = useState(false);
   const { orientation, toggle: toggleOrientation } = useMapOrientation();
   const isPov = orientation === "pov";
 
@@ -119,6 +128,26 @@ export function TripPage() {
   });
 
   const traceGeoJSON = useMemo(() => buildTraceGeoJSON(gps.state.gpsPoints), [gps.state.gpsPoints]);
+
+  // Full route for idle map (user hasn't started yet)
+  const fullRouteGeoJSON = useMemo(() => {
+    if (!navigation.route) return null;
+    return {
+      type: "Feature" as const,
+      geometry: { type: "LineString" as const, coordinates: navigation.route.coordinates },
+      properties: {},
+    };
+  }, [navigation.route]);
+
+  // Remaining route for tracking map (shrinks as steps advance)
+  const remainingRouteGeoJSON = useMemo(() => {
+    if (navigation.remainingCoordinates.length < 2) return null;
+    return {
+      type: "Feature" as const,
+      geometry: { type: "LineString" as const, coordinates: navigation.remainingCoordinates },
+      properties: {},
+    };
+  }, [navigation.remainingCoordinates]);
   const hasSpeedData = traceGeoJSON.type === "FeatureCollection";
 
   const webGLSupported = useMemo(() => isWebGLSupported(), []);
@@ -217,8 +246,9 @@ export function TripPage() {
     recovery.setSessionPersistFailed(false);
     clearStoppedSession();
     setUiState("idle");
+    navigation.clearRoute();
     handleSaveTrip(session.distanceKm, session.durationSec, session);
-  }, [gps, recovery, resetMapState, handleSaveTrip]);
+  }, [gps, recovery, resetMapState, handleSaveTrip, navigation]);
 
   const handleAbandonFromInterrupt = useCallback(() => {
     if (window.confirm("Abandonner ce trajet ? Les donn\u00e9es seront perdues.")) {
@@ -228,8 +258,9 @@ export function TripPage() {
       setUiState("idle");
       recovery.sessionRef.current = null;
       gps.reset();
+      navigation.clearRoute();
     }
-  }, [gps, recovery]);
+  }, [gps, recovery, navigation]);
 
   const handleRestore = useCallback(() => {
     recovery.handleRestore(() => {
@@ -288,6 +319,16 @@ export function TripPage() {
             formatTime={formatTime}
           />
 
+          {navigation.destination && (
+            <NavigationBanner
+              nextInstruction={navigation.nextInstruction}
+              distanceToNextStep={navigation.distanceToNextStep}
+              isRecalculating={navigation.isLoading}
+              isArrived={navigation.isArrived}
+              maneuverType={navigation.currentStepType}
+            />
+          )}
+
           {/* Mini map */}
           <div
             className="relative min-h-0 flex-1 overflow-hidden"
@@ -325,12 +366,32 @@ export function TripPage() {
                     if (!mapStyleReadyRef.current) setMapLoadError(true);
                   }}
                 >
+                  {remainingRouteGeoJSON && (
+                    <Source id="nav-route-tracking" type="geojson" data={remainingRouteGeoJSON}>
+                      <Layer
+                        id="nav-route-tracking-line"
+                        type="line"
+                        paint={{ "line-color": "#3b82f6", "line-width": 5, "line-opacity": 0.85 }}
+                        layout={{ "line-cap": "round", "line-join": "round" }}
+                      />
+                    </Source>
+                  )}
                   {positions.length > 1 && (
                     <Source id="trace-tracking" type="geojson" data={traceGeoJSON}>
                       <Layer
                         {...((hasSpeedData ? speedTraceLayer : solidTraceLayer) as LayerProps)}
                       />
                     </Source>
+                  )}
+                  {navigation.destination && (
+                    <Marker
+                      longitude={navigation.destination.lon}
+                      latitude={navigation.destination.lat}
+                    >
+                      <div style={{ color: "#3b82f6" }}>
+                        <MapPin size={28} fill="currentColor" strokeWidth={1.5} />
+                      </div>
+                    </Marker>
                   )}
                   <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
                     {gps.state.heading != null ? (
@@ -415,6 +476,16 @@ export function TripPage() {
                   if (!mapStyleReadyRef.current) setMapLoadError(true);
                 }}
               >
+                {fullRouteGeoJSON && (
+                  <Source id="nav-route-idle" type="geojson" data={fullRouteGeoJSON}>
+                    <Layer
+                      id="nav-route-idle-line"
+                      type="line"
+                      paint={{ "line-color": "#3b82f6", "line-width": 5, "line-opacity": 0.85 }}
+                      layout={{ "line-cap": "round", "line-join": "round" }}
+                    />
+                  </Source>
+                )}
                 {positions.length > 1 && (
                   <Source id="trace-idle" type="geojson" data={traceGeoJSON}>
                     <Layer
@@ -422,6 +493,16 @@ export function TripPage() {
                       id="trace-idle"
                     />
                   </Source>
+                )}
+                {navigation.destination && (
+                  <Marker
+                    longitude={navigation.destination.lon}
+                    latitude={navigation.destination.lat}
+                  >
+                    <div style={{ color: "#3b82f6" }}>
+                      <MapPin size={28} fill="currentColor" strokeWidth={1.5} />
+                    </div>
+                  </Marker>
                 )}
                 <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
                   <div
@@ -509,6 +590,36 @@ export function TripPage() {
               {createTrip.isPending ? t("trip.start.saving") : t("trip.start.label")}
             </span>
           </button>
+          {navigation.destination ? (
+            <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3">
+              <MapPin size={16} className="shrink-0 text-blue-500" />
+              <span className="flex-1 truncate text-sm font-medium text-blue-700">
+                {navigation.destination.label}
+              </span>
+              {navigation.isLoading && (
+                <span className="text-xs text-blue-500">{t("trip.navigation.search.loading")}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => navigation.clearRoute()}
+                className="shrink-0 text-blue-400 active:text-blue-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDestinationSearch(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-text-muted py-3 active:scale-95"
+            >
+              <MapPin size={16} className="text-text-muted" />
+              <span className="text-sm font-medium text-text-muted">
+                {t("trip.navigation.addDestination")}
+              </span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               manual.resetManualForm();
@@ -541,6 +652,19 @@ export function TripPage() {
           )}
         </>
       )}
+
+      <DestinationSearch
+        open={showDestinationSearch}
+        onClose={() => setShowDestinationSearch(false)}
+        onSelect={(dest) => {
+          // Use tracking GPS point if available; fall back to idle geolocation
+          const startPoint =
+            currentGpsPoint ??
+            (initialPos ? { lat: initialPos[0], lng: initialPos[1], ts: Date.now() } : null);
+          navigation.setDestination(dest, startPoint);
+          setShowDestinationSearch(false);
+        }}
+      />
     </div>
   );
 }

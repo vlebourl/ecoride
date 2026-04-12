@@ -51,6 +51,21 @@ export interface TripPreset {
   updatedAt: string;
 }
 
+export interface RouteStep {
+  instruction: string;
+  distance: number; // metres
+  duration: number; // seconds
+  type: number; // ORS maneuver type code
+  wayPoints: [number, number]; // [startIdx, endIdx] in coordinates array
+}
+
+export interface NavigationRoute {
+  coordinates: [number, number][]; // [lon, lat] pairs
+  steps: RouteStep[];
+  totalDistance: number; // metres
+  totalDuration: number; // seconds
+}
+
 export interface GpsPoint {
   lat: number;
   lng: number;

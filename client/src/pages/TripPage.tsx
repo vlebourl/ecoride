@@ -648,9 +648,7 @@ export function TripPage() {
           // Use tracking GPS point if available; fall back to idle geolocation
           const startPoint =
             currentGpsPoint ??
-            (initialPos
-              ? { lat: initialPos[0], lng: initialPos[1], ts: Date.now() }
-              : null);
+            (initialPos ? { lat: initialPos[0], lng: initialPos[1], ts: Date.now() } : null);
           navigation.setDestination(dest, startPoint);
           setShowDestinationSearch(false);
         }}

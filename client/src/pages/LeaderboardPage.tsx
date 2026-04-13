@@ -4,6 +4,7 @@ import { useLeaderboard } from "@/hooks/queries";
 import { useSession } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CommunityImpactBanner } from "@/components/leaderboard/CommunityImpactBanner";
+import { CommunityChart } from "@/components/leaderboard/CommunityChart";
 import { useT } from "@/i18n/provider";
 import type { StatsPeriod, LeaderboardCategory } from "@ecoride/shared/api-contracts";
 import type { TranslationKey } from "@/i18n/locales/fr";
@@ -106,7 +107,8 @@ export function LeaderboardPage() {
       />
 
       <div className="px-6 pb-6">
-        <section className="mb-10">
+        {/* Controls: period + category — shared by leaderboard and community section */}
+        <section className="mb-6">
           {/* Period switcher */}
           <div className="mt-4 flex gap-2" data-testid="period-switcher">
             {periodValues.map((value) => {
@@ -126,9 +128,6 @@ export function LeaderboardPage() {
               );
             })}
           </div>
-
-          {/* Community impact banner — shared period with the leaderboard */}
-          <CommunityImpactBanner period={period} />
 
           {/* Category switcher — icons only, label below */}
           <div className="mt-3 flex flex-col gap-2">
@@ -158,6 +157,7 @@ export function LeaderboardPage() {
           </div>
         </section>
 
+        {/* Leaderboard */}
         {entries.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6 py-20">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
@@ -287,6 +287,17 @@ export function LeaderboardPage() {
             </div>
           </>
         )}
+
+        {/* Community impact + chart */}
+        <section className="mt-8">
+          <CommunityImpactBanner period={period} />
+          <CommunityChart
+            period={period}
+            category={category}
+            unit={unit}
+            categoryLabel={t(categoryLabelKeys[category])}
+          />
+        </section>
       </div>
     </>
   );

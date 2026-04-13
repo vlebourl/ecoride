@@ -4,6 +4,7 @@ import type { Trip, Achievement, TripPreset } from "@ecoride/shared/types";
 import type {
   StatsSummaryResponse,
   CommunityStatsResponse,
+  CommunityTimelineResponse,
   LeaderboardEntry,
   CreateTripRequest,
   CreateTripPresetRequest,
@@ -104,6 +105,20 @@ export function useCommunityStats(period: StatsPeriod = "all") {
         `/stats/community?period=${period}`,
       ).then((r) => r.data),
     staleTime: 5 * 60 * 1000, // aligned with server cache TTL
+  });
+}
+
+export function useCommunityTimeline(
+  period: StatsPeriod = "all",
+  category: LeaderboardCategory = "co2",
+) {
+  return useQuery({
+    queryKey: ["community-timeline", period, category],
+    queryFn: () =>
+      apiFetch<{ ok: boolean; data: CommunityTimelineResponse }>(
+        `/stats/community/timeline?period=${period}&category=${category}`,
+      ).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

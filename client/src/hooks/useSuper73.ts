@@ -18,11 +18,22 @@ import {
   type Super73Mode,
 } from "@/lib/super73-ble";
 
+// When the rider sets assist level to ASSIST_EPAC_TRIGGER from the bike's
+// physical buttons, the app automatically resets the mode to EPAC (eco).
+// This lets the rider switch back to legal-speed mode from the bike itself
+// while the phone is in their pocket.
+export const ASSIST_EPAC_TRIGGER = 3;
+
+export function shouldTriggerEpac(state: Super73State): boolean {
+  return state.assist === ASSIST_EPAC_TRIGGER && state.mode !== "eco";
+}
+
 export type BleStatus = "disconnected" | "connecting" | "connected" | "unsupported" | "error";
 
 const STATE_KEY = "ecoride-super73-state";
 const RECONNECT_DELAY = 2_000;
 const MAX_RECONNECT_ATTEMPTS = 1;
+const EPAC_TRIGGER_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_AUTO_MODE_LOW_SPEED_KMH = 10;
 const DEFAULT_AUTO_MODE_HIGH_SPEED_KMH = 17;
 
@@ -171,6 +182,8 @@ function useSuper73Controller(
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const manualDisconnectRef = useRef(false);
   const lastAutoModeZoneRef = useRef<AutoModeZone>(null);
+  // Prevents re-entrant polling if a poll round takes longer than the interval.
+  const isPollActiveRef = useRef(false);
 
   const applyConnectionPreferences = useCallback(
     async (server: BluetoothRemoteGATTServer, state: Super73State) => {
@@ -403,6 +416,35 @@ function useSuper73Controller(
     preferences.autoModeLowSpeedKmh,
     preferences.autoModeHighSpeedKmh,
   ]);
+
+  // Poll the bike state every EPAC_TRIGGER_POLL_INTERVAL_MS when connected.
+  // If the rider has set assist to ASSIST_EPAC_TRIGGER from the physical buttons,
+  // force the mode back to eco (EPAC). This is the "reset from the bike" gesture.
+  useEffect(() => {
+    if (status !== "connected") return;
+
+    const pollId = setInterval(async () => {
+      if (isPollActiveRef.current || !serverRef.current?.connected) return;
+      isPollActiveRef.current = true;
+      try {
+        const polledState = await readState(serverRef.current);
+        setBikeState(polledState);
+        cacheState(polledState);
+        if (shouldTriggerEpac(polledState)) {
+          const epacState: Super73State = { ...polledState, mode: "eco" };
+          await writeState(serverRef.current, epacState);
+          setBikeState(epacState);
+          cacheState(epacState);
+        }
+      } catch {
+        // Poll silently skipped — will retry on next interval.
+      } finally {
+        isPollActiveRef.current = false;
+      }
+    }, EPAC_TRIGGER_POLL_INTERVAL_MS);
+
+    return () => clearInterval(pollId);
+  }, [status]);
 
   if (!enabled) return NOOP_RESULT;
   if (!isBleSupported()) return NOOP_RESULT;

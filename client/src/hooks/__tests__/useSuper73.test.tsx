@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import {
   Super73Provider,
   useSuper73,
   buildStateFromPreferences,
   resolveAutoModeZone,
   resolveAutoSuper73Mode,
+  shouldTriggerEpac,
+  ASSIST_EPAC_TRIGGER,
 } from "../useSuper73";
 import type { Super73State } from "@/lib/super73-ble";
 
@@ -82,6 +84,33 @@ const baseState: Super73State = {
   region: "eu",
 };
 
+describe("shouldTriggerEpac", () => {
+  it("returns true when assist is ASSIST_EPAC_TRIGGER and mode is not eco", () => {
+    expect(
+      shouldTriggerEpac({ mode: "race", assist: ASSIST_EPAC_TRIGGER, light: false, region: "eu" }),
+    ).toBe(true);
+    expect(
+      shouldTriggerEpac({ mode: "sport", assist: ASSIST_EPAC_TRIGGER, light: false, region: "eu" }),
+    ).toBe(true);
+    expect(
+      shouldTriggerEpac({ mode: "tour", assist: ASSIST_EPAC_TRIGGER, light: false, region: "eu" }),
+    ).toBe(true);
+  });
+
+  it("returns false when mode is already eco", () => {
+    expect(
+      shouldTriggerEpac({ mode: "eco", assist: ASSIST_EPAC_TRIGGER, light: false, region: "eu" }),
+    ).toBe(false);
+  });
+
+  it("returns false when assist is not the trigger level", () => {
+    expect(shouldTriggerEpac({ mode: "race", assist: 0, light: false, region: "eu" })).toBe(false);
+    expect(shouldTriggerEpac({ mode: "race", assist: 1, light: false, region: "eu" })).toBe(false);
+    expect(shouldTriggerEpac({ mode: "race", assist: 2, light: false, region: "eu" })).toBe(false);
+    expect(shouldTriggerEpac({ mode: "race", assist: 4, light: false, region: "eu" })).toBe(false);
+  });
+});
+
 describe("useSuper73 helpers", () => {
   it("builds a preferred state only when preferences differ", () => {
     expect(
@@ -130,6 +159,7 @@ describe("useSuper73 provider", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("shares a single BLE session across multiple consumers", async () => {
@@ -181,6 +211,68 @@ describe("useSuper73 provider", () => {
       expect(screen.getByText("vehicle-light:on")).toBeTruthy();
     });
   });
+
+  it("polls the bike and resets to EPAC when assist reaches the trigger level", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+
+    // Flush async connection chain (readState + applyConnectionPreferences)
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(screen.getByText("vehicle:connected")).toBeTruthy();
+
+    // Simulate bike state: rider set assist to 3 while in race mode
+    readStateMock.mockResolvedValue({ ...baseState, mode: "race", assist: 3 });
+    writeStateMock.mockClear();
+
+    // Advance past the poll interval and flush async poll callback
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(writeStateMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ mode: "eco", assist: 3 }),
+    );
+    expect(screen.getByText("vehicle-mode:eco")).toBeTruthy();
+  }, 15_000);
+
+  it("does not write when assist is at trigger level but mode is already eco", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="noop" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("noop connect"));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(screen.getByText("noop:connected")).toBeTruthy();
+
+    // assist=3 but already in eco → no write expected
+    readStateMock.mockResolvedValue({ ...baseState, mode: "eco", assist: 3 });
+    writeStateMock.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(writeStateMock).not.toHaveBeenCalled();
+  }, 15_000);
 
   it("switches automatically to off-road then back to eco when speed crosses thresholds", async () => {
     const { rerender } = render(

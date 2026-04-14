@@ -518,6 +518,10 @@ export const en: Record<TranslationKey, string> = {
   "super73.full.disconnected": "Disconnected",
   "super73.full.disconnect": "Disconnect",
   "super73.full.connect": "Connect",
+  "super73.epacPollFallback.title": "EPAC forced via poll (5 s)",
+  "super73.epacPollFallback.body":
+    "The BLE notifier didn't catch the assist→3 change. The poll stepped in — the notifier likely doesn't work on this firmware.",
+  "super73.epacPollFallback.dismissAria": "Dismiss",
 
   "community.title": "Community Impact",
   "community.co2": "CO₂ saved",

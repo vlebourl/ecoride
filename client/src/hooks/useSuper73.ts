@@ -14,6 +14,7 @@ import {
   reconnectPairedDevice,
   readState,
   writeState,
+  startStateNotifications,
   type Super73State,
   type Super73Mode,
 } from "@/lib/super73-ble";
@@ -148,6 +149,9 @@ export interface UseSuper73Result {
   setLight: (on: boolean) => Promise<void>;
   toggleMode: () => Promise<void>;
   cycleTripModeSelection: () => Promise<void>;
+  /** True when the 5 s poll (not the BLE notifier) caught an EPAC trigger. */
+  epacPollFallbackWarning: boolean;
+  dismissEpacPollFallback: () => void;
 }
 
 const NOOP_RESULT: UseSuper73Result = {
@@ -162,6 +166,8 @@ const NOOP_RESULT: UseSuper73Result = {
   setLight: async () => {},
   toggleMode: async () => {},
   cycleTripModeSelection: async () => {},
+  epacPollFallbackWarning: false,
+  dismissEpacPollFallback: () => {},
 };
 
 const Super73Context = createContext<UseSuper73Result>(NOOP_RESULT);
@@ -177,6 +183,7 @@ function useSuper73Controller(
   const [bikeState, setBikeState] = useState<Super73State | null>(loadCachedState);
   const [error, setError] = useState<string | null>(null);
   const [tripModeSelection, setTripModeSelection] = useState<Super73TripModeSelection>("eco");
+  const [epacPollFallbackWarning, setEpacPollFallbackWarning] = useState(false);
 
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
@@ -186,6 +193,27 @@ function useSuper73Controller(
   const lastAutoModeZoneRef = useRef<AutoModeZone>(null);
   // Prevents re-entrant polling if a poll round takes longer than the interval.
   const isPollActiveRef = useRef(false);
+  // Cleanup function returned by startStateNotifications; null = notifier unavailable.
+  const notifierCleanupRef = useRef<(() => void) | null>(null);
+
+  // Stable wrapper around the latest notifier handler — avoids adding closures to
+  // attachDevice's dependency array while keeping setBikeState/serverRef fresh.
+  const notifierHandlerBodyRef = useRef<((state: Super73State) => void) | null>(null);
+  notifierHandlerBodyRef.current = (state: Super73State) => {
+    setBikeState(state);
+    cacheState(state);
+    if (shouldTriggerEpac(state) && serverRef.current?.connected) {
+      const epacState: Super73State = { ...state, mode: "eco" };
+      void writeState(serverRef.current, epacState).then(() => {
+        setBikeState(epacState);
+        cacheState(epacState);
+      });
+    }
+  };
+  const stableNotifierHandler = useCallback(
+    (state: Super73State) => notifierHandlerBodyRef.current?.(state),
+    [],
+  );
 
   const applyConnectionPreferences = useCallback(
     async (server: BluetoothRemoteGATTServer, state: Super73State) => {
@@ -210,9 +238,14 @@ function useSuper73Controller(
       const finalState = await applyConnectionPreferences(device.gatt!, currentState);
       setBikeState(finalState);
       cacheState(finalState);
+      // Try to subscribe to push notifications. Returns null if unsupported.
+      notifierCleanupRef.current = await startStateNotifications(
+        device.gatt!,
+        stableNotifierHandler,
+      );
       setStatus("connected");
     },
-    [applyConnectionPreferences],
+    [applyConnectionPreferences, stableNotifierHandler],
   );
 
   // Auto-reconnect on unexpected disconnect
@@ -236,6 +269,8 @@ function useSuper73Controller(
   }, [attachDevice]);
 
   const onDisconnected = useCallback(() => {
+    notifierCleanupRef.current?.();
+    notifierCleanupRef.current = null;
     serverRef.current = null;
     lastAutoModeZoneRef.current = null;
     if (manualDisconnectRef.current) {
@@ -437,6 +472,9 @@ function useSuper73Controller(
         setBikeState(polledState);
         cacheState(polledState);
         if (shouldTriggerEpac(polledState)) {
+          // Notifier didn't catch it (otherwise mode would already be eco).
+          // Show a warning so the user knows the notifier isn't firing.
+          setEpacPollFallbackWarning(true);
           const epacState: Super73State = { ...polledState, mode: "eco" };
           await writeState(serverRef.current, epacState);
           setBikeState(epacState);
@@ -451,6 +489,8 @@ function useSuper73Controller(
 
     return () => clearInterval(pollId);
   }, [status]);
+
+  const dismissEpacPollFallback = useCallback(() => setEpacPollFallbackWarning(false), []);
 
   if (!enabled) return NOOP_RESULT;
   if (!isBleSupported()) return NOOP_RESULT;
@@ -467,6 +507,8 @@ function useSuper73Controller(
     setLight,
     toggleMode,
     cycleTripModeSelection,
+    epacPollFallbackWarning,
+    dismissEpacPollFallback,
   };
 }
 

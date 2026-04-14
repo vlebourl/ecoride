@@ -521,6 +521,10 @@ export const fr = {
   "super73.full.disconnected": "Déconnecté",
   "super73.full.disconnect": "Déconnecter",
   "super73.full.connect": "Connecter",
+  "super73.epacPollFallback.title": "EPAC activé via sondage (5 s)",
+  "super73.epacPollFallback.body":
+    "Le notifier BLE n'a pas détecté le passage assist→3. Le sondage a pris le relais — le notifier ne fonctionne probablement pas sur ce firmware.",
+  "super73.epacPollFallback.dismissAria": "Fermer",
 
   "community.title": "Impact de la communauté",
   "community.co2": "CO₂ évité",

@@ -6,6 +6,8 @@
 const METRICS_SERVICE = "00001554-1212-efde-1523-785feabcd123";
 const REGISTER_ID_CHAR = "00001564-1212-efde-1523-785feabcd123";
 const REGISTER_CHAR = "0000155f-1212-efde-1523-785feabcd123";
+// Push notifications from the bike (unconfirmed — may not fire on all firmware versions).
+const REGISTER_NOTIFIER_CHAR = "0000155e-1212-efde-1523-785feabcd123";
 
 // ---- Types ----
 
@@ -161,4 +163,34 @@ export async function writeState(
   const { registerChar } = await getCharacteristics(server);
   const command = buildWriteCommand(state);
   await withTimeout(registerChar.writeValue(command as unknown as BufferSource));
+}
+
+/**
+ * Subscribe to state change notifications pushed by the bike.
+ * Returns a cleanup function on success, or null if the firmware doesn't support it.
+ * Note: REGISTER_NOTIFIER_CHAR existence is documented but unconfirmed in practice —
+ * the caller should treat null as "notifier unavailable" and fall back to polling.
+ */
+export async function startStateNotifications(
+  server: BluetoothRemoteGATTServer,
+  handler: (state: Super73State) => void,
+): Promise<(() => void) | null> {
+  try {
+    const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE));
+    const char = await withTimeout(service.getCharacteristic(REGISTER_NOTIFIER_CHAR));
+    await withTimeout(char.startNotifications());
+    const listener = (event: Event) => {
+      const c = event.target as BluetoothRemoteGATTCharacteristic;
+      if (!c.value) return;
+      try {
+        handler(parseStateBytes(new Uint8Array(c.value.buffer)));
+      } catch {
+        // malformed packet — skip
+      }
+    };
+    char.addEventListener("characteristicvaluechanged", listener);
+    return () => char.removeEventListener("characteristicvaluechanged", listener);
+  } catch {
+    return null;
+  }
 }

@@ -41,12 +41,14 @@ type AutoModeZone = "low" | "high" | null;
 
 export type Super73TripModeSelection = "eco" | "race" | "auto";
 
-function deriveTripModeSelection(
+export function deriveTripModeSelection(
   state: Super73State | null,
   preferences: Super73Preferences,
   tracking: Super73TrackingInput,
   currentSelection: Super73TripModeSelection | null = null,
 ): Super73TripModeSelection {
+  // Assist 3 = EPAC enforcement — auto mode doesn't apply
+  if (state?.assist === 3) return "eco";
   if (currentSelection === "auto" && tracking.isTracking) return "auto";
   if (preferences.autoModeEnabled && tracking.isTracking) return "auto";
   return state?.mode === "race" ? "race" : "eco";
@@ -345,7 +347,11 @@ function useSuper73Controller(
   }, [bikeState, setMode]);
 
   const cycleTripModeSelection = useCallback(async () => {
-    const nextSelection = nextTripModeSelection(tripModeSelection);
+    let nextSelection = nextTripModeSelection(tripModeSelection);
+    // Assist 3 = EPAC enforcement — skip "auto" in cycle
+    if (nextSelection === "auto" && bikeState?.assist === 3) {
+      nextSelection = nextTripModeSelection(nextSelection);
+    }
     setTripModeSelection(nextSelection);
     lastAutoModeZoneRef.current = null;
 

@@ -4,6 +4,7 @@ import {
   Super73Provider,
   useSuper73,
   buildStateFromPreferences,
+  deriveTripModeSelection,
   resolveAutoModeZone,
   resolveAutoSuper73Mode,
   shouldTriggerEpac,
@@ -144,6 +145,38 @@ describe("useSuper73 helpers", () => {
     expect(resolveAutoSuper73Mode("low")).toBe("race");
     expect(resolveAutoSuper73Mode("high")).toBe("eco");
     expect(resolveAutoSuper73Mode(null)).toBeNull();
+  });
+
+  describe("deriveTripModeSelection — assist 3 forces EPAC", () => {
+    const prefs = {
+      autoModeEnabled: true,
+      defaultMode: null,
+      defaultAssist: null,
+      defaultLight: null,
+    };
+    const tracking = { isTracking: true, speedKmh: 25 };
+
+    it("returns eco when assist=3 even if autoModeEnabled and tracking", () => {
+      const state = { ...baseState, assist: 3 };
+      expect(deriveTripModeSelection(state, prefs, tracking, "auto")).toBe("eco");
+    });
+
+    it("returns eco when assist=3 even if currentSelection is auto", () => {
+      const state = { ...baseState, assist: 3 };
+      expect(deriveTripModeSelection(state, prefs, tracking, "auto")).toBe("eco");
+    });
+
+    it("allows auto when assist!=3 with autoModeEnabled and tracking", () => {
+      const state = { ...baseState, assist: 2 };
+      expect(deriveTripModeSelection(state, prefs, tracking, "auto")).toBe("auto");
+    });
+
+    it("returns eco when assist=3 and not tracking", () => {
+      const state = { ...baseState, assist: 3 };
+      expect(deriveTripModeSelection(state, prefs, { isTracking: false, speedKmh: null })).toBe(
+        "eco",
+      );
+    });
   });
 });
 

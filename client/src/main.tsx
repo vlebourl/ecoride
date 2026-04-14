@@ -2,7 +2,9 @@ import * as Sentry from "@sentry/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { I18nProvider } from "./i18n/provider";
 import { App } from "./App";
@@ -108,21 +110,39 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60_000,
+      // Serve from cache when offline instead of spinning indefinitely.
+      networkMode: "offlineFirst",
+      // Keep cache for 24 h so it's still there after a short offline spell.
+      gcTime: 24 * 60 * 60 * 1000,
       retry: 1,
     },
   },
 });
 
+const persister = createSyncStoragePersister({
+  storage: window.localStorage,
+  key: "ecoride-query-cache",
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister,
+          // Invalidate cache on new app version — avoids stale API shape mismatches.
+          buster: __APP_VERSION__,
+          // Keep persisted cache for 24 h.
+          maxAge: 24 * 60 * 60 * 1000,
+        }}
+      >
         <I18nProvider>
           <BrowserRouter>
             <App />
           </BrowserRouter>
         </I18nProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,
 );

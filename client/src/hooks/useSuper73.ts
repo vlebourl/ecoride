@@ -196,24 +196,14 @@ function useSuper73Controller(
   // Cleanup function returned by startStateNotifications; null = notifier unavailable.
   const notifierCleanupRef = useRef<(() => void) | null>(null);
 
-  // Stable wrapper around the latest notifier handler — avoids adding closures to
-  // attachDevice's dependency array while keeping setBikeState/serverRef fresh.
-  const notifierHandlerBodyRef = useRef<((state: Super73State) => void) | null>(null);
-  notifierHandlerBodyRef.current = (state: Super73State) => {
-    setBikeState(state);
-    cacheState(state);
-    if (shouldTriggerEpac(state) && serverRef.current?.connected) {
-      const epacState: Super73State = { ...state, mode: "eco" };
-      void writeState(serverRef.current, epacState).then(() => {
-        setBikeState(epacState);
-        cacheState(epacState);
-      });
-    }
-  };
-  const stableNotifierHandler = useCallback(
-    (state: Super73State) => notifierHandlerBodyRef.current?.(state),
-    [],
-  );
+  // Notifier is passive: logs raw bytes for diagnostic purposes only.
+  // App state is driven exclusively by the poll (readState every 5 s) and
+  // explicit user actions. No setBikeState / writeState here — avoids feedback
+  // loops if the notifier sends a different byte format than readState.
+  const stableNotifierHandler = useCallback((_state: Super73State) => {
+    // parseStateBytes already logged the raw bytes + decoded state when
+    // ecoride-ble-debug=1 is set in localStorage. Nothing else to do.
+  }, []);
 
   const applyConnectionPreferences = useCallback(
     async (server: BluetoothRemoteGATTServer, state: Super73State) => {

@@ -234,7 +234,7 @@ function useSuper73Controller(
       manualDisconnectRef.current = false;
       lastAutoModeZoneRef.current = null;
 
-      const currentState = await readState(device.gatt!);
+      const currentState = await readState(device.gatt!, "connect");
       const finalState = await applyConnectionPreferences(device.gatt!, currentState);
       setBikeState(finalState);
       cacheState(finalState);

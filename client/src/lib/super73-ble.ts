@@ -197,14 +197,29 @@ export async function writeState(
 }
 
 /**
+ * Parse a speed telemetry packet (byte[0]=0x02, byte[1]=0x01).
+ * bytes[2-3] as little-endian uint16 / 100 = speed in km/h.
+ * Returns null for non-speed packets.
+ */
+export function parseSpeedPacket(bytes: Uint8Array): number | null {
+  if (bytes.length < 4 || bytes[0] !== 0x02 || bytes[1] !== 0x01) return null;
+  const raw = bytes[2]! | (bytes[3]! << 8);
+  return raw / 100;
+}
+
+/**
  * Subscribe to state change notifications pushed by the bike.
  * Returns a cleanup function on success, or null if the firmware doesn't support it.
- * Note: REGISTER_NOTIFIER_CHAR existence is documented but unconfirmed in practice —
- * the caller should treat null as "notifier unavailable" and fall back to polling.
+ *
+ * The S73 notifier multiplexes packet types on a single characteristic:
+ *   byte[0]=0x03 → state packet (mode/assist/light/region) — calls onState
+ *   byte[0]=0x02, byte[1]=0x01 → speed telemetry (km/h)   — calls onSpeed
+ *   byte[0]=0x02 other / 0x04  → odometer / timer          — ignored
  */
 export async function startStateNotifications(
   server: BluetoothRemoteGATTServer,
-  handler: (state: Super73State) => void,
+  onState: (state: Super73State) => void,
+  onSpeed?: (speedKmh: number) => void,
 ): Promise<(() => void) | null> {
   try {
     const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE));
@@ -214,14 +229,15 @@ export async function startStateNotifications(
       const c = event.target as BluetoothRemoteGATTCharacteristic;
       if (!c.value) return;
       const bytes = new Uint8Array(c.value.buffer);
-      // The S73 notifier multiplexes state packets (byte[0]=0x03) with telemetry
-      // streams (byte[0]=0x02: speed/odometer/cadence, byte[0]=0x04: timer).
-      // Only state packets share the format parsed by parseStateBytes.
-      if (bytes[0] !== 0x03) return;
-      try {
-        handler(parseStateBytes(bytes, "notifier"));
-      } catch {
-        // malformed packet — skip
+      if (bytes[0] === 0x03) {
+        try {
+          onState(parseStateBytes(bytes, "notifier"));
+        } catch {
+          // malformed packet — skip
+        }
+      } else if (onSpeed) {
+        const speedKmh = parseSpeedPacket(bytes);
+        if (speedKmh !== null) onSpeed(speedKmh);
       }
     };
     char.addEventListener("characteristicvaluechanged", listener);

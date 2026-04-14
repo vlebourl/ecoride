@@ -213,8 +213,13 @@ export async function startStateNotifications(
     const listener = (event: Event) => {
       const c = event.target as BluetoothRemoteGATTCharacteristic;
       if (!c.value) return;
+      const bytes = new Uint8Array(c.value.buffer);
+      // The S73 notifier multiplexes state packets (byte[0]=0x03) with telemetry
+      // streams (byte[0]=0x02: speed/odometer/cadence, byte[0]=0x04: timer).
+      // Only state packets share the format parsed by parseStateBytes.
+      if (bytes[0] !== 0x03) return;
       try {
-        handler(parseStateBytes(new Uint8Array(c.value.buffer), "notifier"));
+        handler(parseStateBytes(bytes, "notifier"));
       } catch {
         // malformed packet — skip
       }

@@ -10,6 +10,7 @@ import {
   reconnectPairedDevice,
   readState,
   writeState,
+  startStateNotifications,
   type Super73State,
 } from "../super73-ble";
 
@@ -342,6 +343,86 @@ describe("readState", () => {
     expect(registerIdChar.writeValue).toHaveBeenCalledWith(new Uint8Array([3, 0]));
     expect(registerChar.readValue).toHaveBeenCalled();
     expect(state).toEqual({ mode: "sport", assist: 2, light: true, region: "eu" });
+  });
+});
+
+describe("startStateNotifications", () => {
+  function makeNotifierGATT(notifierChar: object) {
+    const service = {
+      getCharacteristic: vi.fn().mockImplementation((uuid: string) => {
+        if (uuid === "0000155e-1212-efde-1523-785feabcd123") return Promise.resolve(notifierChar);
+        return Promise.reject(new Error("Unknown char"));
+      }),
+    };
+    return {
+      connected: true,
+      getPrimaryService: vi.fn().mockResolvedValue(service),
+    } as unknown as BluetoothRemoteGATTServer;
+  }
+
+  function makeNotifierChar() {
+    const listeners: Record<string, EventListener> = {};
+    return {
+      startNotifications: vi.fn().mockResolvedValue(undefined),
+      addEventListener: vi.fn((event: string, cb: EventListener) => {
+        listeners[event] = cb;
+      }),
+      removeEventListener: vi.fn(),
+      emit(bytes: number[]) {
+        const value = new DataView(new Uint8Array(bytes).buffer);
+        const target = { value } as unknown as BluetoothRemoteGATTCharacteristic;
+        listeners["characteristicvaluechanged"]?.({ target } as Event);
+      },
+    };
+  }
+
+  it("calls handler for state packets (byte[0]=0x03)", async () => {
+    const char = makeNotifierChar();
+    const server = makeNotifierGATT(char);
+    const handler = vi.fn();
+
+    await startStateNotifications(server, handler);
+    // EU EPAC, assist=4, light=ON
+    char.emit([0x03, 0x00, 0x04, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00]);
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledWith({ mode: "eco", assist: 4, light: true, region: "eu" });
+  });
+
+  it("ignores telemetry packets (byte[0]=0x02)", async () => {
+    const char = makeNotifierChar();
+    const server = makeNotifierGATT(char);
+    const handler = vi.fn();
+
+    await startStateNotifications(server, handler);
+    char.emit([0x02, 0x01, 0x2e, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]); // speed packet
+    char.emit([0x02, 0x03, 0x00, 0x00, 0x68, 0xbe, 0x0b, 0x00, 0x19, 0x00]); // odometer packet
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("ignores timer packets (byte[0]=0x04)", async () => {
+    const char = makeNotifierChar();
+    const server = makeNotifierGATT(char);
+    const handler = vi.fn();
+
+    await startStateNotifications(server, handler);
+    char.emit([0x04, 0x01, 0x10, 0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns null when notifier characteristic is unavailable", async () => {
+    const service = {
+      getCharacteristic: vi.fn().mockRejectedValue(new Error("not found")),
+    };
+    const server = {
+      connected: true,
+      getPrimaryService: vi.fn().mockResolvedValue(service),
+    } as unknown as BluetoothRemoteGATTServer;
+
+    const result = await startStateNotifications(server, vi.fn());
+    expect(result).toBeNull();
   });
 });
 

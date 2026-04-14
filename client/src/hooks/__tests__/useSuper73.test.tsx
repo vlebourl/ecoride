@@ -4,6 +4,7 @@ import {
   Super73Provider,
   useSuper73,
   buildStateFromPreferences,
+  deriveTripModeSelection,
   resolveAutoModeZone,
   resolveAutoSuper73Mode,
   shouldTriggerEpac,
@@ -15,6 +16,8 @@ const scanAndConnectMock = vi.fn();
 const reconnectPairedDeviceMock = vi.fn();
 const readStateMock = vi.fn();
 const writeStateMock = vi.fn();
+// Simulates notifier unavailable by default (returns null = firmware doesn't support it).
+const startStateNotificationsMock = vi.fn().mockResolvedValue(null);
 
 vi.mock("@/lib/super73-ble", () => ({
   isBleSupported: () => true,
@@ -22,6 +25,7 @@ vi.mock("@/lib/super73-ble", () => ({
   reconnectPairedDevice: (...args: unknown[]) => reconnectPairedDeviceMock(...args),
   readState: (...args: unknown[]) => readStateMock(...args),
   writeState: (...args: unknown[]) => writeStateMock(...args),
+  startStateNotifications: (...args: unknown[]) => startStateNotificationsMock(...args),
 }));
 
 function makeLocalStorageStub() {
@@ -60,6 +64,9 @@ function Consumer({ label }: { label: string }) {
       </span>
       <span>
         {label}-light:{ble.bikeState?.light ? "on" : "off"}
+      </span>
+      <span>
+        {label}-poll-warning:{ble.epacPollFallbackWarning ? "yes" : "no"}
       </span>
     </div>
   );
@@ -144,6 +151,38 @@ describe("useSuper73 helpers", () => {
     expect(resolveAutoSuper73Mode("low")).toBe("race");
     expect(resolveAutoSuper73Mode("high")).toBe("eco");
     expect(resolveAutoSuper73Mode(null)).toBeNull();
+  });
+
+  describe("deriveTripModeSelection — assist 3 forces EPAC", () => {
+    const prefs = {
+      autoModeEnabled: true,
+      defaultMode: null,
+      defaultAssist: null,
+      defaultLight: null,
+    };
+    const tracking = { isTracking: true, speedKmh: 25 };
+
+    it("returns eco when assist=3 even if autoModeEnabled and tracking", () => {
+      const state = { ...baseState, assist: 3 };
+      expect(deriveTripModeSelection(state, prefs, tracking, "auto")).toBe("eco");
+    });
+
+    it("returns eco when assist=3 even if currentSelection is auto", () => {
+      const state = { ...baseState, assist: 3 };
+      expect(deriveTripModeSelection(state, prefs, tracking, "auto")).toBe("eco");
+    });
+
+    it("allows auto when assist!=3 with autoModeEnabled and tracking", () => {
+      const state = { ...baseState, assist: 2 };
+      expect(deriveTripModeSelection(state, prefs, tracking, "auto")).toBe("auto");
+    });
+
+    it("returns eco when assist=3 and not tracking", () => {
+      const state = { ...baseState, assist: 3 };
+      expect(deriveTripModeSelection(state, prefs, { isTracking: false, speedKmh: null })).toBe(
+        "eco",
+      );
+    });
   });
 });
 
@@ -272,6 +311,33 @@ describe("useSuper73 provider", () => {
     });
 
     expect(writeStateMock).not.toHaveBeenCalled();
+  }, 15_000);
+
+  it("sets epacPollFallbackWarning when poll catches the EPAC trigger (notifier unavailable)", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="warn" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("warn connect"));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(screen.getByText("warn:connected")).toBeTruthy();
+    expect(screen.getByText("warn-poll-warning:no")).toBeTruthy();
+
+    readStateMock.mockResolvedValue({ ...baseState, mode: "race", assist: 3 });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(screen.getByText("warn-poll-warning:yes")).toBeTruthy();
   }, 15_000);
 
   it("switches automatically to off-road then back to eco when speed crosses thresholds", async () => {

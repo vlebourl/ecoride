@@ -123,6 +123,7 @@ export const BADGES = {
   co2_1t: { id: "co2_1t", label: "1 tonne CO₂ économisée", icon: "🌲" },
   streak_7: { id: "streak_7", label: "7 jours de streak", icon: "🔥" },
   streak_30: { id: "streak_30", label: "30 jours de streak", icon: "⚡" },
+  money_100: { id: "money_100", label: "100 € économisés", icon: "💰" },
 } as const;
 
 export type BadgeId = keyof typeof BADGES;

@@ -89,6 +89,20 @@ for (const { path, name } of PAGES) {
         });
       }
 
+      if (url.includes("/api/stats/community/timeline")) {
+        const searchParams = new URL(url).searchParams;
+        const period = searchParams.get("period") ?? "all";
+        const category = searchParams.get("category") ?? "co2";
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            data: { period, category, points: [] },
+          }),
+        });
+      }
+
       if (url.includes("/api/stats/community")) {
         return route.fulfill({
           status: 200,

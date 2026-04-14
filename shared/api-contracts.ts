@@ -58,6 +58,9 @@ export const API_ROUTES = {
 
   // Navigation
   NAVIGATION_ROUTE: { method: "POST", path: "/api/navigation/route" },
+
+  // Community timeline
+  STATS_COMMUNITY_TIMELINE: { method: "GET", path: "/api/stats/community/timeline" },
 } as const;
 
 // ---- Request payloads ----
@@ -221,6 +224,17 @@ export interface FuelPriceResponse {
   fuelType: FuelType;
   stationName?: string;
   updatedAt: string;
+}
+
+export interface CommunityTimelinePoint {
+  date: string; // YYYY-MM-DD
+  value: number;
+}
+
+export interface CommunityTimelineResponse {
+  period: StatsPeriod;
+  category: LeaderboardCategory;
+  points: CommunityTimelinePoint[];
 }
 
 // ---- Error handling ----

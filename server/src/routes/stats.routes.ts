@@ -8,7 +8,12 @@ import { validationHook } from "../lib/validation";
 import { computeStreak } from "../lib/streaks";
 import { rateLimit } from "../lib/rate-limit";
 import type { AuthEnv } from "../types/context";
-import type { StatsPeriod, CommunityStatsResponse } from "@ecoride/shared/api-contracts";
+import type {
+  StatsPeriod,
+  LeaderboardCategory,
+  CommunityStatsResponse,
+  CommunityTimelineResponse,
+} from "@ecoride/shared/api-contracts";
 
 const statsQuery = z.object({
   period: z.enum(["day", "week", "month", "year", "all"]).default("month"),
@@ -121,6 +126,119 @@ statsRouter.get(
     };
 
     communityCache.set(period, { data, cachedAt: Date.now() });
+
+    return c.json({ ok: true, data });
+  },
+);
+
+// ---- Community timeline ----
+
+const timelineQuery = z.object({
+  period: z.enum(["week", "month", "all"]).default("all"),
+  category: z.enum(["co2", "trips", "distance", "money", "speed", "streak"]).default("co2"),
+});
+
+type TimelineCacheKey = `${string}-${string}`;
+type TimelineCacheEntry = { data: CommunityTimelineResponse; cachedAt: number };
+const timelineCache = new Map<TimelineCacheKey, TimelineCacheEntry>();
+
+statsRouter.get(
+  "/community/timeline",
+  rateLimit({ maxRequests: 30, windowMs: 60_000, prefix: "stats-timeline" }),
+  zValidator("query", timelineQuery, validationHook),
+  async (c) => {
+    const { period, category } = c.req.valid("query") as {
+      period: StatsPeriod;
+      category: LeaderboardCategory;
+    };
+
+    const cacheKey: TimelineCacheKey = `${period}-${category}`;
+    const cached = timelineCache.get(cacheKey);
+    if (cached && Date.now() - cached.cachedAt < COMMUNITY_CACHE_TTL_MS) {
+      return c.json({ ok: true, data: cached.data });
+    }
+
+    const isAll = period === "all";
+    const now = new Date();
+
+    // Determine window start
+    let windowStart: Date;
+    if (isAll) {
+      windowStart = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1));
+    } else if (period === "month") {
+      windowStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    } else {
+      windowStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // SQL expressions — literals to avoid parameterization
+    const dayLabel = isAll
+      ? sql<string>`to_char(date_trunc('month', ${trips.startedAt}), 'YYYY-MM-DD')`
+      : sql<string>`to_char(date_trunc('day', ${trips.startedAt}), 'YYYY-MM-DD')`;
+
+    const dayLabelGroup = isAll
+      ? sql`to_char(date_trunc('month', ${trips.startedAt}), 'YYYY-MM-DD')`
+      : sql`to_char(date_trunc('day', ${trips.startedAt}), 'YYYY-MM-DD')`;
+
+    let valueExpr;
+    switch (category) {
+      case "co2":
+        valueExpr = sql<number>`coalesce(sum(${trips.co2SavedKg}), 0)`.mapWith(Number);
+        break;
+      case "money":
+        valueExpr = sql<number>`coalesce(sum(${trips.moneySavedEur}), 0)`.mapWith(Number);
+        break;
+      case "distance":
+        valueExpr = sql<number>`coalesce(sum(${trips.distanceKm}), 0)`.mapWith(Number);
+        break;
+      case "trips":
+        valueExpr = sql<number>`count(*)`.mapWith(Number);
+        break;
+      case "speed":
+        valueExpr =
+          sql<number>`case when sum(${trips.durationSec}) > 0 then sum(${trips.distanceKm}) / (sum(${trips.durationSec}) / 3600.0) else 0 end`.mapWith(
+            Number,
+          );
+        break;
+      case "streak":
+        valueExpr = sql<number>`count(distinct ${trips.userId})`.mapWith(Number);
+        break;
+      default:
+        valueExpr = sql<number>`coalesce(sum(${trips.co2SavedKg}), 0)`.mapWith(Number);
+    }
+
+    const rows = await db
+      .select({ day: dayLabel, value: valueExpr })
+      .from(trips)
+      .where(gte(trips.startedAt, windowStart))
+      .groupBy(dayLabelGroup)
+      .orderBy(dayLabelGroup);
+
+    // Fill gaps with 0
+    const map = new Map(rows.map((r) => [r.day ?? "", r.value]));
+    const points: CommunityTimelineResponse["points"] = [];
+
+    const cursor = new Date(windowStart);
+    cursor.setUTCHours(0, 0, 0, 0);
+
+    while (cursor <= now) {
+      const key = isAll
+        ? `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}-01`
+        : cursor.toISOString().slice(0, 10);
+
+      if (points.at(-1)?.date !== key) {
+        points.push({ date: key, value: map.get(key) ?? 0 });
+      }
+
+      if (isAll) {
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      } else {
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+    }
+
+    const data: CommunityTimelineResponse = { period, category, points };
+    timelineCache.set(cacheKey, { data, cachedAt: Date.now() });
 
     return c.json({ ok: true, data });
   },

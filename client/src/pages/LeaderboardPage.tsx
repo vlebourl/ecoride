@@ -138,9 +138,9 @@ export function LeaderboardPage() {
           </div>
         </section>
 
-        {/* Leaderboard */}
+        {/* Leaderboard — podium + list (or empty state) */}
         {entries.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-6">
+          <div className="flex flex-[55] flex-col items-center justify-center gap-6">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <Trophy size={40} className="text-primary-light" />
             </div>
@@ -284,21 +284,21 @@ export function LeaderboardPage() {
                 );
               })}
             </div>
-
-            {/* Community impact + chart — proportional (~45%), chart fills remaining height */}
-            <section className="flex-[45] min-h-0 mt-3 pb-3 flex flex-col">
-              <CommunityImpactBanner period={period} />
-              <div className="flex-1 min-h-0">
-                <CommunityChart
-                  period={period}
-                  category={category}
-                  unit={unit}
-                  categoryLabel={t(categoryLabelKeys[category])}
-                />
-              </div>
-            </section>
           </>
         )}
+
+        {/* Community impact + chart — always visible, proportional (~45%) */}
+        <section className="flex-[45] min-h-0 mt-3 pb-3 flex flex-col">
+          <CommunityImpactBanner period={period} />
+          <div className="flex-1 min-h-0">
+            <CommunityChart
+              period={period}
+              category={category}
+              unit={unit}
+              categoryLabel={t(categoryLabelKeys[category])}
+            />
+          </div>
+        </section>
       </div>
     </div>
   );

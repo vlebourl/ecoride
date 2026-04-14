@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   parseStateBytes,
+  parseSpeedPacket,
   buildWriteCommand,
   decodeMode,
   encodeMode,
@@ -346,6 +347,48 @@ describe("readState", () => {
   });
 });
 
+describe("parseSpeedPacket", () => {
+  it("parses a speed packet correctly (37 km/h)", () => {
+    // 0x0eba = 3770 → 37.70 km/h (observed at ~37 km/h in field test)
+    expect(
+      parseSpeedPacket(new Uint8Array([0x02, 0x01, 0xba, 0x0e, 0, 0, 0, 0, 0, 0])),
+    ).toBeCloseTo(37.7);
+  });
+
+  it("parses a speed packet correctly (49.4 km/h)", () => {
+    // 0x134c = 4940 → 49.40 km/h (observed at ~50 km/h in field test)
+    expect(
+      parseSpeedPacket(new Uint8Array([0x02, 0x01, 0x4c, 0x13, 0, 0, 0, 0, 0, 0])),
+    ).toBeCloseTo(49.4);
+  });
+
+  it("returns 0 for a stopped bike", () => {
+    expect(parseSpeedPacket(new Uint8Array([0x02, 0x01, 0x00, 0x00, 0, 0, 0, 0, 0, 0]))).toBe(0);
+  });
+
+  it("returns null for a state packet (byte[0]=0x03)", () => {
+    expect(
+      parseSpeedPacket(new Uint8Array([0x03, 0x00, 0x04, 0x00, 0x01, 0x04, 0, 0, 0, 0])),
+    ).toBeNull();
+  });
+
+  it("returns null for a timer packet (byte[0]=0x04)", () => {
+    expect(parseSpeedPacket(new Uint8Array([0x04, 0x01, 0x10, 0xb9, 0, 0, 0, 0, 0, 0]))).toBeNull();
+  });
+
+  it("returns null for an odometer packet (byte[0]=0x02, byte[1]=0x03)", () => {
+    expect(
+      parseSpeedPacket(
+        new Uint8Array([0x02, 0x03, 0x10, 0x0e, 0x58, 0xcc, 0xdf, 0x00, 0x19, 0x00]),
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null for a too-short buffer", () => {
+    expect(parseSpeedPacket(new Uint8Array([0x02, 0x01, 0x10]))).toBeNull();
+  });
+});
+
 describe("startStateNotifications", () => {
   function makeNotifierGATT(notifierChar: object) {
     const service = {
@@ -410,6 +453,32 @@ describe("startStateNotifications", () => {
     char.emit([0x04, 0x01, 0x10, 0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
 
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("calls onSpeed for speed packets (byte[0]=0x02, byte[1]=0x01)", async () => {
+    const char = makeNotifierChar();
+    const server = makeNotifierGATT(char);
+    const onState = vi.fn();
+    const onSpeed = vi.fn();
+
+    await startStateNotifications(server, onState, onSpeed);
+    // 0x0eba = 3770 → 37.70 km/h
+    char.emit([0x02, 0x01, 0xba, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+
+    expect(onState).not.toHaveBeenCalled();
+    expect(onSpeed).toHaveBeenCalledOnce();
+    expect(onSpeed).toHaveBeenCalledWith(expect.closeTo(37.7, 1));
+  });
+
+  it("does not call onSpeed for odometer packets (byte[0]=0x02, byte[1]=0x03)", async () => {
+    const char = makeNotifierChar();
+    const server = makeNotifierGATT(char);
+    const onSpeed = vi.fn();
+
+    await startStateNotifications(server, vi.fn(), onSpeed);
+    char.emit([0x02, 0x03, 0x10, 0x0e, 0x58, 0xcc, 0xdf, 0x00, 0x19, 0x00]);
+
+    expect(onSpeed).not.toHaveBeenCalled();
   });
 
   it("returns null when notifier characteristic is unavailable", async () => {

@@ -141,6 +141,8 @@ export function resolveAutoSuper73Mode(zone: AutoModeZone): Super73Mode | null {
 export interface UseSuper73Result {
   status: BleStatus;
   bikeState: Super73State | null;
+  /** Speed in km/h from the S73 wheel sensor (02 01 BLE packet). Null when not connected. */
+  bikeSpeedKmh: number | null;
   error: string | null;
   tripModeSelection: Super73TripModeSelection;
   connect: () => Promise<void>;
@@ -158,6 +160,7 @@ export interface UseSuper73Result {
 const NOOP_RESULT: UseSuper73Result = {
   status: "unsupported",
   bikeState: null,
+  bikeSpeedKmh: null,
   error: null,
   tripModeSelection: "eco",
   connect: async () => {},
@@ -182,6 +185,7 @@ function useSuper73Controller(
     !enabled ? "disconnected" : isBleSupported() ? "disconnected" : "unsupported",
   );
   const [bikeState, setBikeState] = useState<Super73State | null>(loadCachedState);
+  const [bikeSpeedKmh, setBikeSpeedKmh] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tripModeSelection, setTripModeSelection] = useState<Super73TripModeSelection>("eco");
   const [epacPollFallbackWarning, setEpacPollFallbackWarning] = useState(false);
@@ -250,6 +254,7 @@ function useSuper73Controller(
       notifierCleanupRef.current = await startStateNotifications(
         device.gatt!,
         stableNotifierHandler,
+        setBikeSpeedKmh,
       );
       setStatus("connected");
     },
@@ -281,6 +286,7 @@ function useSuper73Controller(
     notifierCleanupRef.current = null;
     serverRef.current = null;
     lastAutoModeZoneRef.current = null;
+    setBikeSpeedKmh(null);
     if (manualDisconnectRef.current) {
       setStatus("disconnected");
       return;
@@ -405,7 +411,7 @@ function useSuper73Controller(
       const highSpeedThresholdKmh =
         preferences.autoModeHighSpeedKmh ?? DEFAULT_AUTO_MODE_HIGH_SPEED_KMH;
       const zone = resolveAutoModeZone(
-        tracking.speedKmh,
+        bikeSpeedKmh ?? tracking.speedKmh,
         lowSpeedThresholdKmh,
         highSpeedThresholdKmh,
       );
@@ -439,8 +445,11 @@ function useSuper73Controller(
     const lowSpeedThresholdKmh = preferences.autoModeLowSpeedKmh ?? DEFAULT_AUTO_MODE_LOW_SPEED_KMH;
     const highSpeedThresholdKmh =
       preferences.autoModeHighSpeedKmh ?? DEFAULT_AUTO_MODE_HIGH_SPEED_KMH;
+    // Prefer bike wheel speed (more accurate at low speed, no GPS noise).
+    // Fall back to GPS speed when BLE speed is unavailable.
+    const effectiveSpeedKmh = bikeSpeedKmh ?? tracking.speedKmh;
     const zone = resolveAutoModeZone(
-      tracking.speedKmh,
+      effectiveSpeedKmh,
       lowSpeedThresholdKmh,
       highSpeedThresholdKmh,
     );
@@ -458,6 +467,7 @@ function useSuper73Controller(
   }, [
     tripModeSelection,
     tracking.isTracking,
+    bikeSpeedKmh,
     tracking.speedKmh,
     bikeState,
     status,
@@ -506,6 +516,7 @@ function useSuper73Controller(
   return {
     status,
     bikeState,
+    bikeSpeedKmh,
     error,
     tripModeSelection,
     connect,

@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   isBleSupported,
+  isBleDebugEnabled,
   scanAndConnect,
   reconnectPairedDevice,
   readState,
@@ -200,10 +201,22 @@ function useSuper73Controller(
   // App state is driven exclusively by the poll (readState every 5 s) and
   // explicit user actions. No setBikeState / writeState here — avoids feedback
   // loops if the notifier sends a different byte format than readState.
-  const stableNotifierHandler = useCallback((_state: Super73State) => {
-    // parseStateBytes already logged the raw bytes + decoded state when
-    // ecoride-ble-debug=1 is set in localStorage. Nothing else to do.
-  }, []);
+  //
+  // When ecoride-ble-debug=1: immediately fires a readState ("poll") right
+  // after the notifier so both appear side-by-side in the console.
+  const notifierHandlerBodyRef = useRef<((state: Super73State) => void) | null>(null);
+  notifierHandlerBodyRef.current = (_state: Super73State) => {
+    if (!isBleDebugEnabled()) return;
+    if (isPollActiveRef.current || !serverRef.current?.connected) return;
+    isPollActiveRef.current = true;
+    void readState(serverRef.current, "poll").finally(() => {
+      isPollActiveRef.current = false;
+    });
+  };
+  const stableNotifierHandler = useCallback(
+    (state: Super73State) => notifierHandlerBodyRef.current?.(state),
+    [],
+  );
 
   const applyConnectionPreferences = useCallback(
     async (server: BluetoothRemoteGATTServer, state: Super73State) => {

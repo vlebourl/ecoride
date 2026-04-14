@@ -44,7 +44,7 @@ export function modeIndex(mode: Super73Mode): number {
 
 // ---- Debug logging ----
 
-function isBleDebugEnabled(): boolean {
+export function isBleDebugEnabled(): boolean {
   try {
     return localStorage.getItem("ecoride-ble-debug") === "1";
   } catch {
@@ -52,14 +52,20 @@ function isBleDebugEnabled(): boolean {
   }
 }
 
-function bleDebugLog(source: string, bytes: Uint8Array, decoded: Super73State): void {
+const MODE_HUMAN: Record<Super73Mode, string> = {
+  eco: "EPAC",
+  tour: "Tour",
+  sport: "Sport",
+  race: "Off-Road",
+};
+
+export function bleDebugLog(source: string, bytes: Uint8Array, decoded: Super73State): void {
   const hex = Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join(" ");
-  console.debug(
-    `[BLE:${source}] raw (${bytes.length}B): ${hex}\n` +
-      `[BLE:${source}] decoded: mode=${decoded.mode} assist=${decoded.assist} light=${decoded.light} region=${decoded.region}`,
-  );
+  const label = `${MODE_HUMAN[decoded.mode]} / assist=${decoded.assist} / lumière=${decoded.light ? "ON" : "OFF"} / ${decoded.region.toUpperCase()}`;
+  const src = source.padEnd(12);
+  console.debug(`[BLE:${src}] ${label}  ←  raw ${String(bytes.length).padStart(2)}B: ${hex}`);
 }
 
 // ---- Byte parsing ----

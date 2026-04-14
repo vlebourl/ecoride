@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   isBleSupported,
+  isBleDebugEnabled,
   scanAndConnect,
   reconnectPairedDevice,
   readState,
@@ -196,19 +197,21 @@ function useSuper73Controller(
   // Cleanup function returned by startStateNotifications; null = notifier unavailable.
   const notifierCleanupRef = useRef<(() => void) | null>(null);
 
-  // Stable wrapper around the latest notifier handler — avoids adding closures to
-  // attachDevice's dependency array while keeping setBikeState/serverRef fresh.
+  // Notifier is passive: logs raw bytes for diagnostic purposes only.
+  // App state is driven exclusively by the poll (readState every 5 s) and
+  // explicit user actions. No setBikeState / writeState here — avoids feedback
+  // loops if the notifier sends a different byte format than readState.
+  //
+  // When ecoride-ble-debug=1: immediately fires a readState ("poll") right
+  // after the notifier so both appear side-by-side in the console.
   const notifierHandlerBodyRef = useRef<((state: Super73State) => void) | null>(null);
-  notifierHandlerBodyRef.current = (state: Super73State) => {
-    setBikeState(state);
-    cacheState(state);
-    if (shouldTriggerEpac(state) && serverRef.current?.connected) {
-      const epacState: Super73State = { ...state, mode: "eco" };
-      void writeState(serverRef.current, epacState).then(() => {
-        setBikeState(epacState);
-        cacheState(epacState);
-      });
-    }
+  notifierHandlerBodyRef.current = (_state: Super73State) => {
+    if (!isBleDebugEnabled()) return;
+    if (isPollActiveRef.current || !serverRef.current?.connected) return;
+    isPollActiveRef.current = true;
+    void readState(serverRef.current, "poll").finally(() => {
+      isPollActiveRef.current = false;
+    });
   };
   const stableNotifierHandler = useCallback(
     (state: Super73State) => notifierHandlerBodyRef.current?.(state),
@@ -234,7 +237,7 @@ function useSuper73Controller(
       manualDisconnectRef.current = false;
       lastAutoModeZoneRef.current = null;
 
-      const currentState = await readState(device.gatt!);
+      const currentState = await readState(device.gatt!, "connect");
       const finalState = await applyConnectionPreferences(device.gatt!, currentState);
       setBikeState(finalState);
       cacheState(finalState);

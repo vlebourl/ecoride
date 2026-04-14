@@ -42,16 +42,44 @@ export function modeIndex(mode: Super73Mode): number {
   return MODE_ORDER.indexOf(mode);
 }
 
+// ---- Debug logging ----
+
+export function isBleDebugEnabled(): boolean {
+  try {
+    return localStorage.getItem("ecoride-ble-debug") === "1";
+  } catch {
+    return false;
+  }
+}
+
+const MODE_HUMAN: Record<Super73Mode, string> = {
+  eco: "EPAC",
+  tour: "Tour",
+  sport: "Sport",
+  race: "Off-Road",
+};
+
+export function bleDebugLog(source: string, bytes: Uint8Array, decoded: Super73State): void {
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join(" ");
+  const label = `${MODE_HUMAN[decoded.mode]} / assist=${decoded.assist} / lumière=${decoded.light ? "ON" : "OFF"} / ${decoded.region.toUpperCase()}`;
+  const src = source.padEnd(12);
+  console.debug(`[BLE:${src}] ${label}  ←  raw ${String(bytes.length).padStart(2)}B: ${hex}`);
+}
+
 // ---- Byte parsing ----
 
-export function parseStateBytes(bytes: Uint8Array): Super73State {
+export function parseStateBytes(bytes: Uint8Array, source = "unknown"): Super73State {
   if (bytes.length < 6) throw new Error("Invalid state: expected at least 6 bytes");
 
   const assist = Math.min(Math.max(bytes[2]!, 0), 4);
   const light = bytes[4]! === 1;
   const { mode, region } = decodeMode(bytes[5]!);
 
-  return { mode, assist, light, region };
+  const state: Super73State = { mode, assist, light, region };
+  if (isBleDebugEnabled()) bleDebugLog(source, bytes, state);
+  return state;
 }
 
 export function buildWriteCommand(state: Super73State): Uint8Array {
@@ -148,12 +176,15 @@ async function getCharacteristics(server: BluetoothRemoteGATTServer) {
   return { registerIdChar, registerChar };
 }
 
-export async function readState(server: BluetoothRemoteGATTServer): Promise<Super73State> {
+export async function readState(
+  server: BluetoothRemoteGATTServer,
+  source = "poll",
+): Promise<Super73State> {
   const { registerIdChar, registerChar } = await getCharacteristics(server);
   // Request state by writing [3, 0] to register ID
   await withTimeout(registerIdChar.writeValue(new Uint8Array([3, 0])));
   const value = await withTimeout(registerChar.readValue());
-  return parseStateBytes(new Uint8Array(value.buffer));
+  return parseStateBytes(new Uint8Array(value.buffer), source);
 }
 
 export async function writeState(
@@ -183,7 +214,7 @@ export async function startStateNotifications(
       const c = event.target as BluetoothRemoteGATTCharacteristic;
       if (!c.value) return;
       try {
-        handler(parseStateBytes(new Uint8Array(c.value.buffer)));
+        handler(parseStateBytes(new Uint8Array(c.value.buffer), "notifier"));
       } catch {
         // malformed packet — skip
       }

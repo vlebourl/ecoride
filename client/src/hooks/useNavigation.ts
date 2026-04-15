@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchRoute } from "@/lib/ors";
 import { haversineDistance } from "@/lib/haversine";
 import type { NavigationRoute, GpsPoint } from "@ecoride/shared/types";
@@ -112,11 +112,14 @@ export function useNavigation({
   const [isLoading, setIsLoading] = useState(false);
   const [isDeviated, setIsDeviated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isArrived, setIsArrived] = useState(false);
 
   const lastRecalculRef = useRef<number>(0);
   const destinationRef = useRef<Destination | null>(null);
+  // Tracks current step index without triggering a re-render — updated synchronously
+  // inside the useMemo below so instructions update in the same render as the GPS point.
+  const currentStepIndexRef = useRef(0);
+  const prevRouteRef = useRef<NavigationRoute | null>(null);
 
   // Keep ref in sync for use inside effects without stale closures
   destinationRef.current = destination;
@@ -127,7 +130,7 @@ export function useNavigation({
     try {
       const r = await fetchRoute(startLat, startLon, dest.lat, dest.lon);
       setRoute(r);
-      setCurrentStepIndex(0);
+      currentStepIndexRef.current = 0;
       setIsArrived(false);
       setIsDeviated(false);
       // Reset cooldown after every successful route load (initial + recalculs)
@@ -144,7 +147,7 @@ export function useNavigation({
     (dest: Destination | null, currentPointArg?: GpsPoint | null) => {
       setDestinationState(dest);
       setRoute(null);
-      setCurrentStepIndex(0);
+      currentStepIndexRef.current = 0;
       setIsArrived(false);
       setError(null);
       setIsDeviated(false);
@@ -160,14 +163,33 @@ export function useNavigation({
   const clearRoute = useCallback(() => {
     setDestinationState(null);
     setRoute(null);
-    setCurrentStepIndex(0);
+    currentStepIndexRef.current = 0;
     setIsArrived(false);
     setError(null);
     setIsDeviated(false);
     lastRecalculRef.current = 0;
   }, []);
 
-  // Deviation detection + step advancement
+  // Step advancement — synchronous during render so instructions update in the same
+  // render cycle as the GPS point (no extra render = no visible lag on the banner).
+  const currentStepIndex = useMemo(() => {
+    // Reset index when the route object changes (new route loaded or cleared)
+    if (route !== prevRouteRef.current) {
+      currentStepIndexRef.current = 0;
+      prevRouteRef.current = route;
+    }
+    if (!route || !currentPoint || isArrived) return currentStepIndexRef.current;
+    const newIdx = findCurrentStepIndex(
+      currentPoint.lat,
+      currentPoint.lng,
+      route,
+      currentStepIndexRef.current,
+    );
+    currentStepIndexRef.current = newIdx;
+    return newIdx;
+  }, [route, currentPoint, isArrived]);
+
+  // Side effects only: arrival detection + deviation/recalcul (async, not render-blocking)
   useEffect(() => {
     if (!route || !currentPoint || isArrived) return;
 
@@ -184,12 +206,6 @@ export function useNavigation({
       }
     }
 
-    // Advance step
-    const newStepIndex = findCurrentStepIndex(lat, lon, route, currentStepIndex);
-    if (newStepIndex !== currentStepIndex) {
-      setCurrentStepIndex(newStepIndex);
-    }
-
     // Deviation check — only when GPS is accurate enough
     if (lastAccuracy == null || lastAccuracy >= ACCURACY_THRESHOLD_M) return;
     if (Date.now() - lastRecalculRef.current < RECALCUL_COOLDOWN_MS) return;
@@ -200,7 +216,7 @@ export function useNavigation({
       lastRecalculRef.current = Date.now();
       void loadRoute(lat, lon, dest);
     }
-  }, [currentPoint, lastAccuracy, route, currentStepIndex, isArrived, loadRoute]);
+  }, [currentPoint, lastAccuracy, route, isArrived, loadRoute]);
 
   // Derived values
   const currentStep = route && !isArrived ? (route.steps[currentStepIndex] ?? null) : null;

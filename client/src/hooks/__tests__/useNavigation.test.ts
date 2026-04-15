@@ -212,6 +212,29 @@ describe("useNavigation", () => {
     expect(result.current.isDeviated).toBe(true);
   });
 
+  it("instructions update in the same render as the GPS point — no extra act() needed (regression #271)", async () => {
+    // Bug: step advancement was in a useEffect, so instructions lagged one render
+    // behind the map position. Fix: useMemo computes step index synchronously during render.
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    expect(result.current.nextInstruction).toBe("Continuez tout droit");
+
+    // Move to the waypoint that ends step 0 — rerender only, no extra act()
+    rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } });
+
+    // Instructions must be updated immediately, in the same render — not one cycle later
+    expect(result.current.nextInstruction).toBe("Tournez à gauche");
+    expect(result.current.currentStepType).toBe(1);
+  });
+
   it("remainingCoordinates shrinks as steps advance", async () => {
     // Start at the waypoint that ends step 0 (coord index 1) to trigger step advancement
     const { result, rerender } = renderHook(

@@ -66,9 +66,9 @@ export function CommunityChart({ period, category, unit, categoryLabel }: Props)
 
   if (isPending || !data) {
     return (
-      <div className="flex h-full flex-col">
+      <div className="mt-4">
         <div className="mb-3 h-3 w-32 animate-pulse rounded bg-surface-container" />
-        <div className="flex-1 min-h-0 animate-pulse rounded-xl bg-surface-container" />
+        <div className="h-40 animate-pulse rounded-xl bg-surface-container" />
       </div>
     );
   }
@@ -82,13 +82,13 @@ export function CommunityChart({ period, category, unit, categoryLabel }: Props)
   }));
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="mt-4">
       <h2 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">
         {t("community.chart.title")}
         {" · "}
         <span className="text-primary-light">{categoryLabel}</span>
       </h2>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height={160}>
         <AreaChart data={points} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
           <defs>
             <linearGradient id="communityChartGradient" x1="0" y1="0" x2="0" y2="1">

@@ -12,7 +12,7 @@ vi.mock("../../db", () => ({
   },
 }));
 vi.mock("../../db/schema", () => ({
-  trips: { userId: {}, distanceKm: {}, co2SavedKg: {} },
+  trips: { userId: {}, distanceKm: {}, co2SavedKg: {}, moneySavedEur: {} },
   achievements: { userId: {}, badgeId: {} },
 }));
 vi.mock("../streaks", () => ({ computeStreak: vi.fn() }));
@@ -64,7 +64,9 @@ describe("evaluateAndUnlockBadges", () => {
   it("returns [] when no thresholds are met", async () => {
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 0, totalCo2SavedKg: 0, tripCount: 0 }]),
+        makeSelectChain([
+          { totalDistanceKm: 0, totalCo2SavedKg: 0, totalMoneySavedEur: 0, tripCount: 0 },
+        ]),
       )
       .mockReturnValueOnce(makeSelectChain([]));
     mockComputeStreak.mockResolvedValue({ current: 0, longest: 0 });
@@ -78,7 +80,9 @@ describe("evaluateAndUnlockBadges", () => {
     const insertChain = makeInsertChain();
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 10, totalCo2SavedKg: 1, tripCount: 1 }]),
+        makeSelectChain([
+          { totalDistanceKm: 10, totalCo2SavedKg: 1, totalMoneySavedEur: 5, tripCount: 1 },
+        ]),
       )
       .mockReturnValueOnce(makeSelectChain([]));
     mockDb.insert.mockReturnValue(insertChain);
@@ -95,7 +99,9 @@ describe("evaluateAndUnlockBadges", () => {
   it("does not re-unlock already earned badges", async () => {
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 10, totalCo2SavedKg: 1, tripCount: 1 }]),
+        makeSelectChain([
+          { totalDistanceKm: 10, totalCo2SavedKg: 1, totalMoneySavedEur: 5, tripCount: 1 },
+        ]),
       )
       .mockReturnValueOnce(makeSelectChain([{ badgeId: "first_trip" }]));
     mockComputeStreak.mockResolvedValue({ current: 1, longest: 1 });
@@ -109,7 +115,9 @@ describe("evaluateAndUnlockBadges", () => {
     const insertChain = makeInsertChain();
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 150, totalCo2SavedKg: 15, tripCount: 10 }]),
+        makeSelectChain([
+          { totalDistanceKm: 150, totalCo2SavedKg: 15, totalMoneySavedEur: 30, tripCount: 10 },
+        ]),
       )
       .mockReturnValueOnce(makeSelectChain([]));
     mockDb.insert.mockReturnValue(insertChain);
@@ -120,6 +128,22 @@ describe("evaluateAndUnlockBadges", () => {
     expect(result).toContain("trips_10");
     expect(result).toContain("km_100");
     expect(result).toContain("co2_10kg");
+  });
+
+  it("unlocks money_100 badge at 100 EUR saved", async () => {
+    const insertChain = makeInsertChain();
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([
+          { totalDistanceKm: 50, totalCo2SavedKg: 5, totalMoneySavedEur: 100, tripCount: 10 },
+        ]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(insertChain);
+    mockComputeStreak.mockResolvedValue({ current: 0, longest: 0 });
+
+    const result = await evaluateAndUnlockBadges("user-1");
+    expect(result).toContain("money_100");
   });
 
   it("handles empty aggregate result gracefully (fallback to 0)", async () => {
@@ -139,7 +163,9 @@ describe("reevaluateBadges", () => {
   it("returns [] when all unlocked badges are still earned", async () => {
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 10, totalCo2SavedKg: 1, tripCount: 1 }]),
+        makeSelectChain([
+          { totalDistanceKm: 10, totalCo2SavedKg: 1, totalMoneySavedEur: 5, tripCount: 1 },
+        ]),
       )
       .mockReturnValueOnce(makeSelectChain([{ badgeId: "first_trip" }]));
     mockComputeStreak.mockResolvedValue({ current: 1, longest: 1 });
@@ -153,7 +179,9 @@ describe("reevaluateBadges", () => {
     const deleteChain = makeDeleteChain();
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 5, totalCo2SavedKg: 0.5, tripCount: 5 }]),
+        makeSelectChain([
+          { totalDistanceKm: 5, totalCo2SavedKg: 0.5, totalMoneySavedEur: 2, tripCount: 5 },
+        ]),
       )
       .mockReturnValueOnce(makeSelectChain([{ badgeId: "first_trip" }, { badgeId: "trips_10" }]));
     mockDb.delete.mockReturnValue(deleteChain);
@@ -169,7 +197,9 @@ describe("reevaluateBadges", () => {
     const deleteChain = makeDeleteChain();
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 0, totalCo2SavedKg: 0, tripCount: 0 }]),
+        makeSelectChain([
+          { totalDistanceKm: 0, totalCo2SavedKg: 0, totalMoneySavedEur: 0, tripCount: 0 },
+        ]),
       )
       .mockReturnValueOnce(
         makeSelectChain([
@@ -189,7 +219,9 @@ describe("reevaluateBadges", () => {
   it("returns [] when user has no badges", async () => {
     mockDb.select
       .mockReturnValueOnce(
-        makeSelectChain([{ totalDistanceKm: 0, totalCo2SavedKg: 0, tripCount: 0 }]),
+        makeSelectChain([
+          { totalDistanceKm: 0, totalCo2SavedKg: 0, totalMoneySavedEur: 0, tripCount: 0 },
+        ]),
       )
       .mockReturnValueOnce(makeSelectChain([]));
     mockComputeStreak.mockResolvedValue({ current: 0, longest: 0 });

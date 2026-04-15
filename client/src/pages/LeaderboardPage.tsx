@@ -68,7 +68,7 @@ export function LeaderboardPage() {
   if (isPending || !data) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title={t("leaderboard.header.title")} titleHidden />
+        <PageHeader title={t("leaderboard.header.title")} />
         <div
           className="flex flex-1 items-center justify-center"
           role="status"
@@ -87,7 +87,7 @@ export function LeaderboardPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title={t("leaderboard.header.title")} titleHidden />
+      <PageHeader title={t("leaderboard.header.title")} />
 
       <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-6">
         {/* Controls: period + category */}
@@ -138,9 +138,9 @@ export function LeaderboardPage() {
           </div>
         </section>
 
-        {/* Leaderboard */}
+        {/* Leaderboard — podium + list (or empty state) */}
         {entries.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-6">
+          <div className="flex flex-[55] flex-col items-center justify-center gap-6">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <Trophy size={40} className="text-primary-light" />
             </div>
@@ -151,13 +151,19 @@ export function LeaderboardPage() {
           </div>
         ) : (
           <>
-            {/* Podium — compact */}
-            <section className="mb-3 grid grid-cols-3 items-end gap-3 shrink-0">
+            {/* Podium — proportional to available height (~22%) */}
+            <section className="flex-[22] min-h-0 mb-3 grid grid-cols-3 items-end gap-3">
               {/* Rank 2 */}
               {top3[1] && (
                 <div className="flex flex-col items-center">
                   <div className="relative mb-2">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-text-dim bg-surface-high">
+                    <div
+                      className="flex items-center justify-center overflow-hidden rounded-full border-2 border-text-dim bg-surface-high"
+                      style={{
+                        width: "clamp(2.75rem, 9svh, 4rem)",
+                        height: "clamp(2.75rem, 9svh, 4rem)",
+                      }}
+                    >
                       <span className="text-lg font-bold text-text-muted">
                         {top3[1].name.charAt(0)}
                       </span>
@@ -179,7 +185,13 @@ export function LeaderboardPage() {
               {top3[0] && (
                 <div className="flex flex-col items-center">
                   <div className="relative mb-2">
-                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-4 border-primary shadow-[0_0_20px_rgba(84,233,138,0.3)] bg-surface-high">
+                    <div
+                      className="flex items-center justify-center overflow-hidden rounded-full border-4 border-primary shadow-[0_0_20px_rgba(84,233,138,0.3)] bg-surface-high"
+                      style={{
+                        width: "clamp(3.25rem, 11svh, 5rem)",
+                        height: "clamp(3.25rem, 11svh, 5rem)",
+                      }}
+                    >
                       <span className="text-2xl font-bold text-primary-light">
                         {top3[0].name.charAt(0)}
                       </span>
@@ -201,7 +213,13 @@ export function LeaderboardPage() {
               {top3[2] && (
                 <div className="flex flex-col items-center">
                   <div className="relative mb-2">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-surface-highest bg-surface-high">
+                    <div
+                      className="flex items-center justify-center overflow-hidden rounded-full border-2 border-surface-highest bg-surface-high"
+                      style={{
+                        width: "clamp(2.75rem, 9svh, 4rem)",
+                        height: "clamp(2.75rem, 9svh, 4rem)",
+                      }}
+                    >
                       <span className="text-lg font-bold text-text-muted">
                         {top3[2].name.charAt(0)}
                       </span>
@@ -220,8 +238,8 @@ export function LeaderboardPage() {
               )}
             </section>
 
-            {/* Leaderboard List — fills remaining space, clips overflow */}
-            <div className="flex flex-1 min-h-0 flex-col gap-1.5 overflow-hidden">
+            {/* Leaderboard List — proportional (~33%), clips overflow */}
+            <div className="flex-[33] min-h-0 flex flex-col gap-1.5 overflow-hidden">
               {rest.map((entry) => {
                 const isMe = entry.userId === currentUserId;
                 return (
@@ -269,15 +287,17 @@ export function LeaderboardPage() {
           </>
         )}
 
-        {/* Community impact + chart */}
-        <section className="mt-3 shrink-0 pb-3">
+        {/* Community impact + chart — always visible, proportional (~45%) */}
+        <section className="flex-[45] min-h-0 mt-3 pb-3 flex flex-col">
           <CommunityImpactBanner period={period} />
-          <CommunityChart
-            period={period}
-            category={category}
-            unit={unit}
-            categoryLabel={t(categoryLabelKeys[category])}
-          />
+          <div className="flex-1 min-h-0">
+            <CommunityChart
+              period={period}
+              category={category}
+              unit={unit}
+              categoryLabel={t(categoryLabelKeys[category])}
+            />
+          </div>
         </section>
       </div>
     </div>

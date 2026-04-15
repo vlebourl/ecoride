@@ -10,7 +10,8 @@ type BadgeId =
   | "co2_100kg"
   | "co2_1t"
   | "streak_7"
-  | "streak_30";
+  | "streak_30"
+  | "money_100";
 
 interface BadgeMeta {
   label: string;
@@ -30,6 +31,7 @@ const BADGES: Record<BadgeId, BadgeMeta> = {
   co2_1t: { label: "1 tonne CO₂ économisée", icon: "🌲" },
   streak_7: { label: "7 jours de streak", icon: "🔥" },
   streak_30: { label: "30 jours de streak", icon: "⚡" },
+  money_100: { label: "100 € économisés", icon: "💰" },
 };
 
 export interface BadgeStatus {
@@ -44,7 +46,7 @@ export interface BadgeStatus {
 
 interface BadgeThreshold {
   id: BadgeId;
-  category: "trips" | "distance" | "co2" | "streak";
+  category: "trips" | "distance" | "co2" | "streak" | "money";
   threshold: number;
 }
 
@@ -61,12 +63,14 @@ const BADGE_THRESHOLDS: BadgeThreshold[] = [
   { id: "co2_1t", category: "co2", threshold: 1000 },
   { id: "streak_7", category: "streak", threshold: 7 },
   { id: "streak_30", category: "streak", threshold: 30 },
+  { id: "money_100", category: "money", threshold: 100 },
 ];
 
 export interface UserStats {
   totalTrips: number;
   totalKm: number;
   totalCo2Kg: number;
+  totalMoneySaved: number;
   currentStreak: number;
 }
 
@@ -74,6 +78,7 @@ const CATEGORY_TO_STAT: Record<string, keyof UserStats> = {
   trips: "totalTrips",
   distance: "totalKm",
   co2: "totalCo2Kg",
+  money: "totalMoneySaved",
   streak: "currentStreak",
 };
 

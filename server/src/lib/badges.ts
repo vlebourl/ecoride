@@ -11,6 +11,7 @@ import type { BadgeId } from "@ecoride/shared/types";
 export interface UserStats {
   totalDistanceKm: number;
   totalCo2SavedKg: number;
+  totalMoneySavedEur: number;
   tripCount: number;
   currentStreak: number;
 }
@@ -28,6 +29,7 @@ export const BADGE_THRESHOLDS: Record<BadgeId, (s: UserStats) => boolean> = {
   co2_1t: (s) => s.totalCo2SavedKg >= 1000,
   streak_7: (s) => s.currentStreak >= 7,
   streak_30: (s) => s.currentStreak >= 30,
+  money_100: (s) => s.totalMoneySavedEur >= 100,
 };
 
 /**
@@ -42,6 +44,7 @@ export async function evaluateAndUnlockBadges(userId: string): Promise<BadgeId[]
     .select({
       totalDistanceKm: sum(trips.distanceKm).mapWith(Number),
       totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
+      totalMoneySavedEur: sum(trips.moneySavedEur).mapWith(Number),
       tripCount: count(),
     })
     .from(trips)
@@ -52,6 +55,7 @@ export async function evaluateAndUnlockBadges(userId: string): Promise<BadgeId[]
   const userStats: UserStats = {
     totalDistanceKm: stats?.totalDistanceKm ?? 0,
     totalCo2SavedKg: stats?.totalCo2SavedKg ?? 0,
+    totalMoneySavedEur: stats?.totalMoneySavedEur ?? 0,
     tripCount: stats?.tripCount ?? 0,
     currentStreak: streaks.current,
   };
@@ -99,6 +103,7 @@ export async function reevaluateBadges(userId: string): Promise<BadgeId[]> {
     .select({
       totalDistanceKm: sum(trips.distanceKm).mapWith(Number),
       totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
+      totalMoneySavedEur: sum(trips.moneySavedEur).mapWith(Number),
       tripCount: count(),
     })
     .from(trips)
@@ -109,6 +114,7 @@ export async function reevaluateBadges(userId: string): Promise<BadgeId[]> {
   const userStats: UserStats = {
     totalDistanceKm: stats?.totalDistanceKm ?? 0,
     totalCo2SavedKg: stats?.totalCo2SavedKg ?? 0,
+    totalMoneySavedEur: stats?.totalMoneySavedEur ?? 0,
     tripCount: stats?.tripCount ?? 0,
     currentStreak: streaks.current,
   };

@@ -11,6 +11,7 @@ function makeStats(overrides: Partial<UserStats> = {}): UserStats {
   return {
     totalDistanceKm: 0,
     totalCo2SavedKg: 0,
+    totalMoneySavedEur: 0,
     tripCount: 0,
     currentStreak: 0,
     ...overrides,
@@ -143,6 +144,20 @@ describe("BADGE_THRESHOLDS", () => {
 
     it("does not unlock at 29-day streak", () => {
       expect(BADGE_THRESHOLDS.streak_30(makeStats({ currentStreak: 29 }))).toBe(false);
+    });
+  });
+
+  describe("money_100", () => {
+    it("unlocks at exactly 100 EUR saved", () => {
+      expect(BADGE_THRESHOLDS.money_100(makeStats({ totalMoneySavedEur: 100 }))).toBe(true);
+    });
+
+    it("does not unlock at 99.99 EUR", () => {
+      expect(BADGE_THRESHOLDS.money_100(makeStats({ totalMoneySavedEur: 99.99 }))).toBe(false);
+    });
+
+    it("unlocks above threshold", () => {
+      expect(BADGE_THRESHOLDS.money_100(makeStats({ totalMoneySavedEur: 250 }))).toBe(true);
     });
   });
 

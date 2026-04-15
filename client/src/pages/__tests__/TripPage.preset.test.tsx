@@ -77,6 +77,12 @@ vi.mock("@/hooks/useGpsTracking", () => ({
   getTrackingSession: () => null,
 }));
 
+vi.mock("@/lib/stopped-session", () => ({
+  getStoppedSession: () => null,
+  setStoppedSession: vi.fn(),
+  clearStoppedSession: vi.fn(),
+  hasStoppedSession: () => false,
+}));
 vi.mock("@/lib/offline-queue", () => ({ queueTrip: vi.fn() }));
 vi.mock("@/lib/webgl", () => ({ isWebGLSupported: () => false }));
 vi.mock("@/components/MapNoWebGL", () => ({ MapNoWebGL: () => <div>Map fallback</div> }));

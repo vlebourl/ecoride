@@ -34,6 +34,15 @@ const categoryLabelKeys: Record<LeaderboardCategory, TranslationKey> = {
   distance: "leaderboard.category.distance",
 };
 
+const categorySubtitleKeys: Record<LeaderboardCategory, TranslationKey> = {
+  co2: "leaderboard.subtitle.co2",
+  streak: "leaderboard.subtitle.streak",
+  trips: "leaderboard.subtitle.trips",
+  speed: "leaderboard.subtitle.speed",
+  money: "leaderboard.subtitle.money",
+  distance: "leaderboard.subtitle.distance",
+};
+
 const categoryUnitKeys: Record<LeaderboardCategory, TranslationKey> = {
   co2: "leaderboard.unit.co2",
   streak: "leaderboard.unit.streak",
@@ -41,6 +50,14 @@ const categoryUnitKeys: Record<LeaderboardCategory, TranslationKey> = {
   speed: "leaderboard.unit.speed",
   money: "leaderboard.unit.money",
   distance: "leaderboard.unit.distance",
+};
+
+const periodSuffixKeys: Record<StatsPeriod, TranslationKey> = {
+  day: "leaderboard.periodSuffix.day",
+  week: "leaderboard.periodSuffix.week",
+  month: "leaderboard.periodSuffix.month",
+  year: "leaderboard.periodSuffix.year",
+  all: "leaderboard.periodSuffix.all",
 };
 
 export function LeaderboardPage() {
@@ -67,15 +84,12 @@ export function LeaderboardPage() {
 
   if (isPending || !data) {
     return (
-      <div className="flex h-full flex-col">
-        <PageHeader title={t("leaderboard.header.title")} />
-        <div
-          className="flex flex-1 items-center justify-center"
-          role="status"
-          aria-label={t("leaderboard.loadingAria")}
-        >
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+      <div
+        className="flex flex-1 items-center justify-center"
+        role="status"
+        aria-label={t("leaderboard.loadingAria")}
+      >
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -86,20 +100,24 @@ export function LeaderboardPage() {
   const rest = entries.slice(3);
 
   return (
-    <div className="flex h-full flex-col">
-      <PageHeader title={t("leaderboard.header.title")} />
+    <>
+      <PageHeader
+        title={t("leaderboard.header.title")}
+        subtitle={`${t(categorySubtitleKeys[category])}${t(periodSuffixKeys[period])}`}
+      />
 
-      <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-6">
-        {/* Controls: period + category */}
-        <section className="mb-3 shrink-0">
-          <div className="flex gap-1.5" data-testid="period-switcher">
+      <div className="px-6 pb-6">
+        {/* Controls: period + category — shared by leaderboard and community section */}
+        <section className="mb-6">
+          {/* Period switcher */}
+          <div className="mt-4 flex gap-2" data-testid="period-switcher">
             {periodValues.map((value) => {
               const periodKey = value as "week" | "month" | "all";
               return (
                 <button
                   key={value}
                   onClick={() => setPeriod(value)}
-                  className={`flex-1 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  className={`flex-1 rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                     value === period
                       ? "bg-primary/20 text-primary-light"
                       : "bg-surface-high text-text-muted"
@@ -111,8 +129,9 @@ export function LeaderboardPage() {
             })}
           </div>
 
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex flex-1 gap-1.5" data-testid="category-switcher">
+          {/* Category switcher — icons only, label below */}
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex w-full gap-2" data-testid="category-switcher">
               {categoryOptions.map((opt) => {
                 const Icon = opt.icon;
                 const label = t(categoryLabelKeys[opt.value]);
@@ -120,27 +139,27 @@ export function LeaderboardPage() {
                   <button
                     key={opt.value}
                     onClick={() => setCategory(opt.value)}
-                    className={`flex h-8 flex-1 items-center justify-center rounded-lg transition-colors ${
+                    className={`flex h-10 flex-1 items-center justify-center rounded-lg transition-colors ${
                       opt.value === category
                         ? "bg-primary/20 text-primary-light"
                         : "bg-surface-high text-text-muted"
                     }`}
                     aria-label={label}
                   >
-                    <Icon size={16} />
+                    <Icon size={18} />
                   </button>
                 );
               })}
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary-light">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary-light">
               {t(categoryLabelKeys[category])}
             </span>
           </div>
         </section>
 
-        {/* Leaderboard — podium + list (or empty state) */}
+        {/* Leaderboard */}
         {entries.length === 0 ? (
-          <div className="flex flex-[55] flex-col items-center justify-center gap-6">
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 py-20">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <Trophy size={40} className="text-primary-light" />
             </div>
@@ -151,31 +170,25 @@ export function LeaderboardPage() {
           </div>
         ) : (
           <>
-            {/* Podium — proportional to available height (~22%) */}
-            <section className="flex-[22] min-h-0 mb-3 grid grid-cols-3 items-end gap-3">
+            {/* Podium */}
+            <section className="mb-12 grid grid-cols-3 items-end gap-4">
               {/* Rank 2 */}
               {top3[1] && (
                 <div className="flex flex-col items-center">
-                  <div className="relative mb-2">
-                    <div
-                      className="flex items-center justify-center overflow-hidden rounded-full border-2 border-text-dim bg-surface-high"
-                      style={{
-                        width: "clamp(2.75rem, 9svh, 4rem)",
-                        height: "clamp(2.75rem, 9svh, 4rem)",
-                      }}
-                    >
-                      <span className="text-lg font-bold text-text-muted">
+                  <div className="relative mb-3">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-text-dim bg-surface-high">
+                      <span className="text-2xl font-bold text-text-muted">
                         {top3[1].name.charAt(0)}
                       </span>
                     </div>
-                    <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-surface bg-surface-high text-[10px] font-bold text-text">
+                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-high text-xs font-bold text-text">
                       2
                     </div>
                   </div>
-                  <span className="w-full truncate text-center text-[10px] font-bold">
+                  <span className="w-full truncate text-center text-xs font-bold">
                     {top3[1].name}
                   </span>
-                  <span className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-primary-light">
+                  <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
                     {formatValue(top3[1].value)} {unit}
                   </span>
                 </div>
@@ -184,26 +197,20 @@ export function LeaderboardPage() {
               {/* Rank 1 */}
               {top3[0] && (
                 <div className="flex flex-col items-center">
-                  <div className="relative mb-2">
-                    <div
-                      className="flex items-center justify-center overflow-hidden rounded-full border-4 border-primary shadow-[0_0_20px_rgba(84,233,138,0.3)] bg-surface-high"
-                      style={{
-                        width: "clamp(3.25rem, 11svh, 5rem)",
-                        height: "clamp(3.25rem, 11svh, 5rem)",
-                      }}
-                    >
-                      <span className="text-2xl font-bold text-primary-light">
+                  <div className="relative mb-4 scale-125">
+                    <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-primary shadow-[0_0_30px_rgba(84,233,138,0.3)] bg-surface-high">
+                      <span className="text-3xl font-bold text-primary-light">
                         {top3[0].name.charAt(0)}
                       </span>
                     </div>
-                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-primary text-[10px] font-black text-bg">
+                    <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-primary text-xs font-black text-bg">
                       1
                     </div>
                   </div>
-                  <span className="w-full truncate text-center text-xs font-bold text-text">
+                  <span className="mt-4 w-full truncate text-center text-sm font-bold text-text">
                     {top3[0].name}
                   </span>
-                  <span className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-primary-light">
+                  <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
                     {formatValue(top3[0].value)} {unit}
                   </span>
                 </div>
@@ -212,71 +219,65 @@ export function LeaderboardPage() {
               {/* Rank 3 */}
               {top3[2] && (
                 <div className="flex flex-col items-center">
-                  <div className="relative mb-2">
-                    <div
-                      className="flex items-center justify-center overflow-hidden rounded-full border-2 border-surface-highest bg-surface-high"
-                      style={{
-                        width: "clamp(2.75rem, 9svh, 4rem)",
-                        height: "clamp(2.75rem, 9svh, 4rem)",
-                      }}
-                    >
-                      <span className="text-lg font-bold text-text-muted">
+                  <div className="relative mb-3">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-surface-highest bg-surface-high">
+                      <span className="text-2xl font-bold text-text-muted">
                         {top3[2].name.charAt(0)}
                       </span>
                     </div>
-                    <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-surface bg-surface-highest text-[10px] font-bold text-text-muted">
+                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-highest text-xs font-bold text-text-muted">
                       3
                     </div>
                   </div>
-                  <span className="w-full truncate text-center text-[10px] font-bold">
+                  <span className="w-full truncate text-center text-xs font-bold">
                     {top3[2].name}
                   </span>
-                  <span className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-primary-light">
+                  <span className="mt-1 text-xs font-black uppercase tracking-widest text-primary-light">
                     {formatValue(top3[2].value)} {unit}
                   </span>
                 </div>
               )}
             </section>
 
-            {/* Leaderboard List — proportional (~33%), clips overflow */}
-            <div className="flex-[33] min-h-0 flex flex-col gap-1.5 overflow-hidden">
+            {/* Leaderboard List */}
+            <div className="space-y-3">
               {rest.map((entry) => {
                 const isMe = entry.userId === currentUserId;
                 return (
                   <div
                     key={entry.userId}
-                    className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 ${
+                    className={`flex items-center gap-4 rounded-xl p-4 ${
                       isMe
                         ? "border-2 border-primary bg-surface-low shadow-[0_10px_30px_rgba(46,204,113,0.1)]"
-                        : "bg-surface-low"
+                        : "bg-surface-low hover:bg-surface-container"
                     } transition-colors`}
                   >
                     <span
-                      className={`w-5 text-xs font-black ${
+                      className={`w-6 text-sm font-black ${
                         isMe ? "text-primary-light" : "text-text-dim"
                       }`}
                     >
                       {String(entry.rank).padStart(2, "0")}
                     </span>
-                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-surface-high">
-                      <span className="text-sm font-bold text-text-muted">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-surface-high">
+                      <span className="text-lg font-bold text-text-muted">
                         {entry.name.charAt(0)}
                       </span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <h4 className="truncate text-xs font-bold">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold">
                           {isMe ? t("leaderboard.you") : entry.name}
                         </h4>
                         {isMe && (
-                          <span className="shrink-0 rounded bg-primary/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-light">
+                          <span className="rounded bg-primary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-light">
                             {t("leaderboard.meBadge")}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="block text-xs font-black text-text">
+                      <span className="block text-sm font-black text-text">
                         {formatValue(entry.value)} {unit.toLowerCase()}
                       </span>
                     </div>
@@ -287,19 +288,17 @@ export function LeaderboardPage() {
           </>
         )}
 
-        {/* Community impact + chart — always visible, proportional (~45%) */}
-        <section className="flex-[45] min-h-0 mt-3 pb-3 flex flex-col">
+        {/* Community impact + chart */}
+        <section className="mt-8">
           <CommunityImpactBanner period={period} />
-          <div className="flex-1 min-h-0">
-            <CommunityChart
-              period={period}
-              category={category}
-              unit={unit}
-              categoryLabel={t(categoryLabelKeys[category])}
-            />
-          </div>
+          <CommunityChart
+            period={period}
+            category={category}
+            unit={unit}
+            categoryLabel={t(categoryLabelKeys[category])}
+          />
         </section>
       </div>
-    </div>
+    </>
   );
 }

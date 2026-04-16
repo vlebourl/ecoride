@@ -35,7 +35,11 @@ export type BleStatus = "disconnected" | "connecting" | "connected" | "unsupport
 const STATE_KEY = "ecoride-super73-state";
 const RECONNECT_DELAY = 2_000;
 const MAX_RECONNECT_ATTEMPTS = 1;
-const EPAC_TRIGGER_POLL_INTERVAL_MS = 5_000;
+// TODO: EPAC poll disabled for observation — the BLE notifier appears reliable on all
+// tested firmware versions. If no regression is reported, remove poll entirely.
+// If a firmware where the notifier silently fails is found, re-enable and consider
+// a smarter trigger (one-shot after action rather than fixed interval).
+// const EPAC_TRIGGER_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_AUTO_MODE_LOW_SPEED_KMH = 10;
 const DEFAULT_AUTO_MODE_HIGH_SPEED_KMH = 17;
 
@@ -476,37 +480,35 @@ function useSuper73Controller(
     preferences.autoModeHighSpeedKmh,
   ]);
 
-  // Poll the bike state every EPAC_TRIGGER_POLL_INTERVAL_MS when connected.
-  // If the rider has set assist to ASSIST_EPAC_TRIGGER from the physical buttons,
-  // force the mode back to eco (EPAC). This is the "reset from the bike" gesture.
-  useEffect(() => {
-    if (status !== "connected") return;
-
-    const pollId = setInterval(async () => {
-      if (isPollActiveRef.current || !serverRef.current?.connected) return;
-      isPollActiveRef.current = true;
-      try {
-        const polledState = await readState(serverRef.current);
-        setBikeState(polledState);
-        cacheState(polledState);
-        if (shouldTriggerEpac(polledState)) {
-          // Notifier didn't catch it (otherwise mode would already be eco).
-          // Show a warning so the user knows the notifier isn't firing.
-          setEpacPollFallbackWarning(true);
-          const epacState: Super73State = { ...polledState, mode: "eco" };
-          await writeState(serverRef.current, epacState);
-          setBikeState(epacState);
-          cacheState(epacState);
-        }
-      } catch {
-        // Poll silently skipped — will retry on next interval.
-      } finally {
-        isPollActiveRef.current = false;
-      }
-    }, EPAC_TRIGGER_POLL_INTERVAL_MS);
-
-    return () => clearInterval(pollId);
-  }, [status]);
+  // TODO: poll disabled — see EPAC_TRIGGER_POLL_INTERVAL_MS comment above.
+  // useEffect(() => {
+  //   if (status !== "connected") return;
+  //
+  //   const pollId = setInterval(async () => {
+  //     if (isPollActiveRef.current || !serverRef.current?.connected) return;
+  //     isPollActiveRef.current = true;
+  //     try {
+  //       const polledState = await readState(serverRef.current);
+  //       setBikeState(polledState);
+  //       cacheState(polledState);
+  //       if (shouldTriggerEpac(polledState)) {
+  //         // Notifier didn't catch it (otherwise mode would already be eco).
+  //         // Show a warning so the user knows the notifier isn't firing.
+  //         setEpacPollFallbackWarning(true);
+  //         const epacState: Super73State = { ...polledState, mode: "eco" };
+  //         await writeState(serverRef.current, epacState);
+  //         setBikeState(epacState);
+  //         cacheState(epacState);
+  //       }
+  //     } catch {
+  //       // Poll silently skipped — will retry on next interval.
+  //     } finally {
+  //       isPollActiveRef.current = false;
+  //     }
+  //   }, EPAC_TRIGGER_POLL_INTERVAL_MS);
+  //
+  //   return () => clearInterval(pollId);
+  // }, [status]);
 
   const dismissEpacPollFallback = useCallback(() => setEpacPollFallbackWarning(false), []);
 

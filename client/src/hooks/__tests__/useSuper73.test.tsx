@@ -251,94 +251,13 @@ describe("useSuper73 provider", () => {
     });
   });
 
-  it("polls the bike and resets to EPAC when assist reaches the trigger level", async () => {
-    vi.useFakeTimers();
-
-    render(
-      <Super73Provider enabled>
-        <Consumer label="vehicle" />
-      </Super73Provider>,
-    );
-
-    fireEvent.click(screen.getByText("vehicle connect"));
-
-    // Flush async connection chain (readState + applyConnectionPreferences)
-    await act(async () => {
-      await vi.runAllTimersAsync();
-    });
-
-    expect(screen.getByText("vehicle:connected")).toBeTruthy();
-
-    // Simulate bike state: rider set assist to 3 while in race mode
-    readStateMock.mockResolvedValue({ ...baseState, mode: "race", assist: 3 });
-    writeStateMock.mockClear();
-
-    // Advance past the poll interval and flush async poll callback
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
-    });
-
-    expect(writeStateMock).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ mode: "eco", assist: 3 }),
-    );
-    expect(screen.getByText("vehicle-mode:eco")).toBeTruthy();
-  }, 15_000);
-
-  it("does not write when assist is at trigger level but mode is already eco", async () => {
-    vi.useFakeTimers();
-
-    render(
-      <Super73Provider enabled>
-        <Consumer label="noop" />
-      </Super73Provider>,
-    );
-
-    fireEvent.click(screen.getByText("noop connect"));
-
-    await act(async () => {
-      await vi.runAllTimersAsync();
-    });
-
-    expect(screen.getByText("noop:connected")).toBeTruthy();
-
-    // assist=3 but already in eco → no write expected
-    readStateMock.mockResolvedValue({ ...baseState, mode: "eco", assist: 3 });
-    writeStateMock.mockClear();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
-    });
-
-    expect(writeStateMock).not.toHaveBeenCalled();
-  }, 15_000);
-
-  it("sets epacPollFallbackWarning when poll catches the EPAC trigger (notifier unavailable)", async () => {
-    vi.useFakeTimers();
-
-    render(
-      <Super73Provider enabled>
-        <Consumer label="warn" />
-      </Super73Provider>,
-    );
-
-    fireEvent.click(screen.getByText("warn connect"));
-
-    await act(async () => {
-      await vi.runAllTimersAsync();
-    });
-
-    expect(screen.getByText("warn:connected")).toBeTruthy();
-    expect(screen.getByText("warn-poll-warning:no")).toBeTruthy();
-
-    readStateMock.mockResolvedValue({ ...baseState, mode: "race", assist: 3 });
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
-    });
-
-    expect(screen.getByText("warn-poll-warning:yes")).toBeTruthy();
-  }, 15_000);
+  // TODO: poll disabled — these three tests cover the fixed-interval EPAC poll which is
+  // currently commented out in useSuper73.ts pending observation. Re-enable if poll is
+  // reintroduced; delete if poll is removed permanently.
+  //
+  // it("polls the bike and resets to EPAC when assist reaches the trigger level", ...)
+  // it("does not write when assist is at trigger level but mode is already eco", ...)
+  // it("sets epacPollFallbackWarning when poll catches the EPAC trigger (notifier unavailable)", ...)
 
   it("switches automatically to off-road then back to eco when speed crosses thresholds", async () => {
     const { rerender } = render(

@@ -49,10 +49,10 @@ export const en: Record<TranslationKey, string> = {
 
   "trip.interrupt.dialogAria": "Trip interrupt menu",
   "trip.interrupt.title": "Trip paused",
-  "trip.interrupt.subtitle": "Resume, finish or abandon this trip.",
+  "trip.interrupt.subtitle": "Resume, save or abandon this trip.",
   "trip.interrupt.closeAria": "Close the interrupt menu",
   "trip.interrupt.resume": "Resume",
-  "trip.interrupt.finish": "Finish",
+  "trip.interrupt.save": "Save",
   "trip.interrupt.abandon": "Abandon",
   "trip.interrupt.tooShort": "Distance too short to save",
 

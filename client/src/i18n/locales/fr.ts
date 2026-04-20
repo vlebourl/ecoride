@@ -47,10 +47,10 @@ export const fr = {
 
   "trip.interrupt.dialogAria": "Menu d'interruption du trajet",
   "trip.interrupt.title": "Trajet interrompu",
-  "trip.interrupt.subtitle": "Reprendre, terminer ou abandonner ce trajet.",
+  "trip.interrupt.subtitle": "Reprendre, enregistrer ou abandonner ce trajet.",
   "trip.interrupt.closeAria": "Fermer le menu d'interruption",
   "trip.interrupt.resume": "Reprendre",
-  "trip.interrupt.finish": "Terminer",
+  "trip.interrupt.save": "Enregistrer",
   "trip.interrupt.abandon": "Abandonner",
   "trip.interrupt.tooShort": "Distance trop courte pour enregistrer",
 

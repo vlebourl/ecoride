@@ -77,11 +77,11 @@ tripsRouter.post(
     const consumptionL100 = profile?.consumptionL100 ?? 7; // Default 7L/100km
     const fuelType = (profile?.fuelType ?? "sp95") as "sp95" | "sp98" | "diesel" | "e85" | "gpl";
 
-    // Get current fuel price — non-blocking: use cache or fallback immediately
-    const startPoint = data.gpsPoints?.[0];
+    // Fuel savings are valued against the user's local refuelling market, not
+    // the trip start point — ecoRide currently uses the Annemasse lookup.
     let fuelPriceEur: number;
     try {
-      const fuelPriceData = await getFuelPrice(fuelType, startPoint?.lat, startPoint?.lng);
+      const fuelPriceData = await getFuelPrice(fuelType);
       fuelPriceEur = fuelPriceData.priceEur;
     } catch {
       // On any failure, use hardcoded fallback so trip creation is never blocked

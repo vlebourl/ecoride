@@ -143,8 +143,8 @@ export interface PushSubscribeRequest {
 }
 
 export interface FuelPriceQuery {
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   type: FuelType;
 }
 

@@ -55,7 +55,7 @@ export function InterruptMenu({
             className="flex w-full items-center justify-center gap-3 rounded-2xl bg-surface-high py-4 text-base font-bold text-text active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Square size={18} fill="currentColor" />
-            {t("trip.interrupt.finish")}
+            {t("trip.interrupt.save")}
           </button>
           <button
             onClick={onAbandon}

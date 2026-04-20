@@ -22,7 +22,7 @@ test("interrupt button pauses the trip and opens the interrupt menu", async ({ p
   const menu = page.getByRole("dialog", { name: "Menu d'interruption du trajet" });
   await expect(menu).toBeVisible();
   await expect(page.getByRole("button", { name: "Reprendre" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Terminer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enregistrer" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Abandonner" })).toBeVisible();
   await expect(page.getByLabel("Trajet en pause")).toBeVisible();
 });

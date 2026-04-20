@@ -114,7 +114,7 @@ describe("TripPage interrupt finish flow", () => {
       expect(screen.getByRole("dialog", { name: "Menu d'interruption du trajet" })).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Terminer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     expect(stopMock).toHaveBeenCalledOnce();
     expect(mutateMock).toHaveBeenCalledOnce();

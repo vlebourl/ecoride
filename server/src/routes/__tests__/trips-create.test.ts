@@ -207,4 +207,25 @@ describe("POST /trips", () => {
       }),
     );
   });
+
+  it("prices trips from the Annemasse market instead of the trip GPS start point", async () => {
+    const app = buildApp();
+    const res = await app.request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 12,
+        durationSec: 900,
+        startedAt: "2026-04-07T10:00:00.000Z",
+        endedAt: "2026-04-07T10:15:00.000Z",
+        gpsPoints: [
+          { lat: 46.2044, lng: 6.1432, ts: 1712484000000 },
+          { lat: 46.205, lng: 6.145, ts: 1712484300000 },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.mockGetFuelPrice).toHaveBeenCalledWith("sp95");
+  });
 });

@@ -80,9 +80,9 @@ for (const { path, name } of PAGES) {
           body: JSON.stringify({
             ok: true,
             data: {
-              priceEur: 1.75,
+              priceEur: 2.02,
               fuelType: "sp95",
-              stationName: "Prix moyen national",
+              stationName: "6 Route des Vallées, Annemasse",
               updatedAt: new Date().toISOString(),
             },
           }),

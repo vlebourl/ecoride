@@ -49,25 +49,38 @@ const FALLBACK_PRICES: Record<FuelType, number> = {
   gpl: 0.95,
 };
 
-// Map our fuel types to the API's fuel type codes
-const FUEL_TYPE_API_CODES: Record<FuelType, string> = {
-  sp95: "E10",
-  sp98: "SP98",
-  diesel: "Gazole",
-  e85: "E85",
-  gpl: "GPLc",
+const DEFAULT_FRANCE_LOOKUP = {
+  lat: 46.1944,
+  lng: 6.2376,
 };
+
+const FUEL_TYPE_API_FIELDS: Record<FuelType, { price: string; updatedAt: string }> = {
+  sp95: { price: "e10_prix", updatedAt: "e10_maj" },
+  sp98: { price: "sp98_prix", updatedAt: "sp98_maj" },
+  diesel: { price: "gazole_prix", updatedAt: "gazole_maj" },
+  e85: { price: "e85_prix", updatedAt: "e85_maj" },
+  gpl: { price: "gplc_prix", updatedAt: "gplc_maj" },
+};
+
+function formatStationName(address?: string, city?: string): string | undefined {
+  const parts = [address?.trim(), city?.trim()].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
 
 /**
  * Fetch fuel price from the French open data API.
- * Uses geolocation to find nearby stations. Falls back to national average.
+ * Uses caller coordinates when available, otherwise defaults to Annemasse so
+ * profile lookups stay local to ecoRide's operating area.
  */
 export async function getFuelPrice(
   fuelType: FuelType,
   lat?: number,
   lng?: number,
 ): Promise<CachedPrice> {
-  const cacheKey = `${fuelType}-${lat?.toFixed(2)}-${lng?.toFixed(2)}`;
+  const hasExplicitCoords = lat !== undefined && lng !== undefined;
+  const lookupLat = hasExplicitCoords ? lat : DEFAULT_FRANCE_LOOKUP.lat;
+  const lookupLng = hasExplicitCoords ? lng : DEFAULT_FRANCE_LOOKUP.lng;
+  const cacheKey = `${fuelType}-${lookupLat.toFixed(2)}-${lookupLng.toFixed(2)}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
     return cached;
@@ -75,11 +88,13 @@ export async function getFuelPrice(
 
   // Outside France: skip the French station API entirely and use the EU
   // Weekly Oil Bulletin snapshot for the detected country (issue #94).
-  // Check specific EU country bboxes before the France bbox, because the
-  // France bbox overlaps small neighbours like Belgium and Luxembourg.
-  if (lat !== undefined && lng !== undefined) {
-    const country = detectEuCountry(lat, lng);
-    const useEuPath = country !== undefined || !isInFrance(lat, lng);
+  // Coord-less requests intentionally stay on the French path because the
+  // profile card defaults to a local Annemasse station lookup.
+  if (hasExplicitCoords) {
+    // Check specific EU country bboxes before the France bbox, because the
+    // France bbox overlaps small neighbours like Belgium and Luxembourg.
+    const country = detectEuCountry(lookupLat, lookupLng);
+    const useEuPath = country !== undefined || !isInFrance(lookupLat, lookupLng);
     if (useEuPath) {
       const euPrice = country ? lookupEuPrice(country, fuelType) : undefined;
       if (country && euPrice !== undefined) {
@@ -109,21 +124,13 @@ export async function getFuelPrice(
   }
 
   try {
-    const apiCode = FUEL_TYPE_API_CODES[fuelType];
+    const apiFields = FUEL_TYPE_API_FIELDS[fuelType];
     const params = new URLSearchParams({
-      select: "nom_ev,prix_valeur,prix_maj",
-      where: `carburants_disponibles LIKE '%${apiCode}%' AND prix_nom='${apiCode}'`,
-      order_by: "prix_maj DESC",
+      select: `adresse,ville,${apiFields.price},${apiFields.updatedAt}`,
+      where: `${apiFields.price} is not null AND within_distance(geom, geom'POINT(${lookupLng} ${lookupLat})', 20km)`,
+      order_by: `distance(geom, geom'POINT(${lookupLng} ${lookupLat})')`,
       limit: "1",
     });
-
-    if (lat !== undefined && lng !== undefined) {
-      params.set(
-        "where",
-        `${params.get("where")} AND within_distance(geom, GEOM'POINT(${lng} ${lat})', 20km)`,
-      );
-      params.set("order_by", `distance(geom, GEOM'POINT(${lng} ${lat})')`);
-    }
 
     const url = `https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records?${params}`;
     const response = await fetch(url, { signal: AbortSignal.timeout(1500) });
@@ -133,20 +140,19 @@ export async function getFuelPrice(
     }
 
     const data = (await response.json()) as {
-      results: Array<{
-        nom_ev?: string;
-        prix_valeur?: number;
-        prix_maj?: string;
-      }>;
+      results: Array<Record<string, unknown> & { adresse?: string; ville?: string }>;
     };
 
     if (data.results.length > 0) {
       const record = data.results[0]!;
+      const rawPrice = record[apiFields.price];
+      const rawUpdatedAt = record[apiFields.updatedAt];
+      const priceEur = typeof rawPrice === "number" ? rawPrice : FALLBACK_PRICES[fuelType];
       const result: CachedPrice = {
-        priceEur: (record.prix_valeur ?? FALLBACK_PRICES[fuelType] * 1000) / 1000,
+        priceEur,
         fuelType,
-        stationName: record.nom_ev,
-        updatedAt: record.prix_maj ?? new Date().toISOString(),
+        stationName: formatStationName(record.adresse, record.ville),
+        updatedAt: typeof rawUpdatedAt === "string" ? rawUpdatedAt : new Date().toISOString(),
         cachedAt: Date.now(),
       };
       evictIfNeeded();

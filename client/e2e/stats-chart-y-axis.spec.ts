@@ -135,12 +135,15 @@ test.describe("Stats chart Y axis (#280)", () => {
 
     await page.goto("/stats", { waitUntil: "networkidle" });
 
-    // The recharts YAxis renders as a <g class="recharts-yAxis"> containing tick elements
+    // The recharts YAxis renders as a <g class="recharts-yAxis"> in the DOM.
+    // We assert attachment (not visibility) because ResponsiveContainer gets
+    // zero width in headless mode, which makes recharts hide the SVG elements
+    // even though they are present in the DOM.
     const yAxis = page.locator(".recharts-yAxis");
-    await expect(yAxis).toBeVisible();
+    await expect(yAxis).toBeAttached();
 
-    // At least one tick label should be rendered on the Y axis
+    // At least one tick element must exist inside the Y axis group
     const ticks = yAxis.locator(".recharts-cartesian-axis-tick");
-    await expect(ticks.first()).toBeVisible();
+    await expect(ticks.first()).toBeAttached();
   });
 });

@@ -42,9 +42,15 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 ### Branching — MANDATORY
 
 - **NEVER commit directly to `main`** — not even a single line, not even a typo fix.
-- Every task (feature, fix, chore) starts by creating a dedicated branch: `git checkout -b feat/... main`
+- Every task starts by pulling main first, then creating a dedicated branch:
+  ```
+  git checkout main
+  git pull
+  git checkout -b feat/...
+  ```
 - Push the branch and open a PR. CI must pass before merge.
 - This applies to ALL agents and ALL sessions, no exceptions.
+- **Why pull first**: auto-bump pushes a commit to main after every merge, so local main is almost always stale. Branching from stale main causes an immediate "out-of-date" PR.
 
 ### Bug Fixes
 

@@ -1,4 +1,4 @@
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useCommunityTimeline } from "@/hooks/queries";
 import { useT } from "@/i18n/provider";
 import type { StatsPeriod, LeaderboardCategory } from "@ecoride/shared/api-contracts";
@@ -89,7 +89,7 @@ export function CommunityChart({ period, category, unit, categoryLabel }: Props)
         <span className="text-primary-light">{categoryLabel}</span>
       </h2>
       <ResponsiveContainer width="100%" height={160}>
-        <AreaChart data={points} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+        <AreaChart data={points} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="communityChartGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#54e98a" stopOpacity={0.25} />
@@ -102,6 +102,14 @@ export function CommunityChart({ period, category, unit, categoryLabel }: Props)
             tickLine={false}
             axisLine={false}
             interval={tickInterval}
+          />
+          <YAxis
+            tick={{ fill: "#8a9ba8", fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+            width={48}
+            unit={` ${unit}`}
+            tickFormatter={(v) => formatValue(v as number)}
           />
           <Tooltip
             content={<CustomTooltip unit={unit} formatValue={formatValue} />}

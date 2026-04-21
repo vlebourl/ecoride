@@ -25,9 +25,13 @@ import {
   useGrantSuper73Access,
   useRevokeSuper73Access,
   useDeleteAdminUser,
+  useTrip,
+  type AdminStatsTrip,
 } from "@/hooks/queries";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { formatUptime, formatDate, formatDuration } from "@/lib/format-utils";
+import { formatUptime, formatDate, formatDuration, formatLongDate } from "@/lib/format-utils";
+import { tripLabelKey } from "@/lib/trip-utils";
+import { TripMiniMap } from "@/components/TripMiniMap";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { AuditLogSection } from "@/components/admin/AuditLogSection";
 import { AnnouncementSection } from "@/components/admin/AnnouncementSection";
@@ -59,6 +63,10 @@ export function AdminPage() {
   const deleteAdminUser = useDeleteAdminUser();
   const [deployStatus, setDeployStatus] = useState<"idle" | "success" | "error">("idle");
   const [selectedUser, setSelectedUser] = useState<AdminManagedUser | null>(null);
+  const [selectedAdminTrip, setSelectedAdminTrip] = useState<AdminStatsTrip | null>(null);
+  const { data: adminTripDetail, isPending: adminTripPending } = useTrip(
+    selectedAdminTrip?.id ?? null,
+  );
 
   const isAdmin = profileData?.user?.isAdmin === true;
 
@@ -359,9 +367,10 @@ export function AdminPage() {
           ) : stats?.recentTrips && stats.recentTrips.length > 0 ? (
             <div className="max-h-80 space-y-3 overflow-auto">
               {stats.recentTrips.map((trip) => (
-                <div
+                <button
                   key={trip.id}
-                  className="flex items-center gap-3 rounded-lg bg-surface-high p-3"
+                  onClick={() => setSelectedAdminTrip(trip)}
+                  className="flex w-full items-center gap-3 rounded-lg bg-surface-high p-3 text-left active:bg-surface-highest"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
                     <Bike size={18} className="text-primary-light" />
@@ -383,7 +392,7 @@ export function AdminPage() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           ) : (
@@ -531,6 +540,87 @@ export function AdminPage() {
                   </div>
                 </section>
               </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+      {selectedAdminTrip &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={selectedAdminTrip.userName}
+            className="fixed inset-0 z-[60] flex items-end justify-center"
+            onClick={() => setSelectedAdminTrip(null)}
+          >
+            <div className="absolute inset-0 bg-black/50" />
+            <div
+              className="relative w-full max-w-lg overflow-y-auto max-h-[85vh] rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-highest" />
+              <div className="mb-6 flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
+                    {selectedAdminTrip.userName}
+                  </p>
+                  <h3 className="text-lg font-bold">
+                    {t(tripLabelKey(selectedAdminTrip.startedAt))}
+                  </h3>
+                  <p className="text-sm text-text-muted">
+                    {formatLongDate(selectedAdminTrip.startedAt)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedAdminTrip(null)}
+                  className="rounded-lg p-2 text-text-muted active:bg-surface-high"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              {adminTripPending && (
+                <div className="flex justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
+              {!adminTripPending && adminTripDetail && (
+                <>
+                  {Array.isArray(adminTripDetail.gpsPoints) &&
+                  adminTripDetail.gpsPoints.length > 1 ? (
+                    <TripMiniMap gpsPoints={adminTripDetail.gpsPoints} />
+                  ) : (
+                    <p className="mb-4 text-center text-xs text-text-dim">
+                      {t("stats.detail.manualEntry")}
+                    </p>
+                  )}
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xl font-bold text-primary-light">
+                        {Number(adminTripDetail.distanceKm).toFixed(1)}
+                      </p>
+                      <p className="text-xs font-bold uppercase text-text-muted">
+                        {t("stats.detail.km")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-primary-light">
+                        {adminTripDetail.co2SavedKg.toFixed(1)}
+                      </p>
+                      <p className="text-xs font-bold uppercase text-text-muted">
+                        {t("stats.detail.co2")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-primary-light">
+                        {adminTripDetail.moneySavedEur.toFixed(2)}
+                      </p>
+                      <p className="text-xs font-bold uppercase text-text-muted">
+                        {t("stats.detail.eur")}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>,
           document.body,

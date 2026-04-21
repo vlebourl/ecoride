@@ -181,7 +181,7 @@ tripsRouter.get("/", zValidator("query", tripsListQuery, validationHook), async 
   });
 });
 
-// GET /api/trips/:id — Single trip
+// GET /api/trips/:id — Single trip (admins can fetch any trip)
 tripsRouter.get("/:id", zValidator("param", uuidParam, validationHook), async (c) => {
   const { id } = c.req.valid("param");
   const currentUser = c.get("user");
@@ -189,7 +189,7 @@ tripsRouter.get("/:id", zValidator("param", uuidParam, validationHook), async (c
   const [trip] = await db.select().from(trips).where(eq(trips.id, id));
 
   if (!trip) throw notFound(`Trip ${id} not found`);
-  if (trip.userId !== currentUser.id) throw forbidden();
+  if (trip.userId !== currentUser.id && !currentUser.isAdmin) throw forbidden();
 
   return c.json({ ok: true, data: { trip } });
 });

@@ -20,9 +20,14 @@ function FitBoundsOnLoad({ bounds }: { bounds: [[number, number], [number, numbe
     // Delay fitBounds until after the bottom sheet slide-up animation (0.2s)
     // completes. Without this, MapLibre doesn't know the container's final
     // dimensions and calculates the wrong center/zoom (#103).
+    // requestAnimationFrame ensures MapLibre has processed the resize before
+    // computing the new viewport, which prevents the trace from appearing
+    // outside the viewport after zoom-out.
     const timer = setTimeout(() => {
       map.resize();
-      map.fitBounds(bounds, { padding: 20 });
+      requestAnimationFrame(() => {
+        map.fitBounds(bounds, { padding: 20 });
+      });
     }, 250);
     return () => clearTimeout(timer);
   }, [map, bounds]);
@@ -38,22 +43,27 @@ export function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
   const hasSpeedData = traceGeoJSON.type === "FeatureCollection";
   // Single-pass bounds computation: avoids Math.min/max spread which throws
   // RangeError when trips exceed ~65k GPS points (JS call-stack limit).
-  let minLng = Infinity,
-    maxLng = -Infinity,
-    minLat = Infinity,
-    maxLat = -Infinity;
-  for (const p of gpsPoints) {
-    if (p.lng < minLng) minLng = p.lng;
-    if (p.lng > maxLng) maxLng = p.lng;
-    if (p.lat < minLat) minLat = p.lat;
-    if (p.lat > maxLat) maxLat = p.lat;
-  }
-  const bounds: [[number, number], [number, number]] = [
-    [minLng, minLat],
-    [maxLng, maxLat],
-  ];
-  const centerLng = (minLng + maxLng) / 2;
-  const centerLat = (minLat + maxLat) / 2;
+  // Memoized so FitBoundsOnLoad's effect only re-fires when gpsPoints change.
+  const { bounds, centerLng, centerLat } = useMemo(() => {
+    let minLng = Infinity,
+      maxLng = -Infinity,
+      minLat = Infinity,
+      maxLat = -Infinity;
+    for (const p of gpsPoints) {
+      if (p.lng < minLng) minLng = p.lng;
+      if (p.lng > maxLng) maxLng = p.lng;
+      if (p.lat < minLat) minLat = p.lat;
+      if (p.lat > maxLat) maxLat = p.lat;
+    }
+    return {
+      bounds: [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ] as [[number, number], [number, number]],
+      centerLng: (minLng + maxLng) / 2,
+      centerLat: (minLat + maxLat) / 2,
+    };
+  }, [gpsPoints]);
 
   return (
     <div className="relative mb-4 h-48 overflow-hidden rounded-xl">
@@ -67,10 +77,6 @@ export function TripMiniMap({ gpsPoints }: { gpsPoints: GpsPoint[] }) {
             }}
             mapStyle={MAP_STYLE}
             attributionControl={false}
-            dragPan={false}
-            scrollZoom={false}
-            doubleClickZoom={false}
-            touchZoomRotate={false}
             style={{ width: "100%", height: "100%" }}
             onLoad={(e) => {
               mapStyleReadyRef.current = true;

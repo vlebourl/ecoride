@@ -489,7 +489,14 @@ export function StatsPage() {
                       tick={{ fill: "#8a9ba8", fontSize: 10 }}
                       axisLine={false}
                       tickLine={false}
-                      width={35}
+                      width={48}
+                      unit={
+                        metric === "km"
+                          ? ` ${t("stats.chart.unit.km")}`
+                          : metric === "co2"
+                            ? ` ${t("stats.chart.unit.co2")}`
+                            : ` ${t("stats.chart.unit.eur")}`
+                      }
                       tickFormatter={(v) =>
                         metric === "eur" ? Number(v).toFixed(0) : Number(v).toFixed(1)
                       }

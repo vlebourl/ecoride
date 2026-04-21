@@ -2,7 +2,15 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X, Save } from "lucide-react";
 import type { Trip, GpsPoint } from "@ecoride/shared/types";
-import { LineChart, Line, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
 import type { LayerProps } from "react-map-gl/maplibre";
 // maplibre-gl.css imported in app.css to avoid orphan CSS chunks
@@ -476,6 +484,15 @@ export function StatsPage() {
                       axisLine={false}
                       tickLine={false}
                       interval={period === "month" ? 4 : 0}
+                    />
+                    <YAxis
+                      tick={{ fill: "#8a9ba8", fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={35}
+                      tickFormatter={(v) =>
+                        metric === "eur" ? Number(v).toFixed(0) : Number(v).toFixed(1)
+                      }
                     />
                     <Tooltip
                       contentStyle={{

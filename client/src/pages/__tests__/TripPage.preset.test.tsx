@@ -10,10 +10,13 @@ const renderTripPage = () =>
     </I18nProvider>,
   );
 
-const mutateMock = vi.fn();
-const startMock = vi.fn();
-const resetMock = vi.fn();
-
+const mocks = vi.hoisted(() => ({
+  mutateMock: vi.fn(),
+  queueTripMock: vi.fn(),
+  startMock: vi.fn(),
+  resetMock: vi.fn(),
+}));
+const { mutateMock, queueTripMock, startMock, resetMock } = mocks;
 vi.mock("react-map-gl/maplibre", () => ({
   __esModule: true,
   default: () => null,
@@ -24,7 +27,7 @@ vi.mock("react-map-gl/maplibre", () => ({
 
 vi.mock("@/hooks/queries", () => ({
   useCreateTrip: () => ({
-    mutate: mutateMock,
+    mutate: mocks.mutateMock,
     isPending: false,
   }),
   useProfile: () => ({
@@ -65,9 +68,9 @@ vi.mock("@/hooks/useGpsTracking", () => ({
       speedKmh: null,
       heading: null,
     },
-    start: startMock,
+    start: mocks.startMock,
     stop: vi.fn(),
-    reset: resetMock,
+    reset: mocks.resetMock,
     restore: vi.fn(),
     pause: vi.fn(),
     resume: vi.fn(),
@@ -83,7 +86,7 @@ vi.mock("@/lib/stopped-session", () => ({
   clearStoppedSession: vi.fn(),
   hasStoppedSession: () => false,
 }));
-vi.mock("@/lib/offline-queue", () => ({ queueTrip: vi.fn() }));
+vi.mock("@/lib/offline-queue", () => ({ queueTrip: mocks.queueTripMock }));
 vi.mock("@/lib/webgl", () => ({ isWebGLSupported: () => false }));
 vi.mock("@/components/MapNoWebGL", () => ({ MapNoWebGL: () => <div>Map fallback</div> }));
 vi.mock("@/components/Super73ModeButton", () => ({ Super73ModeButton: () => null }));
@@ -94,6 +97,7 @@ describe("TripPage trip preset selection", () => {
     mutateMock.mockReset();
     startMock.mockReset();
     resetMock.mockReset();
+    queueTripMock.mockReset();
   });
 
   it("creates a manual trip from the manual dropdown preset selection", () => {
@@ -116,6 +120,40 @@ describe("TripPage trip preset selection", () => {
         durationSec: 1500,
       }),
       expect.any(Object),
+    );
+  });
+
+  it("queues a failed manual trip with the same idempotency key used for the live save", () => {
+    renderTripPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Saisie manuelle" }));
+    fireEvent.change(screen.getByLabelText("Distance (km)"), { target: { value: "3.2" } });
+    fireEvent.change(screen.getByLabelText("Durée (minutes)"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(mutateMock).toHaveBeenCalledOnce();
+    const [tripData, options] = mutateMock.mock.calls[0] as [
+      { idempotencyKey?: string },
+      { onError: () => void },
+    ];
+    expect(tripData).toEqual(
+      expect.objectContaining({
+        distanceKm: 3.2,
+        durationSec: 720,
+        gpsPoints: null,
+        idempotencyKey: expect.any(String),
+      }),
+    );
+
+    options.onError();
+
+    expect(queueTripMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        distanceKm: 3.2,
+        durationSec: 720,
+        gpsPoints: null,
+        idempotencyKey: tripData.idempotencyKey,
+      }),
     );
   });
 

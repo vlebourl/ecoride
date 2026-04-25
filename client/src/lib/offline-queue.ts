@@ -48,7 +48,7 @@ function sameTripIdentity(a: CreateTripRequest, b: CreateTripRequest): boolean {
 
 export function queueTrip(data: CreateTripRequest): void {
   const pending = getPendingTrips();
-  const key = crypto.randomUUID();
+  const key = data.idempotencyKey ?? crypto.randomUUID();
   pending.push({ ...data, idempotencyKey: key });
   writeQueue(STORAGE_KEY, pending);
   notifyQueueChanged();

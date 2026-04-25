@@ -30,6 +30,7 @@ import { useT } from "@/i18n/provider";
 import { useNavigation } from "@/hooks/useNavigation";
 import { DestinationSearch } from "@/components/trip/DestinationSearch";
 import { NavigationBanner } from "@/components/trip/NavigationBanner";
+import { useSuper73 } from "@/hooks/useSuper73";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -53,6 +54,7 @@ export function TripPage() {
   const { data: profileData } = useProfile();
   const { data: tripPresetsData } = useTripPresets();
   const gps = useAppGpsTracking();
+  const ble = useSuper73();
   const currentGpsPoint = gps.state.gpsPoints.at(-1) ?? null;
   const navigation = useNavigation({
     currentPoint: currentGpsPoint,
@@ -63,6 +65,7 @@ export function TripPage() {
   const isPov = orientation === "pov";
 
   const tripPresets = tripPresetsData ?? [];
+  const effectiveSpeedKmh = ble.bikeSpeedKmh ?? gps.state.speedKmh;
 
   // --- Custom hooks ---
   const recovery = useSessionRecovery({ gps });
@@ -313,7 +316,7 @@ export function TripPage() {
         <>
           <TrackingDashboard
             isPaused={gps.state.isPaused}
-            speedKmh={gps.state.speedKmh}
+            speedKmh={effectiveSpeedKmh}
             distance={distance}
             co2Saved={co2Saved}
             elapsed={elapsed}

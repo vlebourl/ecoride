@@ -188,6 +188,7 @@ export function TripPage() {
         startedAt,
         endedAt,
         gpsPoints: session?.gpsPoints?.length ? session.gpsPoints : null,
+        idempotencyKey: crypto.randomUUID(),
       };
       createTrip.mutate(tripData, {
         onSuccess: () => {

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { TripPage } from "../TripPage";
 import { I18nProvider } from "@/i18n/provider";
+import { ApiError } from "@/lib/api";
 
 const renderTripPage = () =>
   render(
@@ -155,6 +156,41 @@ describe("TripPage trip preset selection", () => {
         idempotencyKey: tripData.idempotencyKey,
       }),
     );
+  });
+
+  it("shows live validation errors instead of queuing them as offline trips", () => {
+    renderTripPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Saisie manuelle" }));
+    fireEvent.change(screen.getByLabelText("Distance (km)"), { target: { value: "3.2" } });
+    fireEvent.change(screen.getByLabelText("Durée (minutes)"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    const [, options] = mutateMock.mock.calls[0] as [
+      unknown,
+      { onError: (error: unknown) => void },
+    ];
+
+    act(() => {
+      options.onError(
+        new ApiError(
+          409,
+          JSON.stringify({
+            ok: false,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Ce trajet chevauche un trajet existant.",
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(queueTripMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Ce trajet chevauche un trajet existant.")).toBeTruthy();
+    expect(
+      screen.queryByText("Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement."),
+    ).toBeNull();
   });
 
   it("resets the fields when switching back to custom mode", () => {

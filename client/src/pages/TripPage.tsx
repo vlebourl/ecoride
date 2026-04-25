@@ -8,6 +8,7 @@ import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useAppGpsTracking } from "@/hooks/useGpsTracking";
 import type { TrackingSession } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
+import { ApiError } from "@/lib/api";
 import { clearStoppedSession } from "@/lib/stopped-session";
 import { isWebGLSupported } from "@/lib/webgl";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
@@ -37,6 +38,22 @@ type TripState = "idle" | "tracking" | "stopped" | "manual";
 const DEFAULT_CENTER: [number, number] = [48.8566, 2.3522]; // Paris
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 const TRACKING_CAMERA_PADDING = { top: 200, bottom: 0, left: 0, right: 0 };
+
+function extractApiErrorMessage(error: ApiError): string | null {
+  const body = error.body.trim();
+  if (!body) return null;
+
+  try {
+    const parsed = JSON.parse(body) as {
+      error?: { message?: unknown };
+      message?: unknown;
+    };
+    const message = parsed.error?.message ?? parsed.message;
+    return typeof message === "string" && message.trim() ? message : null;
+  } catch {
+    return body.startsWith("{") ? null : body;
+  }
+}
 
 export function TripPage() {
   const t = useT();
@@ -203,7 +220,12 @@ export function TripPage() {
           recovery.sessionRef.current = null;
           gps.reset();
         },
-        onError: () => {
+        onError: (error) => {
+          if (error instanceof ApiError) {
+            setSaveError(extractApiErrorMessage(error) ?? t("trip.errors.saveRejected"));
+            return;
+          }
+
           queueTrip(tripData);
           setSaveError(t("trip.offline.savedLocally"));
           setTimeout(() => {

@@ -33,6 +33,7 @@ export const en: Record<TranslationKey, string> = {
   "trip.confirm.save": "Save this trip?",
   "trip.confirm.abandon": "Abandon this trip? The data will be lost.",
   "trip.offline.savedLocally": "Trip saved offline. It will be sent automatically.",
+  "trip.errors.saveRejected": "Trip rejected by the server. Check the times and try again.",
 
   "trip.dashboard.pausedAria": "Trip paused",
   "trip.dashboard.pausedLabel": "PAUSED",

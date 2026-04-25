@@ -248,7 +248,13 @@ test("preset flow works from Stats creation to Profile listing to Trip manual us
   await expect(page.getByLabel("Distance (km)")).toHaveValue("8.4");
   await expect(page.getByLabel("Durée (minutes)")).toHaveValue("25");
 
-  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/trips" && response.request().method() === "POST";
+    }),
+    page.getByRole("button", { name: "Enregistrer" }).click(),
+  ]);
 
   expect(createdTripRequest).toMatchObject({
     distanceKm: 8.4,

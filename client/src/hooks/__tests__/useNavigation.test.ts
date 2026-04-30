@@ -240,6 +240,68 @@ describe("useNavigation", () => {
     expect(result.current.currentStepType).toBe(2);
   });
 
+  it("advances past short route steps even when a tick lands well beyond step.distance (regression: short-step gate)", async () => {
+    // Codex stop-time review caught this: with the gate at step.distance * 1.2,
+    // a 30 m step had a 36 m gate — a single fast tick landing 80 m past such
+    // a short maneuver never satisfied the gate, so step advancement was stuck.
+    // Fix: an absolute floor (~200 m) on the gate keeps short steps advanceable
+    // while the proportional term still blocks wildly off-route GPS on long ones.
+
+    // Custom fixture: route with a SHORT 30 m step sandwiched between two longer
+    // ones. Coordinates are colinear (lat 48.84, increasing lon) for clarity.
+    const SHORT_STEP_ROUTE: NavigationRoute = {
+      coordinates: [
+        [2.3, 48.84], // start
+        [2.30274, 48.84], // ≈200 m east — end of step 0
+        [2.30315, 48.84], // ≈30 m further east — end of step 1 (the short one)
+        [2.31, 48.84], // ≈500 m further east — destination
+      ],
+      steps: [
+        { instruction: "Continuez", distance: 200, duration: 30, type: 0, wayPoints: [0, 1] },
+        { instruction: "Tournez à droite", distance: 30, duration: 5, type: 1, wayPoints: [1, 2] },
+        {
+          instruction: "Tournez à gauche",
+          distance: 500,
+          duration: 90,
+          type: 0,
+          wayPoints: [2, 3],
+        },
+      ],
+      totalDistance: 730,
+      totalDuration: 125,
+    };
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, data: { route: SHORT_STEP_ROUTE } }),
+    });
+
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.84, lng: 2.3, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(
+        { lat: 48.84, lon: 2.31, label: "End" },
+        { lat: 48.84, lng: 2.3, ts: 0 },
+      );
+    });
+
+    // Single tick lands ~80 m past coords[2] (end of the short 30 m step).
+    // distToWaypoint(coords[2]) ≈ 80 m; step 1 distance × 1.2 = 36 m → would
+    // have broken without the absolute floor. With the floor (200 m) it passes.
+    rerender({ point: { lat: 48.84, lng: 2.30425, ts: 1000 } });
+
+    // Step index advanced past coords[1] AND coords[2] → idx = 2.
+    // remainingCoordinates starts at coords[2] = the third element, so length = 2.
+    expect(result.current.remainingCoordinates.length).toBe(2);
+    // On the last step, upcomingStep falls back to currentStep itself.
+    expect(result.current.nextInstruction).toBe("Tournez à gauche");
+    expect(result.current.currentStepType).toBe(0);
+  });
+
   it("does NOT skip maneuvers when GPS jumps far off-route (regression: off-route safety)", async () => {
     // Codex stop-time review caught this: with no proximity gate, a wildly
     // off-route GPS reading can satisfy the dot-product crossing test for

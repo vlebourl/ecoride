@@ -7,6 +7,11 @@ const DEVIATION_THRESHOLD_M = 50;
 const ACCURACY_THRESHOLD_M = 30;
 const RECALCUL_COOLDOWN_MS = 30_000;
 const ARRIVAL_THRESHOLD_M = 30;
+// Floor for the plausibility gate on step advancement. The gate scales with
+// step.distance, but on very short steps (< ~150 m, e.g. quick maneuvers
+// between close intersections) a single fast GPS tick can land hundreds of
+// metres past the waypoint — without this floor, advancement would be stuck.
+const MIN_STEP_PASS_GATE_M = 200;
 
 export interface Destination {
   lat: number;
@@ -85,11 +90,10 @@ function findCurrentStepIndex(
   // Walk forward through every maneuver waypoint the rider has *geometrically
   // crossed* and stop at the first one not yet crossed.
   //
-  //  1. Plausibility gate: the user must be within ~1.2× the step's own length
-  //     of the waypoint. Beyond that, the GPS is either off-route or jumped
-  //     wildly — let the deviation/recalcul path handle it instead of letting
-  //     a faraway dot-product happen to satisfy the crossing test for multiple
-  //     steps in cascade and permanently skip maneuvers.
+  //  1. Plausibility gate: the user must be within max(step.distance × 1.2,
+  //     MIN_STEP_PASS_GATE_M) of the waypoint. The proportional term blocks
+  //     wildly off-route GPS on long steps; the absolute floor keeps short
+  //     steps advanceable when a single tick lands hundreds of metres past.
   //  2. Crossing test: sign of (waypoint − prev) · (user − waypoint) — negative
   //     while approaching, zero at the waypoint, positive once past. This keeps
   //     the imminent maneuver visible through the transition zone (#294) AND
@@ -102,7 +106,7 @@ function findCurrentStepIndex(
     if (!wpCoord) break;
     const [wLon, wLat] = wpCoord;
     const distToWaypoint = haversineDistance(lat, lon, wLat, wLon) * 1000;
-    if (distToWaypoint > step.distance * 1.2) break;
+    if (distToWaypoint > Math.max(step.distance * 1.2, MIN_STEP_PASS_GATE_M)) break;
     const prevIdx = waypointIdx > step.wayPoints[0] ? waypointIdx - 1 : step.wayPoints[0];
     const prevCoord = route.coordinates[prevIdx];
     if (!prevCoord) break;

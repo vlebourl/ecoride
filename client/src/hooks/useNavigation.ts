@@ -81,36 +81,32 @@ function findCurrentStepIndex(
   currentIndex: number,
 ): number {
   const steps = route.steps;
-  // Search from current step onward — steps advance monotonically
+  let idx = currentIndex;
+  // Walk forward through every maneuver waypoint the rider has *geometrically
+  // crossed* and stop at the first one not yet crossed. The crossing test is the
+  // sign of (waypoint − prev) · (user − waypoint): negative while approaching,
+  // zero at the waypoint, positive once past. This keeps the imminent maneuver
+  // visible through the transition zone (issue #294) AND advances correctly even
+  // when a single GPS tick lands well past the waypoint (no proximity gate).
   for (let i = currentIndex; i < steps.length - 1; i++) {
     const step = steps[i];
-    if (!step) continue;
+    if (!step) break;
     const waypointIdx = step.wayPoints[1];
-    const coord = route.coordinates[waypointIdx];
-    if (!coord) continue;
-    const [wLon, wLat] = coord;
-    const distToWaypoint = haversineDistance(lat, lon, wLat, wLon) * 1000;
-    if (distToWaypoint > step.distance * 1.2) continue;
-    // Advance only when the user has geometrically *crossed* the waypoint, not
-    // merely approached it. Without this guard, the look-ahead banner would flip
-    // to the next-next instruction inside the 20 m transition window — exactly
-    // when the rider is executing the imminent maneuver (issue #294).
-    if (distToWaypoint < 50) {
-      const prevIdx = waypointIdx > step.wayPoints[0] ? waypointIdx - 1 : step.wayPoints[0];
-      const prevCoord = route.coordinates[prevIdx];
-      if (prevCoord) {
-        const [pLon, pLat] = prevCoord;
-        // Dot product of (waypoint - prev) · (user - waypoint): >0 means the user
-        // has moved past the waypoint along the approach direction.
-        const dirLon = wLon - pLon;
-        const dirLat = wLat - pLat;
-        const offLon = lon - wLon;
-        const offLat = lat - wLat;
-        if (dirLon * offLon + dirLat * offLat > 0) return i + 1;
-      }
+    const wpCoord = route.coordinates[waypointIdx];
+    if (!wpCoord) break;
+    const prevIdx = waypointIdx > step.wayPoints[0] ? waypointIdx - 1 : step.wayPoints[0];
+    const prevCoord = route.coordinates[prevIdx];
+    if (!prevCoord) break;
+    const [wLon, wLat] = wpCoord;
+    const [pLon, pLat] = prevCoord;
+    const dot = (wLon - pLon) * (lon - wLon) + (wLat - pLat) * (lat - wLat);
+    if (dot > 0) {
+      idx = i + 1;
+      continue;
     }
+    break;
   }
-  return currentIndex;
+  return idx;
 }
 
 function computeRemainingDistance(route: NavigationRoute, stepIndex: number): number {

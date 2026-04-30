@@ -240,6 +240,31 @@ describe("useNavigation", () => {
     expect(result.current.currentStepType).toBe(2);
   });
 
+  it("advances even when a single GPS tick lands well past the waypoint (regression: stuck after real turn)", async () => {
+    // Codex stop-time review caught this: with the previous "< 50 m AND past"
+    // gate, a fast rider whose next GPS fix landed >50 m past the maneuver
+    // (e.g. high speed, sparse fixes) would never satisfy the proximity check —
+    // step advancement got stuck and the banner remained on the maneuver the
+    // rider had already executed. Fix: rely solely on the dot-product crossing
+    // test, no proximity gate.
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    // Tick lands ~1 km past coords[1] toward coords[2] — well outside any 50 m
+    // proximity window, but clearly past the maneuver waypoint along the route.
+    rerender({ point: { lat: 48.835, lng: 2.29, ts: 1000 } });
+
+    expect(result.current.nextInstruction).toBe("Tournez à droite");
+    expect(result.current.currentStepType).toBe(2);
+  });
+
   it("does NOT skip the imminent maneuver inside the transition zone (regression #294 follow-up)", async () => {
     // Codex stop-time review caught this: the previous look-ahead fix advanced the step
     // index as soon as the user was within 20 m of the waypoint, which made

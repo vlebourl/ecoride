@@ -91,7 +91,24 @@ function findCurrentStepIndex(
     const [wLon, wLat] = coord;
     const distToWaypoint = haversineDistance(lat, lon, wLat, wLon) * 1000;
     if (distToWaypoint > step.distance * 1.2) continue;
-    if (distToWaypoint < 20) return i + 1;
+    // Advance only when the user has geometrically *crossed* the waypoint, not
+    // merely approached it. Without this guard, the look-ahead banner would flip
+    // to the next-next instruction inside the 20 m transition window — exactly
+    // when the rider is executing the imminent maneuver (issue #294).
+    if (distToWaypoint < 50) {
+      const prevIdx = waypointIdx > step.wayPoints[0] ? waypointIdx - 1 : step.wayPoints[0];
+      const prevCoord = route.coordinates[prevIdx];
+      if (prevCoord) {
+        const [pLon, pLat] = prevCoord;
+        // Dot product of (waypoint - prev) · (user - waypoint): >0 means the user
+        // has moved past the waypoint along the approach direction.
+        const dirLon = wLon - pLon;
+        const dirLat = wLat - pLat;
+        const offLon = lon - wLon;
+        const offLat = lat - wLat;
+        if (dirLon * offLon + dirLat * offLat > 0) return i + 1;
+      }
+    }
   }
   return currentIndex;
 }

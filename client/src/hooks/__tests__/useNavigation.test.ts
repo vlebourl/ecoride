@@ -230,11 +230,43 @@ describe("useNavigation", () => {
     // Look-ahead: while on step 0, the banner shows the UPCOMING maneuver (step 1).
     expect(result.current.nextInstruction).toBe("Tournez à gauche");
 
-    // Move to the waypoint that ends step 0 — rerender only, no extra act()
-    rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } });
+    // Move just past the waypoint that ends step 0 (toward coords[2]) — close enough
+    // to trigger the dot-product crossing check. Rerender only, no extra act().
+    rerender({ point: { lat: 48.8398, lng: 2.2998, ts: 1000 } });
 
     // Step index advanced to 1 → banner now shows the next upcoming maneuver (step 2).
     // Must update immediately, in the same render — not one cycle later.
+    expect(result.current.nextInstruction).toBe("Tournez à droite");
+    expect(result.current.currentStepType).toBe(2);
+  });
+
+  it("does NOT skip the imminent maneuver inside the transition zone (regression #294 follow-up)", async () => {
+    // Codex stop-time review caught this: the previous look-ahead fix advanced the step
+    // index as soon as the user was within 20 m of the waypoint, which made
+    // upcomingStep = steps[i+2] right when the rider was actually executing the
+    // maneuver — so the banner flipped to the *next-next* instruction during the turn.
+    // Fix: the step index now only advances once the user has geometrically crossed
+    // the waypoint (dot-product check), so the imminent maneuver stays on screen
+    // through the entire transition.
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    // Right at the waypoint that ends step 0 — within 20 m of the maneuver point but
+    // not yet past it. Banner MUST still show "Tournez à gauche" (step 1), NOT
+    // "Tournez à droite" (step 2).
+    rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } });
+    expect(result.current.nextInstruction).toBe("Tournez à gauche");
+    expect(result.current.currentStepType).toBe(1);
+
+    // Now move just past the waypoint along the route — banner switches to step 2.
+    rerender({ point: { lat: 48.8398, lng: 2.2998, ts: 1100 } });
     expect(result.current.nextInstruction).toBe("Tournez à droite");
     expect(result.current.currentStepType).toBe(2);
   });
@@ -286,9 +318,10 @@ describe("useNavigation", () => {
       result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
     });
 
-    // Walk through the route: step 0 → step 1 → step 2 (last step).
-    rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } }); // ends step 0
-    rerender({ point: { lat: 48.82, lng: 2.2, ts: 2000 } }); // ends step 1
+    // Walk through the route: step 0 → step 1 → step 2 (last step). Each rerender
+    // moves *past* the corresponding waypoint to satisfy the crossing check.
+    rerender({ point: { lat: 48.8398, lng: 2.2998, ts: 1000 } }); // past coords[1]
+    rerender({ point: { lat: 48.8198, lng: 2.1998, ts: 2000 } }); // past coords[2]
 
     // Now on the final step (index 2). No step 3 exists → fallback to step 2's own values.
     expect(result.current.nextInstruction).toBe("Tournez à droite");
@@ -311,9 +344,9 @@ describe("useNavigation", () => {
     const initialLength = result.current.remainingCoordinates.length;
     expect(initialLength).toBe(FIXTURE_ROUTE.coordinates.length);
 
-    // Move very close to the end-waypoint of step 0 (coord index 1: lon=2.3, lat=48.84)
-    // step 0 distance=5000m, so distToWaypoint < 20m triggers advancement
-    rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } });
+    // Move just past the end-waypoint of step 0 (coords[1] = lon=2.3, lat=48.84) along
+    // the route to satisfy the crossing check that triggers step advancement.
+    rerender({ point: { lat: 48.8398, lng: 2.2998, ts: 1000 } });
 
     // After advancing to step 1, remainingCoordinates starts at coords[1]
     expect(result.current.remainingCoordinates.length).toBeLessThan(initialLength);

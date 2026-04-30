@@ -83,21 +83,29 @@ function findCurrentStepIndex(
   const steps = route.steps;
   let idx = currentIndex;
   // Walk forward through every maneuver waypoint the rider has *geometrically
-  // crossed* and stop at the first one not yet crossed. The crossing test is the
-  // sign of (waypoint − prev) · (user − waypoint): negative while approaching,
-  // zero at the waypoint, positive once past. This keeps the imminent maneuver
-  // visible through the transition zone (issue #294) AND advances correctly even
-  // when a single GPS tick lands well past the waypoint (no proximity gate).
+  // crossed* and stop at the first one not yet crossed.
+  //
+  //  1. Plausibility gate: the user must be within ~1.2× the step's own length
+  //     of the waypoint. Beyond that, the GPS is either off-route or jumped
+  //     wildly — let the deviation/recalcul path handle it instead of letting
+  //     a faraway dot-product happen to satisfy the crossing test for multiple
+  //     steps in cascade and permanently skip maneuvers.
+  //  2. Crossing test: sign of (waypoint − prev) · (user − waypoint) — negative
+  //     while approaching, zero at the waypoint, positive once past. This keeps
+  //     the imminent maneuver visible through the transition zone (#294) AND
+  //     advances correctly when a single tick lands hundreds of metres past.
   for (let i = currentIndex; i < steps.length - 1; i++) {
     const step = steps[i];
     if (!step) break;
     const waypointIdx = step.wayPoints[1];
     const wpCoord = route.coordinates[waypointIdx];
     if (!wpCoord) break;
+    const [wLon, wLat] = wpCoord;
+    const distToWaypoint = haversineDistance(lat, lon, wLat, wLon) * 1000;
+    if (distToWaypoint > step.distance * 1.2) break;
     const prevIdx = waypointIdx > step.wayPoints[0] ? waypointIdx - 1 : step.wayPoints[0];
     const prevCoord = route.coordinates[prevIdx];
     if (!prevCoord) break;
-    const [wLon, wLat] = wpCoord;
     const [pLon, pLat] = prevCoord;
     const dot = (wLon - pLon) * (lon - wLon) + (wLat - pLat) * (lat - wLat);
     if (dot > 0) {

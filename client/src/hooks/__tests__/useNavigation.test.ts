@@ -240,6 +240,36 @@ describe("useNavigation", () => {
     expect(result.current.currentStepType).toBe(2);
   });
 
+  it("does NOT skip maneuvers when GPS jumps far off-route (regression: off-route safety)", async () => {
+    // Codex stop-time review caught this: with no proximity gate, a wildly
+    // off-route GPS reading can satisfy the dot-product crossing test for
+    // multiple step waypoints in sequence (purely by approach-direction
+    // geometry) and permanently skip maneuvers. Fix: require distance to the
+    // waypoint to be within ~1.2 × the step's own length before the crossing
+    // check counts.
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    // Pend any recalcul fetch so the route doesn't reset under us.
+    mockFetch.mockReturnValue(new Promise(() => {}));
+
+    // GPS jumps hundreds of km away — far beyond any plausible step length.
+    // Without the plausibility gate, the dot product against the SW-pointing
+    // approach vector happens to be positive for both coords[1] and coords[2],
+    // which would skip two maneuvers. With the gate, neither test runs.
+    rerender({ point: { lat: 50.0, lng: 1.0, ts: 1000 } });
+
+    expect(result.current.nextInstruction).toBe("Tournez à gauche");
+    expect(result.current.currentStepType).toBe(1);
+  });
+
   it("advances even when a single GPS tick lands well past the waypoint (regression: stuck after real turn)", async () => {
     // Codex stop-time review caught this: with the previous "< 50 m AND past"
     // gate, a fast rider whose next GPS fix landed >50 m past the maneuver

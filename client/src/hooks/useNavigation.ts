@@ -5,7 +5,11 @@ import type { NavigationRoute, GpsPoint } from "@ecoride/shared/types";
 
 const DEVIATION_THRESHOLD_M = 50;
 const ACCURACY_THRESHOLD_M = 30;
-const RECALCUL_COOLDOWN_MS = 30_000;
+// Cooldown between deviation-triggered route recalculs. At bike speed (~15 km/h)
+// the rider can travel ~25 m per second, so even 5 s of stale routing risks a
+// missed turn or a wrong street. Keep this short enough to be reactive while
+// still rate-limiting against ORS quota churn during sustained off-route GPS.
+const RECALCUL_COOLDOWN_MS = 5_000;
 const ARRIVAL_THRESHOLD_M = 30;
 
 export interface Destination {
@@ -80,20 +84,42 @@ function findCurrentStepIndex(
   route: NavigationRoute,
   currentIndex: number,
 ): number {
+  // Off-route safety: gate by *lateral* distance to the route polyline, not by
+  // distance to a specific waypoint. A faraway dot-product can satisfy the
+  // crossing test for several waypoints in cascade purely by approach-direction
+  // geometry (especially on short steps), permanently skipping maneuvers. The
+  // lateral gate distinguishes "fast tick on-route past a maneuver" (pass) from
+  // "off-route GPS reading" (block) regardless of step length.
+  if (distanceToPolyline(lat, lon, route.coordinates) > DEVIATION_THRESHOLD_M) {
+    return currentIndex;
+  }
+
   const steps = route.steps;
-  // Search from current step onward — steps advance monotonically
+  let idx = currentIndex;
+  // Walk forward through every maneuver waypoint the rider has *geometrically
+  // crossed* and stop at the first one not yet crossed. Crossing test = sign of
+  // (waypoint − prev) · (user − waypoint): negative while approaching, zero at
+  // the waypoint, positive once past. This keeps the imminent maneuver visible
+  // through the transition zone (#294) and handles fast ticks transparently.
   for (let i = currentIndex; i < steps.length - 1; i++) {
     const step = steps[i];
-    if (!step) continue;
+    if (!step) break;
     const waypointIdx = step.wayPoints[1];
-    const coord = route.coordinates[waypointIdx];
-    if (!coord) continue;
-    const [wLon, wLat] = coord;
-    const distToWaypoint = haversineDistance(lat, lon, wLat, wLon) * 1000;
-    if (distToWaypoint > step.distance * 1.2) continue;
-    if (distToWaypoint < 20) return i + 1;
+    const wpCoord = route.coordinates[waypointIdx];
+    if (!wpCoord) break;
+    const prevIdx = waypointIdx > step.wayPoints[0] ? waypointIdx - 1 : step.wayPoints[0];
+    const prevCoord = route.coordinates[prevIdx];
+    if (!prevCoord) break;
+    const [wLon, wLat] = wpCoord;
+    const [pLon, pLat] = prevCoord;
+    const dot = (wLon - pLon) * (lon - wLon) + (wLat - pLat) * (lat - wLat);
+    if (dot > 0) {
+      idx = i + 1;
+      continue;
+    }
+    break;
   }
-  return currentIndex;
+  return idx;
 }
 
 function computeRemainingDistance(route: NavigationRoute, stepIndex: number): number {
@@ -120,15 +146,22 @@ export function useNavigation({
   // inside the useMemo below so instructions update in the same render as the GPS point.
   const currentStepIndexRef = useRef(0);
   const prevRouteRef = useRef<NavigationRoute | null>(null);
+  // Monotonically incremented per loadRoute call. The completion handler checks
+  // it before applying state so a stale (slow) response cannot overwrite a
+  // newer route that already resolved.
+  const loadRequestRef = useRef(0);
 
   // Keep ref in sync for use inside effects without stale closures
   destinationRef.current = destination;
 
   const loadRoute = useCallback(async (startLat: number, startLon: number, dest: Destination) => {
+    const requestId = ++loadRequestRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const r = await fetchRoute(startLat, startLon, dest.lat, dest.lon);
+      // Discard stale response: a newer loadRoute superseded this one.
+      if (loadRequestRef.current !== requestId) return;
       setRoute(r);
       currentStepIndexRef.current = 0;
       setIsArrived(false);
@@ -136,15 +169,26 @@ export function useNavigation({
       // Reset cooldown after every successful route load (initial + recalculs)
       lastRecalculRef.current = Date.now();
     } catch {
+      if (loadRequestRef.current !== requestId) return;
       setError("trip.navigation.fetchError");
       setRoute(null);
     } finally {
-      setIsLoading(false);
+      // Only clear isLoading if we are still the latest request — otherwise
+      // a newer request is in-flight and isLoading must remain true.
+      if (loadRequestRef.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   const setDestination = useCallback(
     (dest: Destination | null, currentPointArg?: GpsPoint | null) => {
+      // Invalidate any in-flight fetch: its response must not retroactively
+      // populate route after destination changed/cleared. Also clears isLoading
+      // unconditionally — the in-flight fetch's finally block will skip the
+      // setIsLoading(false) call once it sees its requestId is stale.
+      loadRequestRef.current++;
+      setIsLoading(false);
       setDestinationState(dest);
       setRoute(null);
       currentStepIndexRef.current = 0;
@@ -161,6 +205,9 @@ export function useNavigation({
   );
 
   const clearRoute = useCallback(() => {
+    // Same fetch invalidation as setDestination — see comment above.
+    loadRequestRef.current++;
+    setIsLoading(false);
     setDestinationState(null);
     setRoute(null);
     currentStepIndexRef.current = 0;
@@ -209,6 +256,10 @@ export function useNavigation({
     // Deviation check — only when GPS is accurate enough
     if (lastAccuracy == null || lastAccuracy >= ACCURACY_THRESHOLD_M) return;
     if (Date.now() - lastRecalculRef.current < RECALCUL_COOLDOWN_MS) return;
+    // Skip if a recalcul is already in-flight — issuing a second one would race
+    // with the first and a slow response could overwrite a newer route. Once the
+    // pending fetch completes, the next GPS tick re-evaluates deviation.
+    if (isLoading) return;
 
     const dist = distanceToPolyline(lat, lon, route.coordinates);
     if (dist > DEVIATION_THRESHOLD_M && dest) {
@@ -216,14 +267,29 @@ export function useNavigation({
       lastRecalculRef.current = Date.now();
       void loadRoute(lat, lon, dest);
     }
-  }, [currentPoint, lastAccuracy, route, isArrived, loadRoute]);
+  }, [currentPoint, lastAccuracy, route, isArrived, isLoading, loadRoute]);
 
   // Derived values
   const currentStep = route && !isArrived ? (route.steps[currentStepIndex] ?? null) : null;
 
-  const nextInstruction = currentStep?.instruction ?? null;
-  const distanceToNextStep = currentStep?.distance ?? null;
-  const currentStepType = currentStep?.type ?? null;
+  // Display the UPCOMING maneuver (step+1) so the user is warned BEFORE the turn,
+  // not at the moment they reach it. Fallback to the current step on the last one
+  // (which carries the arrival instruction).
+  const upcomingStep =
+    route && !isArrived ? (route.steps[currentStepIndex + 1] ?? currentStep) : null;
+
+  const nextInstruction = upcomingStep?.instruction ?? null;
+  const currentStepType = upcomingStep?.type ?? null;
+
+  // Dynamic distance: metres remaining to the end of the current step (= the turn point).
+  let distanceToNextStep: number | null = null;
+  if (route && currentStep && currentPoint && !isArrived) {
+    const endWaypoint = route.coordinates[currentStep.wayPoints[1]];
+    if (endWaypoint) {
+      const [wLon, wLat] = endWaypoint;
+      distanceToNextStep = haversineDistance(currentPoint.lat, currentPoint.lng, wLat, wLon) * 1000;
+    }
+  }
 
   const totalRemaining =
     route && !isArrived ? computeRemainingDistance(route, currentStepIndex) : null;

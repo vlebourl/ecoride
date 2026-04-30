@@ -183,6 +183,12 @@ export function useNavigation({
 
   const setDestination = useCallback(
     (dest: Destination | null, currentPointArg?: GpsPoint | null) => {
+      // Invalidate any in-flight fetch: its response must not retroactively
+      // populate route after destination changed/cleared. Also clears isLoading
+      // unconditionally — the in-flight fetch's finally block will skip the
+      // setIsLoading(false) call once it sees its requestId is stale.
+      loadRequestRef.current++;
+      setIsLoading(false);
       setDestinationState(dest);
       setRoute(null);
       currentStepIndexRef.current = 0;
@@ -199,6 +205,9 @@ export function useNavigation({
   );
 
   const clearRoute = useCallback(() => {
+    // Same fetch invalidation as setDestination — see comment above.
+    loadRequestRef.current++;
+    setIsLoading(false);
     setDestinationState(null);
     setRoute(null);
     currentStepIndexRef.current = 0;

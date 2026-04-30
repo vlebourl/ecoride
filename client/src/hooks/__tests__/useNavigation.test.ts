@@ -316,6 +316,56 @@ describe("useNavigation", () => {
     expect(result.current.route).toEqual(ROUTE_B);
   });
 
+  it("ignores fetch responses that resolve after clearRoute (regression: stale route on clear)", async () => {
+    // Codex stop-time review caught this: clearRoute did not bump the request-ID
+    // counter, so an in-flight fetch resolving AFTER clearRoute would still pass
+    // the freshness check and re-populate route — defeating the user's intent.
+    // Fix: clearRoute (and setDestination) increment the counter so any pending
+    // fetch is silently discarded.
+    const { result } = renderHook(() =>
+      useNavigation({
+        currentPoint: { lat: 48.8566, lng: 2.3522, ts: 0 },
+        lastAccuracy: 10,
+      }),
+    );
+
+    let resolveFetch: ((value: { ok: boolean; json: () => Promise<unknown> }) => void) | null =
+      null;
+    mockFetch.mockReturnValueOnce(
+      new Promise((res) => {
+        resolveFetch = res;
+      }),
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.destination).toEqual(FIXTURE_DESTINATION);
+
+    // User cancels navigation while the fetch is still pending.
+    act(() => {
+      result.current.clearRoute();
+    });
+
+    expect(result.current.destination).toBeNull();
+    expect(result.current.route).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+
+    // Late fetch resolves with a route — must NOT re-apply, navigation is cleared.
+    await act(async () => {
+      resolveFetch?.({
+        ok: true,
+        json: async () => ({ ok: true, data: { route: FIXTURE_ROUTE } }),
+      });
+    });
+
+    expect(result.current.route).toBeNull();
+    expect(result.current.destination).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it("instructions update in the same render as the GPS point — no extra act() needed (regression #271)", async () => {
     // Bug: step advancement was in a useEffect, so instructions lagged one render
     // behind the map position. Fix: useMemo computes step index synchronously during render.

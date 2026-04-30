@@ -217,6 +217,105 @@ describe("useNavigation", () => {
     expect(result.current.isDeviated).toBe(true);
   });
 
+  it("does NOT issue a second recalcul while one is already in-flight (regression: no overlapping reroutes)", async () => {
+    // Codex stop-time review caught this: with cooldown reduced to 5 s, two
+    // recalculs can overlap if the first fetch is slow — and a stale resolution
+    // could overwrite the newer route. Fix: skip the deviation check while
+    // isLoading is true.
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    // Make the initial fetch hang so isLoading stays true.
+    let resolveInitial: ((value: { ok: boolean; json: () => Promise<unknown> }) => void) | null =
+      null;
+    mockFetch.mockReturnValueOnce(
+      new Promise((res) => {
+        resolveInitial = res;
+      }),
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    expect(result.current.isLoading).toBe(true);
+    const callsBefore = mockFetch.mock.calls.length; // = 1
+
+    // Push past cooldown AND off-route. Without the isLoading guard this would
+    // trigger a second fetch overlapping the first.
+    act(() => {
+      vi.advanceTimersByTime(5_100);
+    });
+    rerender({ point: { lat: 49.0, lng: 2.3, ts: 5_100 } });
+
+    expect(mockFetch.mock.calls.length).toBe(callsBefore); // no overlapping fetch
+
+    // Resolve the initial fetch so the test cleans up cleanly.
+    await act(async () => {
+      resolveInitial?.({
+        ok: true,
+        json: async () => ({ ok: true, data: { route: FIXTURE_ROUTE } }),
+      });
+    });
+  });
+
+  it("ignores stale fetch responses (regression: late response cannot overwrite newer route)", async () => {
+    // Codex stop-time review caught this: a setDestination call while a previous
+    // fetch is in-flight starts a second fetch. If the first (slow) fetch
+    // resolves AFTER the second, it would overwrite the newer route. Fix: a
+    // request-ID counter in loadRoute discards responses whose request was
+    // superseded.
+    const ROUTE_A: NavigationRoute = { ...FIXTURE_ROUTE, totalDistance: 1111 };
+    const ROUTE_B: NavigationRoute = { ...FIXTURE_ROUTE, totalDistance: 2222 };
+
+    const { result } = renderHook(() =>
+      useNavigation({
+        currentPoint: { lat: 48.8566, lng: 2.3522, ts: 0 },
+        lastAccuracy: 10,
+      }),
+    );
+
+    // First fetch: pending, will resolve LATE with ROUTE_A.
+    let resolveA: ((value: { ok: boolean; json: () => Promise<unknown> }) => void) | null = null;
+    mockFetch.mockReturnValueOnce(
+      new Promise((res) => {
+        resolveA = res;
+      }),
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    // Second fetch: resolves immediately with ROUTE_B (newer destination).
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, data: { route: ROUTE_B } }),
+    });
+
+    await act(async () => {
+      result.current.setDestination(
+        { lat: 48.7, lon: 2.0, label: "B" },
+        { lat: 48.8566, lng: 2.3522, ts: 0 },
+      );
+    });
+
+    expect(result.current.route).toEqual(ROUTE_B);
+
+    // Now resolve the first (stale) fetch with ROUTE_A. It must NOT overwrite ROUTE_B.
+    await act(async () => {
+      resolveA?.({
+        ok: true,
+        json: async () => ({ ok: true, data: { route: ROUTE_A } }),
+      });
+    });
+
+    expect(result.current.route).toEqual(ROUTE_B);
+  });
+
   it("instructions update in the same render as the GPS point — no extra act() needed (regression #271)", async () => {
     // Bug: step advancement was in a useEffect, so instructions lagged one render
     // behind the map position. Fix: useMemo computes step index synchronously during render.

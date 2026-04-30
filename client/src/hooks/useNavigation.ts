@@ -146,15 +146,22 @@ export function useNavigation({
   // inside the useMemo below so instructions update in the same render as the GPS point.
   const currentStepIndexRef = useRef(0);
   const prevRouteRef = useRef<NavigationRoute | null>(null);
+  // Monotonically incremented per loadRoute call. The completion handler checks
+  // it before applying state so a stale (slow) response cannot overwrite a
+  // newer route that already resolved.
+  const loadRequestRef = useRef(0);
 
   // Keep ref in sync for use inside effects without stale closures
   destinationRef.current = destination;
 
   const loadRoute = useCallback(async (startLat: number, startLon: number, dest: Destination) => {
+    const requestId = ++loadRequestRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const r = await fetchRoute(startLat, startLon, dest.lat, dest.lon);
+      // Discard stale response: a newer loadRoute superseded this one.
+      if (loadRequestRef.current !== requestId) return;
       setRoute(r);
       currentStepIndexRef.current = 0;
       setIsArrived(false);
@@ -162,10 +169,15 @@ export function useNavigation({
       // Reset cooldown after every successful route load (initial + recalculs)
       lastRecalculRef.current = Date.now();
     } catch {
+      if (loadRequestRef.current !== requestId) return;
       setError("trip.navigation.fetchError");
       setRoute(null);
     } finally {
-      setIsLoading(false);
+      // Only clear isLoading if we are still the latest request — otherwise
+      // a newer request is in-flight and isLoading must remain true.
+      if (loadRequestRef.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -235,6 +247,10 @@ export function useNavigation({
     // Deviation check — only when GPS is accurate enough
     if (lastAccuracy == null || lastAccuracy >= ACCURACY_THRESHOLD_M) return;
     if (Date.now() - lastRecalculRef.current < RECALCUL_COOLDOWN_MS) return;
+    // Skip if a recalcul is already in-flight — issuing a second one would race
+    // with the first and a slow response could overwrite a newer route. Once the
+    // pending fetch completes, the next GPS tick re-evaluates deviation.
+    if (isLoading) return;
 
     const dist = distanceToPolyline(lat, lon, route.coordinates);
     if (dist > DEVIATION_THRESHOLD_M && dest) {
@@ -242,7 +258,7 @@ export function useNavigation({
       lastRecalculRef.current = Date.now();
       void loadRoute(lat, lon, dest);
     }
-  }, [currentPoint, lastAccuracy, route, isArrived, loadRoute]);
+  }, [currentPoint, lastAccuracy, route, isArrived, isLoading, loadRoute]);
 
   // Derived values
   const currentStep = route && !isArrived ? (route.steps[currentStepIndex] ?? null) : null;

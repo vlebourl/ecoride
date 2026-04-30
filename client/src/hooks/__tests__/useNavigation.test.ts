@@ -96,8 +96,10 @@ describe("useNavigation", () => {
     expect(result.current.destination).toEqual(FIXTURE_DESTINATION);
     expect(result.current.route).toEqual(FIXTURE_ROUTE);
     expect(result.current.isLoading).toBe(false);
-    // currentStepType: first step has type 0 (straight)
-    expect(result.current.currentStepType).toBe(0);
+    // Look-ahead: while on step 0, the banner shows the UPCOMING maneuver (step 1).
+    // Step 1 has type 1 (right) per the fixture.
+    expect(result.current.currentStepType).toBe(1);
+    expect(result.current.nextInstruction).toBe("Tournez à gauche");
     // remainingCoordinates: full route from step 0 wayPoint[0]=0
     expect(result.current.remainingCoordinates).toEqual(FIXTURE_ROUTE.coordinates);
   });
@@ -225,14 +227,72 @@ describe("useNavigation", () => {
       result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
     });
 
-    expect(result.current.nextInstruction).toBe("Continuez tout droit");
+    // Look-ahead: while on step 0, the banner shows the UPCOMING maneuver (step 1).
+    expect(result.current.nextInstruction).toBe("Tournez à gauche");
 
     // Move to the waypoint that ends step 0 — rerender only, no extra act()
     rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } });
 
-    // Instructions must be updated immediately, in the same render — not one cycle later
+    // Step index advanced to 1 → banner now shows the next upcoming maneuver (step 2).
+    // Must update immediately, in the same render — not one cycle later.
+    expect(result.current.nextInstruction).toBe("Tournez à droite");
+    expect(result.current.currentStepType).toBe(2);
+  });
+
+  it("displays the upcoming maneuver while still on the current step (regression #294)", async () => {
+    // Bug #294: while on rue X, the banner used to show "Continue on rue X" until the
+    // user was 20 m from the intersection — too late at bike speed (≈5 s of warning).
+    // Fix: while traversing step i, display step i+1's instruction so the user is warned
+    // BEFORE the turn, with a dynamic distance counting down to the maneuver point.
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    // At the very start of step 0, far from the maneuver: banner already announces step 1.
     expect(result.current.nextInstruction).toBe("Tournez à gauche");
     expect(result.current.currentStepType).toBe(1);
+    // Distance to next step is dynamic — should be the haversine distance to coords[1],
+    // i.e. several kilometres, not the static step.distance value (5000 m).
+    const initialDistance = result.current.distanceToNextStep;
+    expect(initialDistance).not.toBeNull();
+    expect(initialDistance).toBeGreaterThan(1000);
+
+    // Halfway between coords[0] and coords[1] — still on step 0, instruction unchanged,
+    // but distance to maneuver should have shrunk significantly.
+    rerender({ point: { lat: (48.8566 + 48.84) / 2, lng: (2.3522 + 2.3) / 2, ts: 500 } });
+
+    expect(result.current.nextInstruction).toBe("Tournez à gauche");
+    expect(result.current.currentStepType).toBe(1);
+    expect(result.current.distanceToNextStep).not.toBeNull();
+    expect(result.current.distanceToNextStep!).toBeLessThan(initialDistance!);
+  });
+
+  it("falls back to the current step's instruction on the last step", async () => {
+    // On the final step there is no "next" maneuver — keep showing the current step's
+    // instruction (typically the arrival/goal text from ORS) instead of going blank.
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.8566, lng: 2.3522, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
+    });
+
+    // Walk through the route: step 0 → step 1 → step 2 (last step).
+    rerender({ point: { lat: 48.84, lng: 2.3, ts: 1000 } }); // ends step 0
+    rerender({ point: { lat: 48.82, lng: 2.2, ts: 2000 } }); // ends step 1
+
+    // Now on the final step (index 2). No step 3 exists → fallback to step 2's own values.
+    expect(result.current.nextInstruction).toBe("Tournez à droite");
+    expect(result.current.currentStepType).toBe(2);
   });
 
   it("remainingCoordinates shrinks as steps advance", async () => {
@@ -257,7 +317,7 @@ describe("useNavigation", () => {
 
     // After advancing to step 1, remainingCoordinates starts at coords[1]
     expect(result.current.remainingCoordinates.length).toBeLessThan(initialLength);
-    // currentStepType should now be step 1's type (1 = right turn)
-    expect(result.current.currentStepType).toBe(1);
+    // Look-ahead: while on step 1, the banner shows step 2's type (2 = sharp-left in fixture).
+    expect(result.current.currentStepType).toBe(2);
   });
 });

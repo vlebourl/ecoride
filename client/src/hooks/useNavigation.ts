@@ -221,9 +221,24 @@ export function useNavigation({
   // Derived values
   const currentStep = route && !isArrived ? (route.steps[currentStepIndex] ?? null) : null;
 
-  const nextInstruction = currentStep?.instruction ?? null;
-  const distanceToNextStep = currentStep?.distance ?? null;
-  const currentStepType = currentStep?.type ?? null;
+  // Display the UPCOMING maneuver (step+1) so the user is warned BEFORE the turn,
+  // not at the moment they reach it. Fallback to the current step on the last one
+  // (which carries the arrival instruction).
+  const upcomingStep =
+    route && !isArrived ? (route.steps[currentStepIndex + 1] ?? currentStep) : null;
+
+  const nextInstruction = upcomingStep?.instruction ?? null;
+  const currentStepType = upcomingStep?.type ?? null;
+
+  // Dynamic distance: metres remaining to the end of the current step (= the turn point).
+  let distanceToNextStep: number | null = null;
+  if (route && currentStep && currentPoint && !isArrived) {
+    const endWaypoint = route.coordinates[currentStep.wayPoints[1]];
+    if (endWaypoint) {
+      const [wLon, wLat] = endWaypoint;
+      distanceToNextStep = haversineDistance(currentPoint.lat, currentPoint.lng, wLat, wLon) * 1000;
+    }
+  }
 
   const totalRemaining =
     route && !isArrived ? computeRemainingDistance(route, currentStepIndex) : null;

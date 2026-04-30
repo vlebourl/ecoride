@@ -5,13 +5,12 @@ import type { NavigationRoute, GpsPoint } from "@ecoride/shared/types";
 
 const DEVIATION_THRESHOLD_M = 50;
 const ACCURACY_THRESHOLD_M = 30;
-const RECALCUL_COOLDOWN_MS = 30_000;
+// Cooldown between deviation-triggered route recalculs. At bike speed (~15 km/h)
+// the rider can travel ~25 m per second, so even 5 s of stale routing risks a
+// missed turn or a wrong street. Keep this short enough to be reactive while
+// still rate-limiting against ORS quota churn during sustained off-route GPS.
+const RECALCUL_COOLDOWN_MS = 5_000;
 const ARRIVAL_THRESHOLD_M = 30;
-// Floor for the plausibility gate on step advancement. The gate scales with
-// step.distance, but on very short steps (< ~150 m, e.g. quick maneuvers
-// between close intersections) a single fast GPS tick can land hundreds of
-// metres past the waypoint — without this floor, advancement would be stuck.
-const MIN_STEP_PASS_GATE_M = 200;
 
 export interface Destination {
   lat: number;
@@ -85,31 +84,33 @@ function findCurrentStepIndex(
   route: NavigationRoute,
   currentIndex: number,
 ): number {
+  // Off-route safety: gate by *lateral* distance to the route polyline, not by
+  // distance to a specific waypoint. A faraway dot-product can satisfy the
+  // crossing test for several waypoints in cascade purely by approach-direction
+  // geometry (especially on short steps), permanently skipping maneuvers. The
+  // lateral gate distinguishes "fast tick on-route past a maneuver" (pass) from
+  // "off-route GPS reading" (block) regardless of step length.
+  if (distanceToPolyline(lat, lon, route.coordinates) > DEVIATION_THRESHOLD_M) {
+    return currentIndex;
+  }
+
   const steps = route.steps;
   let idx = currentIndex;
   // Walk forward through every maneuver waypoint the rider has *geometrically
-  // crossed* and stop at the first one not yet crossed.
-  //
-  //  1. Plausibility gate: the user must be within max(step.distance × 1.2,
-  //     MIN_STEP_PASS_GATE_M) of the waypoint. The proportional term blocks
-  //     wildly off-route GPS on long steps; the absolute floor keeps short
-  //     steps advanceable when a single tick lands hundreds of metres past.
-  //  2. Crossing test: sign of (waypoint − prev) · (user − waypoint) — negative
-  //     while approaching, zero at the waypoint, positive once past. This keeps
-  //     the imminent maneuver visible through the transition zone (#294) AND
-  //     advances correctly when a single tick lands hundreds of metres past.
+  // crossed* and stop at the first one not yet crossed. Crossing test = sign of
+  // (waypoint − prev) · (user − waypoint): negative while approaching, zero at
+  // the waypoint, positive once past. This keeps the imminent maneuver visible
+  // through the transition zone (#294) and handles fast ticks transparently.
   for (let i = currentIndex; i < steps.length - 1; i++) {
     const step = steps[i];
     if (!step) break;
     const waypointIdx = step.wayPoints[1];
     const wpCoord = route.coordinates[waypointIdx];
     if (!wpCoord) break;
-    const [wLon, wLat] = wpCoord;
-    const distToWaypoint = haversineDistance(lat, lon, wLat, wLon) * 1000;
-    if (distToWaypoint > Math.max(step.distance * 1.2, MIN_STEP_PASS_GATE_M)) break;
     const prevIdx = waypointIdx > step.wayPoints[0] ? waypointIdx - 1 : step.wayPoints[0];
     const prevCoord = route.coordinates[prevIdx];
     if (!prevCoord) break;
+    const [wLon, wLat] = wpCoord;
     const [pLon, pLat] = prevCoord;
     const dot = (wLon - pLon) * (lon - wLon) + (wLat - pLat) * (lat - wLat);
     if (dot > 0) {

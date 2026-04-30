@@ -173,16 +173,20 @@ describe("useNavigation", () => {
 
     const callsBefore = mockFetch.mock.calls.length;
 
-    // Move far off-route with good accuracy — but cooldown not elapsed
+    // Move far off-route with good accuracy — but cooldown not elapsed (2s < 5s).
     act(() => {
-      vi.advanceTimersByTime(10_000);
-    }); // 10s < 30s cooldown
-    rerender({ point: { lat: 49.0, lng: 2.3, ts: 10_000 } }); // way off route
+      vi.advanceTimersByTime(2_000);
+    });
+    rerender({ point: { lat: 49.0, lng: 2.3, ts: 2_000 } }); // way off route
 
     expect(mockFetch.mock.calls.length).toBe(callsBefore); // no recalcul yet
   });
 
-  it("triggers recalcul when deviation >50m, accuracy <30m, cooldown elapsed", async () => {
+  it("triggers recalcul within ≤5 s of going off-route (regression: bike-speed responsiveness)", async () => {
+    // At bike speed, 5 s of stale routing is enough to commit to the wrong
+    // street. RECALCUL_COOLDOWN_MS was 30 s — after a recalcul fired, a rider
+    // who deviated again had to wait half a minute for another route. New
+    // cooldown is 5 s, the responsiveness floor required by the user.
     const { result, rerender } = renderHook(
       ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
         useNavigation({ currentPoint: point, lastAccuracy: 10 }),
@@ -195,9 +199,9 @@ describe("useNavigation", () => {
 
     const callsBefore = mockFetch.mock.calls.length;
 
-    // Advance past cooldown
+    // Advance just past the 5 s cooldown (matches the user requirement).
     act(() => {
-      vi.advanceTimersByTime(31_000);
+      vi.advanceTimersByTime(5_100);
     });
 
     // Mock fetch to pend (not resolve) so isDeviated stays true during loading
@@ -205,12 +209,11 @@ describe("useNavigation", () => {
 
     // Move far off-route (lat 49.0 = many km north of route at lat ~48.8x)
     act(() => {
-      rerender({ point: { lat: 49.0, lng: 2.3, ts: 31_000 } });
+      rerender({ point: { lat: 49.0, lng: 2.3, ts: 5_100 } });
     });
 
-    // Fetch was called again (recalcul triggered)
+    // Fetch was called again (recalcul triggered within the responsiveness window)
     expect(mockFetch.mock.calls.length).toBeGreaterThan(callsBefore);
-    // isDeviated stays true while recalculating (isLoading is true, route not yet updated)
     expect(result.current.isDeviated).toBe(true);
   });
 
@@ -302,6 +305,69 @@ describe("useNavigation", () => {
     expect(result.current.currentStepType).toBe(0);
   });
 
+  it("does NOT skip short-step maneuvers when GPS is laterally off-route (regression: off-route + short steps)", async () => {
+    // Codex stop-time review caught this: with the gate at max(step.distance × 1.2, 200 m),
+    // a slightly-off-route GPS reading (e.g. 100 m laterally) past a SHORT step's
+    // waypoint still satisfied the 200 m floor and the dot-product test, advancing
+    // through short maneuvers it should not have. Fix: the gate is the lateral
+    // distance to the route polyline (DEVIATION_THRESHOLD_M = 50 m), not the
+    // distance to a specific waypoint — short or long, off-route is off-route.
+
+    const SHORT_STEP_ROUTE: NavigationRoute = {
+      coordinates: [
+        [2.3, 48.84],
+        [2.30274, 48.84],
+        [2.30315, 48.84],
+        [2.31, 48.84],
+      ],
+      steps: [
+        { instruction: "Continuez", distance: 200, duration: 30, type: 0, wayPoints: [0, 1] },
+        { instruction: "Tournez à droite", distance: 30, duration: 5, type: 1, wayPoints: [1, 2] },
+        {
+          instruction: "Tournez à gauche",
+          distance: 500,
+          duration: 90,
+          type: 0,
+          wayPoints: [2, 3],
+        },
+      ],
+      totalDistance: 730,
+      totalDuration: 125,
+    };
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, data: { route: SHORT_STEP_ROUTE } }),
+    });
+    // Pend any subsequent recalcul so the route doesn't reset under us.
+    mockFetch.mockReturnValue(new Promise(() => {}));
+
+    const { result, rerender } = renderHook(
+      ({ point }: { point: { lat: number; lng: number; ts: number } }) =>
+        useNavigation({ currentPoint: point, lastAccuracy: 10 }),
+      { initialProps: { point: { lat: 48.84, lng: 2.3, ts: 0 } } },
+    );
+
+    await act(async () => {
+      result.current.setDestination(
+        { lat: 48.84, lon: 2.31, label: "End" },
+        { lat: 48.84, lng: 2.3, ts: 0 },
+      );
+    });
+
+    // User is laterally ~110 m north of the (lat 48.84) route AND lon-wise
+    // positioned past the short-step waypoint at coords[2]. The dot-product test
+    // would happily advance through both short steps, but the lateral distance
+    // to the polyline (~110 m) exceeds DEVIATION_THRESHOLD_M (50 m) — the gate
+    // must block advancement so the rider sees the imminent maneuver, not the
+    // ones they geometrically "passed" while drifting.
+    rerender({ point: { lat: 48.841, lng: 2.30425, ts: 1000 } });
+
+    // Step did NOT advance: still on step 0 → banner shows step 1's maneuver.
+    expect(result.current.nextInstruction).toBe("Tournez à droite");
+    expect(result.current.currentStepType).toBe(1);
+  });
+
   it("does NOT skip maneuvers when GPS jumps far off-route (regression: off-route safety)", async () => {
     // Codex stop-time review caught this: with no proximity gate, a wildly
     // off-route GPS reading can satisfy the dot-product crossing test for
@@ -349,9 +415,10 @@ describe("useNavigation", () => {
       result.current.setDestination(FIXTURE_DESTINATION, { lat: 48.8566, lng: 2.3522, ts: 0 });
     });
 
-    // Tick lands ~1 km past coords[1] toward coords[2] — well outside any 50 m
-    // proximity window, but clearly past the maneuver waypoint along the route.
-    rerender({ point: { lat: 48.835, lng: 2.29, ts: 1000 } });
+    // Tick lands ~750 m past coords[1] *along* step 1's segment (i.e. on-route),
+    // far beyond any small proximity window but laterally close to the polyline.
+    // (48.835, 2.275) sits exactly on the line from coords[1] to coords[2].
+    rerender({ point: { lat: 48.835, lng: 2.275, ts: 1000 } });
 
     expect(result.current.nextInstruction).toBe("Tournez à droite");
     expect(result.current.currentStepType).toBe(2);

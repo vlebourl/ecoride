@@ -13,7 +13,10 @@ import { useWakeLock } from "./useWakeLock";
 import type { GpsPoint } from "@ecoride/shared/types";
 
 const MAX_ACCURACY_M = 50;
-const MIN_DISTANCE_KM = 0.005; // 5m
+const STATIONARY_SPEED_MPS = 0.5; // 1.8 km/h: below this, treat fixes as stationary jitter
+const MAX_PLAUSIBLE_SPEED_MPS = 25; // 90 km/h: above this, treat as a GPS spike
+const GPS_RECONNECT_GAP_SEC = 30;
+const MIN_UNREPORTED_SPEED_DISTANCE_KM = 0.005; // 5m accumulated, not per-segment
 const BACKUP_KEY = "ecoride-tracking-backup";
 const SESSION_KEY = "ecoride-trip-session";
 const BACKUP_INTERVAL_MS = 30_000;
@@ -30,6 +33,7 @@ export interface TrackingState {
   lastAccuracy: number | null;
   speedKmh: number | null;
   heading: number | null;
+  distanceAnchor: GpsPoint | null;
 }
 
 export interface TrackingSession {
@@ -45,6 +49,7 @@ export interface TrackingBackup {
   distanceKm: number;
   durationSec: number;
   startedAt: string;
+  distanceAnchor?: GpsPoint | null;
 }
 
 export interface UseGpsTrackingResult {
@@ -83,7 +88,35 @@ const initial: TrackingState = {
   lastAccuracy: null,
   speedKmh: null,
   heading: null,
+  distanceAnchor: null,
 };
+
+function getSegmentDistanceKm(from: GpsPoint, to: GpsPoint): number {
+  return haversineDistance(from.lat, from.lng, to.lat, to.lng);
+}
+
+function shouldCountDistanceSegment(
+  distanceKm: number,
+  deltaSec: number,
+  reportedSpeedMps: number | null,
+): boolean {
+  if (deltaSec <= 0) return false;
+
+  const distanceM = distanceKm * 1000;
+  const impliedSpeedMps = distanceM / deltaSec;
+  if (!Number.isFinite(impliedSpeedMps)) return false;
+  if (impliedSpeedMps > MAX_PLAUSIBLE_SPEED_MPS) return false;
+
+  if (deltaSec >= GPS_RECONNECT_GAP_SEC) {
+    return impliedSpeedMps >= STATIONARY_SPEED_MPS;
+  }
+
+  if (reportedSpeedMps != null) {
+    return reportedSpeedMps >= STATIONARY_SPEED_MPS;
+  }
+
+  return impliedSpeedMps >= STATIONARY_SPEED_MPS && distanceKm >= MIN_UNREPORTED_SPEED_DISTANCE_KM;
+}
 
 function reducer(state: TrackingState, action: Action): TrackingState {
   switch (action.type) {
@@ -106,12 +139,19 @@ function reducer(state: TrackingState, action: Action): TrackingState {
       return { ...state, isPaused: false, error: null };
     case "GPS_POINT": {
       const points = [...state.gpsPoints, action.point];
+      const anchor = state.distanceAnchor ?? state.gpsPoints[state.gpsPoints.length - 1] ?? null;
       let added = 0;
-      if (state.gpsPoints.length > 0) {
-        const prev = state.gpsPoints[state.gpsPoints.length - 1]!;
-        const d = haversineDistance(prev.lat, prev.lng, action.point.lat, action.point.lng);
-        if (d >= MIN_DISTANCE_KM) added = d;
+      let distanceAnchor = state.distanceAnchor ?? action.point;
+
+      if (anchor) {
+        const d = getSegmentDistanceKm(anchor, action.point);
+        const deltaSec = (action.point.ts - anchor.ts) / 1000;
+        if (shouldCountDistanceSegment(d, deltaSec, action.speed)) {
+          added = d;
+          distanceAnchor = action.point;
+        }
       }
+
       const speedKmh = action.speed != null ? action.speed * 3.6 : state.speedKmh;
       const heading =
         action.heading != null && speedKmh != null && speedKmh > 1.8
@@ -121,6 +161,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         ...state,
         gpsPoints: points,
         distanceKm: state.distanceKm + added,
+        distanceAnchor,
         error: null,
         lastAccuracy: action.accuracy,
         speedKmh,
@@ -144,6 +185,10 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         lastAccuracy: null,
         speedKmh: null,
         heading: null,
+        distanceAnchor:
+          action.backup.distanceAnchor ??
+          action.backup.gpsPoints[action.backup.gpsPoints.length - 1] ??
+          null,
       };
   }
 }
@@ -228,6 +273,7 @@ export function useGpsTracking() {
         distanceKm: s.distanceKm,
         durationSec: s.durationSec,
         startedAt: startRef.current,
+        distanceAnchor: s.distanceAnchor,
       };
       localStorage.setItem(BACKUP_KEY, JSON.stringify(backup));
     } catch {

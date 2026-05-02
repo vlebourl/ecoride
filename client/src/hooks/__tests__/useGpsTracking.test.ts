@@ -222,20 +222,27 @@ describe("useGpsTracking — pause/resume (#166)", () => {
   });
 
   /** Inject a fake GPS fix at the given coordinates. */
-  async function injectGpsPoint(lat = 48.8566, lng = 2.3522) {
+  async function injectGpsPoint(
+    lat = 48.8566,
+    lng = 2.3522,
+    options: { speedMps?: number | null; timestamp?: number; accuracy?: number } = {},
+  ) {
     if (!watchPositionCallback) return;
+    const speed = Object.prototype.hasOwnProperty.call(options, "speedMps")
+      ? (options.speedMps ?? null)
+      : 5;
     await act(async () => {
       watchPositionCallback!({
         coords: {
           latitude: lat,
           longitude: lng,
-          accuracy: 10,
-          speed: 5,
+          accuracy: options.accuracy ?? 10,
+          speed,
           heading: 90,
           altitude: null,
           altitudeAccuracy: null,
         },
-        timestamp: Date.now(),
+        timestamp: options.timestamp ?? Date.now(),
       } as GeolocationPosition);
     });
   }
@@ -362,6 +369,75 @@ describe("useGpsTracking — pause/resume (#166)", () => {
     expect(result.current.state.distanceKm).toBe(distanceBefore);
   });
 
+  it("counts slow cycling segments below 5m when GPS speed confirms movement", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+
+    await injectGpsPoint(48.8566, 2.3522, { speedMps: 2.2, timestamp: 1_000 });
+    await injectGpsPoint(48.856627, 2.3522, { speedMps: 2.2, timestamp: 2_500 });
+    await injectGpsPoint(48.856654, 2.3522, { speedMps: 2.2, timestamp: 4_000 });
+
+    expect(result.current.state.distanceKm).toBeGreaterThan(0.005);
+  });
+
+  it("accumulates slow cycling segments below 5m when GPS speed is unavailable", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+
+    await injectGpsPoint(48.8566, 2.3522, { speedMps: null, timestamp: 1_000 });
+    await injectGpsPoint(48.856627, 2.3522, { speedMps: null, timestamp: 2_500 });
+    await injectGpsPoint(48.856654, 2.3522, { speedMps: null, timestamp: 4_000 });
+
+    expect(result.current.state.distanceKm).toBeGreaterThan(0.005);
+  });
+
+  it("does not count stationary GPS jitter when reported speed says stopped", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+
+    await injectGpsPoint(48.8566, 2.3522, { speedMps: 0, timestamp: 1_000 });
+    await injectGpsPoint(48.85663, 2.3522, { speedMps: 0, timestamp: 2_000 });
+    await injectGpsPoint(48.85657, 2.3522, { speedMps: 0, timestamp: 3_000 });
+    await injectGpsPoint(48.85661, 2.3522, { speedMps: 0, timestamp: 4_000 });
+
+    expect(result.current.state.distanceKm).toBe(0);
+  });
+
+  it("counts plausible GPS reconnect segments after a temporary signal loss", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+
+    await injectGpsPoint(48.8566, 2.3522, { speedMps: null, timestamp: 1_000 });
+    await injectGpsPoint(48.8611, 2.3522, { speedMps: null, timestamp: 181_000 });
+
+    expect(result.current.state.distanceKm).toBeGreaterThan(0.45);
+  });
+
+  it("rejects implausible short-window GPS jumps", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+
+    await act(async () => {
+      result.current.start();
+    });
+
+    await injectGpsPoint(48.8566, 2.3522, { speedMps: null, timestamp: 1_000 });
+    await injectGpsPoint(48.8611, 2.3522, { speedMps: null, timestamp: 3_000 });
+
+    expect(result.current.state.distanceKm).toBe(0);
+  });
+
   it("stop() after pause/resume returns correct accumulated totals", async () => {
     const { result } = renderHook(() => useGpsTracking());
 
@@ -371,8 +447,8 @@ describe("useGpsTracking — pause/resume (#166)", () => {
     await act(async () => {
       vi.advanceTimersByTime(2000);
     });
-    await injectGpsPoint(48.8566, 2.3522);
-    await injectGpsPoint(48.86, 2.36); // some distance
+    await injectGpsPoint(48.8566, 2.3522, { timestamp: 2_000 });
+    await injectGpsPoint(48.86, 2.36, { timestamp: 32_000 }); // some distance
 
     await act(async () => {
       result.current.pause();

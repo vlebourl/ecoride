@@ -90,6 +90,7 @@ export const en: Record<TranslationKey, string> = {
 
   "trip.map.orientationNorth": "Switch to north-up mode",
   "trip.map.orientationPov": "Switch to heading-up mode",
+  "trip.map.recenter": "Recenter",
 
   "vehicle.header.title": "My bike",
   "vehicle.header.back": "Back to profile",

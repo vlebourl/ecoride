@@ -88,6 +88,7 @@ export const fr = {
 
   "trip.map.orientationNorth": "Passer en mode nord en haut",
   "trip.map.orientationPov": "Passer en mode suivi du cap",
+  "trip.map.recenter": "Recentrer",
 
   "vehicle.header.title": "Mon vélo",
   "vehicle.header.back": "Retour au profil",

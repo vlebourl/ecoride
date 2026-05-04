@@ -60,7 +60,6 @@ export function useMapCamera(
         center: [position[1], position[0]],
         bearing: bearing ?? 0,
         pitch: bearing != null ? (pitch ?? 0) : 0,
-        zoom: 15,
         duration: 400,
         ...(padding ? { padding } : {}),
       });

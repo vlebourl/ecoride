@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Play, Keyboard, AlertTriangle, MapPin, X } from "lucide-react";
+import { Play, Keyboard, AlertTriangle, MapPin, X, LocateFixed } from "lucide-react";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef, LayerProps } from "react-map-gl/maplibre";
 // maplibre-gl.css imported in app.css to avoid orphan CSS chunks
@@ -78,6 +78,7 @@ export function TripPage() {
     lastAccuracy: gps.state.lastAccuracy,
   });
   const [showDestinationSearch, setShowDestinationSearch] = useState(false);
+  const [isTrackingMapFollowing, setIsTrackingMapFollowing] = useState(true);
   const { orientation, toggle: toggleOrientation } = useMapOrientation();
   const isPov = orientation === "pov";
 
@@ -141,7 +142,7 @@ export function TripPage() {
     bearing: isPov ? gps.state.heading : 0,
     pitch: isPov ? 45 : 0,
     padding: TRACKING_CAMERA_PADDING,
-    enabled: uiState === "tracking",
+    enabled: uiState === "tracking" && isTrackingMapFollowing,
   });
   const idleCamera = useMapCamera(idleMapRef, currentPos, {
     enabled: uiState !== "tracking",
@@ -245,6 +246,7 @@ export function TripPage() {
 
   const startTracking = useCallback(() => {
     resetMapState();
+    setIsTrackingMapFollowing(true);
     recovery.setSessionPersistFailed(false);
     setInterruptMenuOpen(false);
     recovery.setPendingBackup(null);
@@ -267,6 +269,7 @@ export function TripPage() {
     const session = gps.stop();
     recovery.sessionRef.current = session;
     resetMapState();
+    setIsTrackingMapFollowing(true);
     setInterruptMenuOpen(false);
     recovery.setPendingBackup(null);
     recovery.setSessionPersistFailed(false);
@@ -281,6 +284,7 @@ export function TripPage() {
       recovery.setPendingBackup(null);
       clearStoppedSession();
       setInterruptMenuOpen(false);
+      setIsTrackingMapFollowing(true);
       setUiState("idle");
       recovery.sessionRef.current = null;
       gps.reset();
@@ -291,10 +295,24 @@ export function TripPage() {
   const handleRestore = useCallback(() => {
     recovery.handleRestore(() => {
       resetMapState();
+      setIsTrackingMapFollowing(true);
       setInterruptMenuOpen(false);
     });
     setUiState("tracking");
   }, [recovery, resetMapState]);
+
+  const handleTrackingMapInteraction = useCallback(
+    (evt?: { originalEvent?: unknown }) => {
+      if (uiState !== "tracking") return;
+      if (!evt?.originalEvent) return;
+      setIsTrackingMapFollowing(false);
+    },
+    [uiState],
+  );
+
+  const handleTrackingMapRecenter = useCallback(() => {
+    setIsTrackingMapFollowing(true);
+  }, []);
 
   return (
     <div
@@ -391,6 +409,7 @@ export function TripPage() {
                   onError={() => {
                     if (!mapStyleReadyRef.current) setMapLoadError(true);
                   }}
+                  onMoveStart={handleTrackingMapInteraction}
                 >
                   {remainingRouteGeoJSON && (
                     <Source id="nav-route-tracking" type="geojson" data={remainingRouteGeoJSON}>
@@ -463,8 +482,19 @@ export function TripPage() {
             ) : (
               <MapNoWebGL />
             )}
-            <div className="pointer-events-none absolute right-3 top-3 z-10">
-              <div className="pointer-events-auto">
+            <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col gap-3">
+              {!isTrackingMapFollowing && (
+                <button
+                  type="button"
+                  onClick={handleTrackingMapRecenter}
+                  aria-label={t("trip.map.recenter")}
+                  className="pointer-events-auto flex h-12 min-w-12 items-center justify-center gap-2 self-end rounded-full border border-surface-highest bg-surface-container/90 px-4 text-sm font-bold text-text backdrop-blur active:scale-95"
+                >
+                  <LocateFixed size={18} className="shrink-0 text-primary" />
+                  <span>{t("trip.map.recenter")}</span>
+                </button>
+              )}
+              <div className="pointer-events-auto self-end">
                 <MapOrientationButton orientation={orientation} onToggle={toggleOrientation} />
               </div>
             </div>

@@ -196,12 +196,25 @@ export function TripPage() {
 
   // --- Performance: memoize key handlers ---
   const handleSaveTrip = useCallback(
-    (km: number, durationSec: number, session?: TrackingSession | null) => {
+    (
+      km: number,
+      durationSec: number,
+      session?: TrackingSession | null,
+      manualStartedAtIso?: string | null,
+    ) => {
       setSaveError("");
-      const endedAt = session?.endedAt ?? new Date().toISOString();
-      const startedAt =
-        session?.startedAt ??
-        new Date(new Date(endedAt).getTime() - durationSec * 1000).toISOString();
+      let startedAt: string;
+      let endedAt: string;
+      if (session) {
+        endedAt = session.endedAt;
+        startedAt = session.startedAt;
+      } else if (manualStartedAtIso) {
+        startedAt = manualStartedAtIso;
+        endedAt = new Date(new Date(startedAt).getTime() + durationSec * 1000).toISOString();
+      } else {
+        endedAt = new Date().toISOString();
+        startedAt = new Date(new Date(endedAt).getTime() - durationSec * 1000).toISOString();
+      }
       const tripData = {
         distanceKm: Math.round(km * 100) / 100,
         durationSec,
@@ -590,9 +603,13 @@ export function TripPage() {
           setManualMinutes={manual.setManualMinutes}
           manualPresetId={manual.manualPresetId}
           setManualPresetId={manual.setManualPresetId}
+          manualStartedAt={manual.manualStartedAt}
+          setManualStartedAt={manual.setManualStartedAt}
           onPresetChange={manual.handleManualPresetChange}
           tripPresets={tripPresets}
-          onSubmit={(km, durationSec) => handleSaveTrip(km, durationSec)}
+          onSubmit={(km, durationSec, startedAtIso) =>
+            handleSaveTrip(km, durationSec, null, startedAtIso)
+          }
           onCancel={() => {
             manual.resetManualForm();
             setUiState("idle");

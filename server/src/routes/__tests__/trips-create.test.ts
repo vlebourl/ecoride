@@ -148,14 +148,17 @@ describe("POST /trips", () => {
 
   it("returns 201 and logs background failures instead of swallowing them silently", async () => {
     const app = buildApp();
+    // Live trip (just ended): triggers both badge push and leaderboard check.
+    const endedAt = new Date().toISOString();
+    const startedAt = new Date(Date.now() - 600 * 1000).toISOString();
     const res = await app.request("/trips", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         distanceKm: 10,
         durationSec: 600,
-        startedAt: "2026-04-07T10:00:00.000Z",
-        endedAt: "2026-04-07T10:10:00.000Z",
+        startedAt,
+        endedAt,
         gpsPoints: null,
       }),
     });
@@ -206,6 +209,29 @@ describe("POST /trips", () => {
         ],
       }),
     );
+  });
+
+  it("skips the leaderboard overtake check for backdated trips", async () => {
+    const app = buildApp();
+    // 2 days ago — historical entry, must not fire leaderboard notifications.
+    const endedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const startedAt = new Date(new Date(endedAt).getTime() - 600 * 1000).toISOString();
+    const res = await app.request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 10,
+        durationSec: 600,
+        startedAt,
+        endedAt,
+        gpsPoints: null,
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mocks.mockCheckLeaderboardChanges).not.toHaveBeenCalled();
   });
 
   it("prices trips from the Annemasse market instead of the trip GPS start point", async () => {

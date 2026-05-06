@@ -143,13 +143,18 @@ tripsRouter.post(
       );
     }
 
-    // Fire-and-forget: check leaderboard overtakes
-    reportBackgroundError(
-      checkLeaderboardChanges(currentUser.id, savings.co2SavedKg),
-      requestLogger,
-      "leaderboard_check_failed",
-      { tripId: trip.id },
-    );
+    // Fire-and-forget: check leaderboard overtakes — only for live trips,
+    // not historical entries (backdated trip = no real-time overtake).
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const isLiveTrip = Date.now() - new Date(data.endedAt).getTime() < ONE_HOUR_MS;
+    if (isLiveTrip) {
+      reportBackgroundError(
+        checkLeaderboardChanges(currentUser.id, savings.co2SavedKg),
+        requestLogger,
+        "leaderboard_check_failed",
+        { tripId: trip.id },
+      );
+    }
 
     return c.json({ ok: true, data: { trip, newBadges } }, 201);
   },

@@ -9,12 +9,22 @@ export interface ManualEntryFormProps {
   setManualMinutes: (v: string) => void;
   manualPresetId: string;
   setManualPresetId: (v: string) => void;
+  manualStartedAt: string;
+  setManualStartedAt: (v: string) => void;
   onPresetChange: (value: string) => void;
   tripPresets: TripPreset[];
-  onSubmit: (km: number, durationSec: number) => void;
+  /** startedAtIso is null when the user left the date field empty (= "now"). */
+  onSubmit: (km: number, durationSec: number, startedAtIso: string | null) => void;
   onCancel: () => void;
   isSaving: boolean;
   saveError: string;
+}
+
+/** `YYYY-MM-DDTHH:MM` reflecting the user's local clock — for the `max` attribute on datetime-local. */
+function localNowForInput(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 export function ManualEntryForm({
@@ -24,6 +34,8 @@ export function ManualEntryForm({
   setManualMinutes,
   manualPresetId,
   setManualPresetId,
+  manualStartedAt,
+  setManualStartedAt,
   onPresetChange,
   tripPresets,
   onSubmit,
@@ -43,7 +55,9 @@ export function ManualEntryForm({
             const durationSec = manualMinutes
               ? parseInt(manualMinutes) * 60
               : Math.round((km / 15) * 3600); // Fallback: estimate ~15 km/h
-            onSubmit(km, durationSec);
+            // datetime-local is "YYYY-MM-DDTHH:MM" in the user's local TZ; new Date() reads it as local.
+            const startedAtIso = manualStartedAt ? new Date(manualStartedAt).toISOString() : null;
+            onSubmit(km, durationSec, startedAtIso);
           }
         }}
       >
@@ -102,6 +116,21 @@ export function ManualEntryForm({
           placeholder={t("trip.manual.durationPlaceholder")}
           className="mb-4 w-full rounded-lg bg-surface-high p-4 text-2xl font-bold text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
+        <label
+          htmlFor="manual-datetime-input"
+          className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted"
+        >
+          {t("trip.manual.dateTimeLabel")}
+        </label>
+        <input
+          id="manual-datetime-input"
+          type="datetime-local"
+          value={manualStartedAt}
+          max={localNowForInput()}
+          onChange={(e) => setManualStartedAt(e.target.value)}
+          className="mb-2 w-full rounded-lg bg-surface-high p-4 text-base font-bold text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+        <p className="mb-4 text-xs text-text-muted">{t("trip.manual.dateTimeHelper")}</p>
         <div className="flex gap-3">
           <button
             type="button"

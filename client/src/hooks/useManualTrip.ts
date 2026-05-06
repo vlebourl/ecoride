@@ -8,6 +8,9 @@ export interface UseManualTripResult {
   setManualMinutes: (v: string) => void;
   manualPresetId: string;
   setManualPresetId: (v: string) => void;
+  /** Local datetime in `YYYY-MM-DDTHH:MM` format from <input type="datetime-local">. Empty = "now". */
+  manualStartedAt: string;
+  setManualStartedAt: (v: string) => void;
   applyManualPreset: (preset: Pick<TripPreset, "id" | "distanceKm" | "durationSec">) => void;
   handleManualPresetChange: (value: string) => void;
   resetManualForm: () => void;
@@ -20,6 +23,7 @@ export function useManualTrip(tripPresets: TripPreset[]): UseManualTripResult {
   const [manualKm, setManualKm] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
   const [manualPresetId, setManualPresetId] = useState<string>("custom");
+  const [manualStartedAt, setManualStartedAt] = useState("");
 
   const applyManualPreset = useCallback(
     (preset: Pick<TripPreset, "id" | "distanceKm" | "durationSec">) => {
@@ -52,6 +56,7 @@ export function useManualTrip(tripPresets: TripPreset[]): UseManualTripResult {
     setManualPresetId("custom");
     setManualKm("");
     setManualMinutes("");
+    setManualStartedAt("");
   }, []);
 
   return {
@@ -61,6 +66,8 @@ export function useManualTrip(tripPresets: TripPreset[]): UseManualTripResult {
     setManualMinutes,
     manualPresetId,
     setManualPresetId,
+    manualStartedAt,
+    setManualStartedAt,
     applyManualPreset,
     handleManualPresetChange,
     resetManualForm,

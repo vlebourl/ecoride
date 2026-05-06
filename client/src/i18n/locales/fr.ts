@@ -76,6 +76,8 @@ export const fr = {
   "trip.manual.distanceLabel": "Distance (km)",
   "trip.manual.durationLabel": "Durée (minutes)",
   "trip.manual.durationPlaceholder": "Optionnel",
+  "trip.manual.dateTimeLabel": "Date et heure",
+  "trip.manual.dateTimeHelper": "Laissez vide pour utiliser l'heure actuelle.",
   "trip.manual.cancel": "Annuler",
   "trip.manual.save": "Enregistrer",
 

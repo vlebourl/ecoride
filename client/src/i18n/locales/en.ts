@@ -78,6 +78,8 @@ export const en: Record<TranslationKey, string> = {
   "trip.manual.distanceLabel": "Distance (km)",
   "trip.manual.durationLabel": "Duration (minutes)",
   "trip.manual.durationPlaceholder": "Optional",
+  "trip.manual.dateTimeLabel": "Date and time",
+  "trip.manual.dateTimeHelper": "Leave empty to use the current time.",
   "trip.manual.cancel": "Cancel",
   "trip.manual.save": "Save",
 

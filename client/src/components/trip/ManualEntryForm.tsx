@@ -20,11 +20,36 @@ export interface ManualEntryFormProps {
   saveError: string;
 }
 
-/** `YYYY-MM-DDTHH:MM` reflecting the user's local clock — for the `max` attribute on datetime-local. */
-function localNowForInput(): string {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
+/** Mirrors the submit handler's durationSec calculation so render-time bounds stay in sync. */
+export function computeManualDurationSec(manualKm: string, manualMinutes: string): number {
+  if (manualMinutes) {
+    const m = parseInt(manualMinutes);
+    if (Number.isFinite(m) && m > 0) return m * 60;
+  }
+  const km = parseFloat(manualKm);
+  if (Number.isFinite(km) && km > 0) return Math.round((km / 15) * 3600);
+  return 0;
+}
+
+/** Latest valid local startedAt — endedAt = startedAt + durationSec must not exceed `now`. */
+export function maxStartedAtLocal(durationSec: number, now: Date = new Date()): string {
+  const maxStart = new Date(now.getTime() - durationSec * 1000);
+  const offsetMs = maxStart.getTimezoneOffset() * 60_000;
+  return new Date(maxStart.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+/**
+ * Convert the form's local datetime into an ISO startedAt, clamped so `endedAt = startedAt +
+ * durationSec` cannot land in the future (the server rejects any endedAt > now + 60s).
+ */
+export function clampManualStartedAtIso(
+  localValue: string,
+  durationSec: number,
+  now: Date = new Date(),
+): string {
+  const chosenMs = new Date(localValue).getTime();
+  const maxStartMs = now.getTime() - durationSec * 1000;
+  return new Date(Math.min(chosenMs, maxStartMs)).toISOString();
 }
 
 export function ManualEntryForm({
@@ -44,6 +69,7 @@ export function ManualEntryForm({
   saveError,
 }: ManualEntryFormProps) {
   const t = useT();
+  const durationSecPreview = computeManualDurationSec(manualKm, manualMinutes);
   return (
     <div className="min-h-0 overflow-y-auto px-6 pb-4">
       <form
@@ -55,8 +81,9 @@ export function ManualEntryForm({
             const durationSec = manualMinutes
               ? parseInt(manualMinutes) * 60
               : Math.round((km / 15) * 3600); // Fallback: estimate ~15 km/h
-            // datetime-local is "YYYY-MM-DDTHH:MM" in the user's local TZ; new Date() reads it as local.
-            const startedAtIso = manualStartedAt ? new Date(manualStartedAt).toISOString() : null;
+            const startedAtIso = manualStartedAt
+              ? clampManualStartedAtIso(manualStartedAt, durationSec)
+              : null;
             onSubmit(km, durationSec, startedAtIso);
           }
         }}
@@ -126,7 +153,7 @@ export function ManualEntryForm({
           id="manual-datetime-input"
           type="datetime-local"
           value={manualStartedAt}
-          max={localNowForInput()}
+          max={maxStartedAtLocal(durationSecPreview)}
           onChange={(e) => setManualStartedAt(e.target.value)}
           className="mb-2 w-full rounded-lg bg-surface-high p-4 text-base font-bold text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
         />

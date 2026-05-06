@@ -17,6 +17,9 @@ const gpsPointSchema = z.object({
   ts: z.preprocess(normalizeLegacyTimestamp, z.number().min(0)),
 });
 
+// Tolerance for clock drift between client and server.
+const FUTURE_TIMESTAMP_TOLERANCE_MS = 60_000;
+
 export const createTripSchema = z
   .object({
     distanceKm: z.number().positive().max(500),
@@ -29,7 +32,14 @@ export const createTripSchema = z
   .refine((data) => new Date(data.startedAt) < new Date(data.endedAt), {
     message: "startedAt must be before endedAt",
     path: ["startedAt"],
-  });
+  })
+  .refine(
+    (data) => new Date(data.endedAt).getTime() <= Date.now() + FUTURE_TIMESTAMP_TOLERANCE_MS,
+    {
+      message: "endedAt cannot be in the future",
+      path: ["endedAt"],
+    },
+  );
 
 export type CreateTripInput = z.infer<typeof createTripSchema>;
 

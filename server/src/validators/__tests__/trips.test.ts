@@ -131,6 +131,32 @@ describe("createTripSchema", () => {
       const result = createTripSchema.safeParse(validTrip({ startedAt: "not-a-date" }));
       expect(result.success).toBe(false);
     });
+
+    it("accepts a backdated trip (yesterday)", () => {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const startedAt = yesterday.toISOString();
+      const endedAt = new Date(yesterday.getTime() + 30 * 60 * 1000).toISOString();
+      const result = createTripSchema.safeParse(validTrip({ startedAt, endedAt }));
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects a trip ending in the future", () => {
+      const startedAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      const endedAt = new Date(Date.now() + 90 * 60 * 1000).toISOString();
+      const result = createTripSchema.safeParse(validTrip({ startedAt, endedAt }));
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const paths = result.error.issues.map((i) => i.path.join("."));
+        expect(paths).toContain("endedAt");
+      }
+    });
+
+    it("tolerates a trip ending up to 60s in the future (clock drift)", () => {
+      const future30s = new Date(Date.now() + 30 * 1000).toISOString();
+      const startedAt = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const result = createTripSchema.safeParse(validTrip({ startedAt, endedAt: future30s }));
+      expect(result.success).toBe(true);
+    });
   });
 
   describe("gpsPoints validation", () => {

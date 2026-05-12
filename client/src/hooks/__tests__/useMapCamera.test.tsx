@@ -48,6 +48,9 @@ describe("useMapCamera", () => {
 
     expect(flyTo).toHaveBeenCalledTimes(1);
     expect(flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [2.3522, 48.8566] }));
+    expect(flyTo).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ zoom: expect.anything() }),
+    );
   });
 
   it("replays the latest position after the throttle window instead of dropping it", () => {
@@ -73,5 +76,8 @@ describe("useMapCamera", () => {
 
     expect(flyTo).toHaveBeenCalledTimes(2);
     expect(flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [2.3622, 48.8576] }));
+    expect(flyTo).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ zoom: expect.anything() }),
+    );
   });
 });

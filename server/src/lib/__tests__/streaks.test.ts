@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach, beforeAll } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 
 // Mock db and schema to prevent real Postgres connection on module load
 vi.mock("../../db", () => ({ db: {} }));

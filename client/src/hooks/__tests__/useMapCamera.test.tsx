@@ -47,9 +47,7 @@ describe("useMapCamera", () => {
     });
 
     expect(flyTo).toHaveBeenCalledTimes(1);
-    expect(flyTo).toHaveBeenLastCalledWith(
-      expect.objectContaining({ center: [2.3522, 48.8566] }),
-    );
+    expect(flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [2.3522, 48.8566] }));
     expect(flyTo).toHaveBeenLastCalledWith(
       expect.not.objectContaining({ zoom: expect.anything() }),
     );
@@ -66,9 +64,7 @@ describe("useMapCamera", () => {
     const { rerender } = render(<CameraHarness mapRef={mapRef} position={[48.8566, 2.3522]} />);
 
     expect(flyTo).toHaveBeenCalledTimes(1);
-    expect(flyTo).toHaveBeenLastCalledWith(
-      expect.objectContaining({ center: [2.3522, 48.8566] }),
-    );
+    expect(flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [2.3522, 48.8566] }));
 
     rerender(<CameraHarness mapRef={mapRef} position={[48.8576, 2.3622]} />);
 
@@ -79,9 +75,7 @@ describe("useMapCamera", () => {
     });
 
     expect(flyTo).toHaveBeenCalledTimes(2);
-    expect(flyTo).toHaveBeenLastCalledWith(
-      expect.objectContaining({ center: [2.3622, 48.8576] }),
-    );
+    expect(flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [2.3622, 48.8576] }));
     expect(flyTo).toHaveBeenLastCalledWith(
       expect.not.objectContaining({ zoom: expect.anything() }),
     );

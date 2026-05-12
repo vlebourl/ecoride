@@ -23,23 +23,25 @@ function renderTripPage() {
 }
 
 vi.mock("react-map-gl/maplibre", () => {
-  const MockMap = forwardRef<HTMLDivElement, Record<string, unknown>>(function MockMap(props, _ref) {
-    const { children, onMoveStart } = props as {
-      children?: React.ReactNode;
-      onMoveStart?: (evt: { originalEvent?: unknown }) => void;
-    };
-    return (
-      <div>
-        <button
-          type="button"
-          onClick={() => onMoveStart?.({ originalEvent: { type: "pointerdown" } })}
-        >
-          simulate-map-interaction
-        </button>
-        {children}
-      </div>
-    );
-  });
+  const MockMap = forwardRef<HTMLDivElement, Record<string, unknown>>(
+    function MockMap(props, _ref) {
+      const { children, onMoveStart } = props as {
+        children?: React.ReactNode;
+        onMoveStart?: (evt: { originalEvent?: unknown }) => void;
+      };
+      return (
+        <div>
+          <button
+            type="button"
+            onClick={() => onMoveStart?.({ originalEvent: { type: "pointerdown" } })}
+          >
+            simulate-map-interaction
+          </button>
+          {children}
+        </div>
+      );
+    },
+  );
 
   return {
     __esModule: true,

@@ -29,7 +29,6 @@ interface SentryIssueEvent {
 }
 
 function verifySentrySignature(body: string, signature: string, secret: string): boolean {
-  const crypto = globalThis.crypto;
   // Sentry uses HMAC-SHA256
   const encoder = new TextEncoder();
   // Use Bun's sync crypto for simplicity

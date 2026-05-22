@@ -13,7 +13,7 @@ export default tseslint.config(
       ".claude/",
       "design/",
       "**/*.js",
-      "!eslint.config.js",
+      "!eslint.config.mjs",
     ],
   },
 
@@ -51,7 +51,7 @@ export default tseslint.config(
 
   // Config files — allow require()
   {
-    files: ["*.config.{ts,js}", "client/vite.config.ts", "drizzle.config.ts"],
+    files: ["*.config.{ts,js,mjs}", "client/vite.config.ts", "drizzle.config.ts"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },

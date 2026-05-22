@@ -23,7 +23,7 @@ const BACKUP_INTERVAL_MS = 30_000;
 const MAX_TIMEOUT_RETRIES = 3;
 const TIMEOUT_RETRY_DELAY_MS = 3_000;
 
-export interface TrackingState {
+interface TrackingState {
   isTracking: boolean;
   isPaused: boolean;
   distanceKm: number;

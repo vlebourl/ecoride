@@ -16,6 +16,3 @@ export const createTripPresetSchema = z.object({
 export const createTripPresetFromTripSchema = z.object({
   label: z.string().trim().min(1).max(120),
 });
-
-export type CreateTripPresetInput = z.infer<typeof createTripPresetSchema>;
-export type CreateTripPresetFromTripInput = z.infer<typeof createTripPresetFromTripSchema>;

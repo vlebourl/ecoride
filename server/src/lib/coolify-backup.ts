@@ -1,6 +1,6 @@
 import { logger } from "./logger";
 
-export interface CoolifyBackupExecution {
+interface CoolifyBackupExecution {
   uuid: string;
   status: string;
   message: string | null;
@@ -10,7 +10,7 @@ export interface CoolifyBackupExecution {
   finished_at?: string | null;
 }
 
-export interface CoolifyBackupConfig {
+interface CoolifyBackupConfig {
   uuid: string;
   enabled: boolean;
   frequency: string;

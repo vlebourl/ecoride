@@ -59,7 +59,7 @@ const MODE_HUMAN: Record<Super73Mode, string> = {
   race: "Off-Road",
 };
 
-export function bleDebugLog(source: string, bytes: Uint8Array, decoded: Super73State): void {
+function bleDebugLog(source: string, bytes: Uint8Array, decoded: Super73State): void {
   const hex = Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join(" ");

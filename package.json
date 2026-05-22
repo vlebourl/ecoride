@@ -37,7 +37,6 @@
     ]
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.82.0",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@eslint/js": "^10.0.1",
@@ -46,7 +45,6 @@
     "@types/bun": "^1.2.0",
     "@types/web-bluetooth": "^0.0.21",
     "@vitest/coverage-v8": "^4.1.3",
-    "client": "workspace:*",
     "drizzle-kit": "^0.30.0",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",

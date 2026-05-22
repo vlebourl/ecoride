@@ -9,5 +9,3 @@ export const routeRequestSchema = z.object({
   start: coordPair,
   end: coordPair,
 });
-
-export type RouteRequestInput = z.infer<typeof routeRequestSchema>;

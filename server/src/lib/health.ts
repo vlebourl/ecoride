@@ -19,7 +19,7 @@ export interface HealthSnapshot {
   };
 }
 
-export function getAppVersion(): string {
+function getAppVersion(): string {
   try {
     return require("../../../package.json").version;
   } catch {

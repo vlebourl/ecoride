@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import sonarjs from "eslint-plugin-sonarjs";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
@@ -37,6 +38,22 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/consistent-type-imports": "warn",
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+    },
+  },
+
+  // Complexity & code smell signals for production code
+  {
+    files: ["client/src/**/*.{ts,tsx}", "server/src/**/*.{ts,tsx}", "shared/*.ts"],
+    ignores: ["**/*.spec.{ts,tsx}", "**/*.test.{ts,tsx}", "**/__tests__/**"],
+    plugins: {
+      sonarjs,
+    },
+    rules: {
+      "sonarjs/cognitive-complexity": ["warn", 25],
+      "sonarjs/no-duplicated-branches": "warn",
+      "sonarjs/no-identical-conditions": "warn",
+      "sonarjs/no-identical-expressions": "warn",
+      "sonarjs/no-useless-catch": "warn",
     },
   },
 

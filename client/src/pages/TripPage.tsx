@@ -1,9 +1,6 @@
-import "maplibre-gl/dist/maplibre-gl.css";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Play, Keyboard, AlertTriangle, MapPin, X, LocateFixed } from "lucide-react";
-import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
-import type { MapRef, LayerProps } from "react-map-gl/maplibre";
-// Imported here so MapLibre styles stay off the initial app shell bundle.
+import { AlertTriangle, LocateFixed } from "lucide-react";
+import type { MapRef } from "react-map-gl/maplibre";
 import { useCreateTrip, useProfile, useTripPresets } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useAppGpsTracking } from "@/hooks/useGpsTracking";
@@ -12,9 +9,8 @@ import { queueTrip } from "@/lib/offline-queue";
 import { ApiError } from "@/lib/api";
 import { clearStoppedSession } from "@/lib/stopped-session";
 import { isWebGLSupported } from "@/lib/webgl";
-import { MapNoWebGL } from "@/components/MapNoWebGL";
 import { formatTime } from "@/lib/format-utils";
-import { buildTraceGeoJSON, speedTraceLayer, solidTraceLayer } from "@/lib/speedGeoJSON";
+import { buildTraceGeoJSON } from "@/lib/speedGeoJSON";
 import { GpsStatusBadge } from "@/components/trip/GpsStatusBadge";
 import { TripRecoveryBanner } from "@/components/trip/TripRecoveryBanner";
 import { TrackingDashboard } from "@/components/trip/TrackingDashboard";
@@ -22,6 +18,8 @@ import { StoppedSummary } from "@/components/trip/StoppedSummary";
 import { ManualEntryForm } from "@/components/trip/ManualEntryForm";
 import { InterruptMenu } from "@/components/trip/InterruptMenu";
 import { TrackingControls } from "@/components/trip/TrackingControls";
+import { TripIdleActions } from "@/components/trip/TripIdleActions";
+import { TripMapCanvas } from "@/components/trip/TripMapCanvas";
 import { useSessionRecovery } from "@/hooks/useSessionRecovery";
 import { useManualTrip } from "@/hooks/useManualTrip";
 import { useMapCamera } from "@/hooks/useMapCamera";
@@ -181,6 +179,36 @@ export function TripPage() {
     mapStyleReadyRef.current = false;
     setWebglLost(false);
     setMapLoadError(false);
+  }, []);
+
+  const handleTrackingMapLoad = useCallback(
+    (event: { target: { on: (name: string, listener: () => void) => void } }) => {
+      mapStyleReadyRef.current = true;
+      setMapLoadError(false);
+      trackingCamera.setMapLoadSeq((seq) => seq + 1);
+      setWebglLost(false);
+      const map = event.target;
+      map.on("webglcontextlost", () => setWebglLost(true));
+      map.on("webglcontextrestored", () => setWebglLost(false));
+    },
+    [trackingCamera],
+  );
+
+  const handleIdleMapLoad = useCallback(
+    (event: { target: { on: (name: string, listener: () => void) => void } }) => {
+      mapStyleReadyRef.current = true;
+      setMapLoadError(false);
+      idleCamera.setMapLoadSeq((seq) => seq + 1);
+      setWebglLost(false);
+      const map = event.target;
+      map.on("webglcontextlost", () => setWebglLost(true));
+      map.on("webglcontextrestored", () => setWebglLost(false));
+    },
+    [idleCamera],
+  );
+
+  const handleMapLoadError = useCallback(() => {
+    if (!mapStyleReadyRef.current) setMapLoadError(true);
   }, []);
 
   // --- Performance: memoize key handlers ---
@@ -374,7 +402,6 @@ export function TripPage() {
             />
           )}
 
-          {/* Mini map */}
           <div
             className="relative min-h-0 flex-1 overflow-hidden"
             data-testid="tracking-map"
@@ -383,106 +410,35 @@ export function TripPage() {
             data-camera-padding-top={TRACKING_CAMERA_PADDING.top}
             data-camera-padding-bottom={TRACKING_CAMERA_PADDING.bottom}
           >
-            {webGLSupported ? (
-              <>
-                <Map
-                  ref={trackingMapRef}
-                  initialViewState={{
-                    longitude: currentPos[1],
-                    latitude: currentPos[0],
-                    zoom: 15,
-                    bearing: isPov ? (gps.state.heading ?? 0) : 0,
-                    pitch: isPov && gps.state.heading != null ? 45 : 0,
-                  }}
-                  mapStyle={MAP_STYLE}
-                  attributionControl={false}
-                  fadeDuration={0}
-                  style={{ width: "100%", height: "100%" }}
-                  onLoad={(e) => {
-                    mapStyleReadyRef.current = true;
-                    setMapLoadError(false);
-                    trackingCamera.setMapLoadSeq((s) => s + 1);
-                    setWebglLost(false);
-                    const m = e.target;
-                    m.on("webglcontextlost", () => setWebglLost(true));
-                    m.on("webglcontextrestored", () => setWebglLost(false));
-                  }}
-                  onError={() => {
-                    if (!mapStyleReadyRef.current) setMapLoadError(true);
-                  }}
-                  onMoveStart={handleTrackingMapInteraction}
-                >
-                  {remainingRouteGeoJSON && (
-                    <Source id="nav-route-tracking" type="geojson" data={remainingRouteGeoJSON}>
-                      <Layer
-                        id="nav-route-tracking-line"
-                        type="line"
-                        paint={{ "line-color": "#3b82f6", "line-width": 5, "line-opacity": 0.85 }}
-                        layout={{ "line-cap": "round", "line-join": "round" }}
-                      />
-                    </Source>
-                  )}
-                  {positions.length > 1 && (
-                    <Source id="trace-tracking" type="geojson" data={traceGeoJSON}>
-                      <Layer
-                        {...((hasSpeedData ? speedTraceLayer : solidTraceLayer) as LayerProps)}
-                      />
-                    </Source>
-                  )}
-                  {navigation.destination && (
-                    <Marker
-                      longitude={navigation.destination.lon}
-                      latitude={navigation.destination.lat}
-                    >
-                      <div style={{ color: "#3b82f6" }}>
-                        <MapPin size={28} fill="currentColor" strokeWidth={1.5} />
-                      </div>
-                    </Marker>
-                  )}
-                  <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
-                    {gps.state.heading != null ? (
-                      <div
-                        style={{
-                          width: 24,
-                          height: 24,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transform: isPov ? undefined : `rotate(${gps.state.heading}deg)`,
-                          transition: "transform 300ms linear",
-                        }}
-                      >
-                        <svg width="24" height="24" viewBox="0 0 24 24">
-                          <path
-                            d="M12 2 L18 20 L12 16 L6 20 Z"
-                            fill="#2ecc71"
-                            stroke="#fff"
-                            strokeWidth="1.5"
-                          />
-                        </svg>
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: "50%",
-                          background: "#2ecc71",
-                          border: "2px solid #ffffff",
-                        }}
-                      />
-                    )}
-                  </Marker>
-                </Map>
-                {(webglLost || mapLoadError) && (
-                  <div className="absolute inset-0">
-                    <MapNoWebGL />
-                  </div>
-                )}
-              </>
-            ) : (
-              <MapNoWebGL />
-            )}
+            <TripMapCanvas
+              mapRef={trackingMapRef}
+              initialViewState={{
+                longitude: currentPos[1],
+                latitude: currentPos[0],
+                zoom: 15,
+                bearing: isPov ? (gps.state.heading ?? 0) : 0,
+                pitch: isPov && gps.state.heading != null ? 45 : 0,
+              }}
+              mapStyle={MAP_STYLE}
+              webGLSupported={webGLSupported}
+              webglLost={webglLost}
+              mapLoadError={mapLoadError}
+              currentPos={currentPos}
+              currentHeading={gps.state.heading ?? null}
+              showHeadingMarker={gps.state.heading != null}
+              rotateHeadingMarker={!isPov}
+              routeGeoJSON={remainingRouteGeoJSON}
+              routeSourceId="nav-route-tracking"
+              routeLayerId="nav-route-tracking-line"
+              traceGeoJSON={traceGeoJSON}
+              hasSpeedData={hasSpeedData}
+              showTrace={positions.length > 1}
+              traceSourceId="trace-tracking"
+              destination={navigation.destination}
+              onLoad={handleTrackingMapLoad}
+              onError={handleMapLoadError}
+              onMoveStart={handleTrackingMapInteraction}
+            />
             <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col gap-3">
               {!isTrackingMapFollowing && (
                 <button
@@ -506,82 +462,34 @@ export function TripPage() {
       {/* === IDLE / STOPPED / MANUAL: full map === */}
       {uiState !== "tracking" && (
         <div className="relative min-h-0 flex-1" data-testid="idle-map">
-          {webGLSupported ? (
-            <>
-              <Map
-                ref={idleMapRef}
-                initialViewState={{
-                  longitude: currentPos[1],
-                  latitude: currentPos[0],
-                  zoom: 15,
-                  bearing: 0,
-                  pitch: 0,
-                }}
-                mapStyle={MAP_STYLE}
-                attributionControl={false}
-                style={{ width: "100%", height: "100%" }}
-                onLoad={(e) => {
-                  mapStyleReadyRef.current = true;
-                  setMapLoadError(false);
-                  idleCamera.setMapLoadSeq((s) => s + 1);
-                  setWebglLost(false);
-                  const m = e.target;
-                  m.on("webglcontextlost", () => setWebglLost(true));
-                  m.on("webglcontextrestored", () => setWebglLost(false));
-                }}
-                onError={() => {
-                  if (!mapStyleReadyRef.current) setMapLoadError(true);
-                }}
-              >
-                {fullRouteGeoJSON && (
-                  <Source id="nav-route-idle" type="geojson" data={fullRouteGeoJSON}>
-                    <Layer
-                      id="nav-route-idle-line"
-                      type="line"
-                      paint={{ "line-color": "#3b82f6", "line-width": 5, "line-opacity": 0.85 }}
-                      layout={{ "line-cap": "round", "line-join": "round" }}
-                    />
-                  </Source>
-                )}
-                {positions.length > 1 && (
-                  <Source id="trace-idle" type="geojson" data={traceGeoJSON}>
-                    <Layer
-                      {...((hasSpeedData ? speedTraceLayer : solidTraceLayer) as LayerProps)}
-                      id="trace-idle"
-                    />
-                  </Source>
-                )}
-                {navigation.destination && (
-                  <Marker
-                    longitude={navigation.destination.lon}
-                    latitude={navigation.destination.lat}
-                  >
-                    <div style={{ color: "#3b82f6" }}>
-                      <MapPin size={28} fill="currentColor" strokeWidth={1.5} />
-                    </div>
-                  </Marker>
-                )}
-                <Marker longitude={currentPos[1]} latitude={currentPos[0]}>
-                  <div
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: "50%",
-                      background: "#2ecc71",
-                      border: "2px solid #ffffff",
-                    }}
-                  />
-                </Marker>
-              </Map>
-              {(webglLost || mapLoadError) && (
-                <div className="absolute inset-0">
-                  <MapNoWebGL />
-                </div>
-              )}
-            </>
-          ) : (
-            <MapNoWebGL />
-          )}
+          <TripMapCanvas
+            mapRef={idleMapRef}
+            initialViewState={{
+              longitude: currentPos[1],
+              latitude: currentPos[0],
+              zoom: 15,
+              bearing: 0,
+              pitch: 0,
+            }}
+            mapStyle={MAP_STYLE}
+            webGLSupported={webGLSupported}
+            webglLost={webglLost}
+            mapLoadError={mapLoadError}
+            currentPos={currentPos}
+            currentHeading={null}
+            showHeadingMarker={false}
+            rotateHeadingMarker={false}
+            routeGeoJSON={fullRouteGeoJSON}
+            routeSourceId="nav-route-idle"
+            routeLayerId="nav-route-idle-line"
+            traceGeoJSON={traceGeoJSON}
+            hasSpeedData={hasSpeedData}
+            showTrace={positions.length > 1}
+            traceSourceId="trace-idle"
+            destination={navigation.destination}
+            onLoad={handleIdleMapLoad}
+            onError={handleMapLoadError}
+          />
         </div>
       )}
 
@@ -639,59 +547,18 @@ export function TripPage() {
 
       {/* Action buttons */}
       {uiState === "idle" && (
-        <div className="space-y-3 px-6 py-6">
-          {/* Fix 1.6: Disable start button during tracking */}
-          <button
-            onClick={startTracking}
-            disabled={uiState !== "idle" || createTrip.isPending}
-            className="flex w-full items-center justify-center gap-4 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 disabled:opacity-50"
-          >
-            <Play size={28} className="text-bg" fill="currentColor" />
-            <span className="text-xl font-black uppercase tracking-widest text-bg">
-              {createTrip.isPending ? t("trip.start.saving") : t("trip.start.label")}
-            </span>
-          </button>
-          {navigation.destination ? (
-            <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3">
-              <MapPin size={16} className="shrink-0 text-blue-500" />
-              <span className="flex-1 truncate text-sm font-medium text-blue-700">
-                {navigation.destination.label}
-              </span>
-              {navigation.isLoading && (
-                <span className="text-xs text-blue-500">{t("trip.navigation.search.loading")}</span>
-              )}
-              <button
-                type="button"
-                onClick={() => navigation.clearRoute()}
-                className="shrink-0 text-blue-400 active:text-blue-600"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowDestinationSearch(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-text-muted py-3 active:scale-95"
-            >
-              <MapPin size={16} className="text-text-muted" />
-              <span className="text-sm font-medium text-text-muted">
-                {t("trip.navigation.addDestination")}
-              </span>
-            </button>
-          )}
-
-          <button
-            onClick={() => {
-              manual.resetManualForm();
-              setUiState("manual");
-            }}
-            className="flex w-full items-center justify-center gap-3 rounded-xl bg-surface-container py-4 active:scale-95"
-          >
-            <Keyboard size={18} className="text-text-muted" />
-            <span className="text-sm font-bold text-text-muted">{t("trip.manualButton")}</span>
-          </button>
-        </div>
+        <TripIdleActions
+          isSaving={createTrip.isPending}
+          destination={navigation.destination}
+          destinationLoading={navigation.isLoading}
+          onStart={startTracking}
+          onOpenDestinationSearch={() => setShowDestinationSearch(true)}
+          onClearDestination={() => navigation.clearRoute()}
+          onOpenManual={() => {
+            manual.resetManualForm();
+            setUiState("manual");
+          }}
+        />
       )}
 
       {uiState === "tracking" && (

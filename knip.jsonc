@@ -1,0 +1,38 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Local Claude worktrees and agent artifacts are operator-only, not product code.
+  "ignore": [".claude/**"],
+  // Served as a built public asset from server/src/index.ts, not imported from TS.
+  "ignoreFiles": ["client/public/sw-api-guard.js"],
+  // Vite public-asset URL imports are valid at runtime but unresolved by Knip.
+  "ignoreUnresolved": ["/pwa-192x192.png\\?url"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "eslint.config.mjs",
+        "drizzle.config.ts",
+        ".lighthouserc.js",
+        "scripts/**/*.{mjs,ts}",
+      ],
+      "project": ["scripts/**/*.{js,mjs,ts}", "*.config.{js,mjs,ts}", ".*rc.{js,cjs,mjs}"],
+    },
+    "client": {
+      "entry": [
+        "src/main.tsx",
+        "e2e/**/*.spec.ts",
+        "playwright.config.ts",
+        "vite.config.ts",
+        "vitest.config.ts",
+      ],
+      "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "public/**/*.js"],
+    },
+    "server": {
+      "entry": ["src/index.ts", "scripts/*.ts", "vitest.config.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts"],
+    },
+    "shared": {
+      "entry": ["api-contracts.ts", "types.ts"],
+      "project": ["*.ts"],
+    },
+  },
+}

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 test.describe("swipe navigation between pages", () => {
   test.use({ serviceWorkers: "block", hasTouch: true });
@@ -109,12 +109,7 @@ test.describe("swipe navigation between pages", () => {
     });
   });
 
-  async function swipe(
-    page: import("@playwright/test").Page,
-    startX: number,
-    endX: number,
-    y: number,
-  ) {
+  async function swipe(page: Page, startX: number, endX: number, y: number) {
     const client = await page.context().newCDPSession(page);
     await client.send("Input.dispatchTouchEvent", {
       type: "touchStart",

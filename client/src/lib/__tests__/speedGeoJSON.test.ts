@@ -1,12 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { buildTraceGeoJSON } from "../speedGeoJSON";
+import type { TraceGeoJSON } from "../speedGeoJSON";
 import type { GpsPoint } from "@ecoride/shared/types";
 
 describe("buildTraceGeoJSON", () => {
   it("returns single LineString for 0 or 1 point", () => {
     const result = buildTraceGeoJSON([]);
     expect(result.type).toBe("Feature");
-    expect((result as any).geometry.coordinates).toHaveLength(0);
+    const feature = result as Extract<TraceGeoJSON, { type: "Feature" }>;
+    expect(feature.geometry.coordinates).toHaveLength(0);
   });
 
   it("returns single LineString when points have no timestamps", () => {
@@ -17,8 +19,9 @@ describe("buildTraceGeoJSON", () => {
     ] as GpsPoint[];
     const result = buildTraceGeoJSON(points);
     expect(result.type).toBe("Feature");
-    expect((result as any).geometry.type).toBe("LineString");
-    expect((result as any).geometry.coordinates).toHaveLength(3);
+    const feature = result as Extract<TraceGeoJSON, { type: "Feature" }>;
+    expect(feature.geometry.type).toBe("LineString");
+    expect(feature.geometry.coordinates).toHaveLength(3);
   });
 
   it("returns single LineString when ts is missing", () => {
@@ -38,7 +41,8 @@ describe("buildTraceGeoJSON", () => {
     ];
     const result = buildTraceGeoJSON(points);
     expect(result.type).toBe("FeatureCollection");
-    expect((result as any).features).toHaveLength(2);
+    const collection = result as Extract<TraceGeoJSON, { type: "FeatureCollection" }>;
+    expect(collection.features).toHaveLength(2);
   });
 
   it("calculates speed in km/h from distance and time", () => {
@@ -49,7 +53,8 @@ describe("buildTraceGeoJSON", () => {
     ];
     const result = buildTraceGeoJSON(points);
     expect(result.type).toBe("FeatureCollection");
-    const speed = (result as any).features[0].properties.speed;
+    const collection = result as Extract<TraceGeoJSON, { type: "FeatureCollection" }>;
+    const speed = collection.features[0]?.properties.speed ?? 0;
     expect(speed).toBeGreaterThan(30);
     expect(speed).toBeLessThan(50);
   });
@@ -60,7 +65,8 @@ describe("buildTraceGeoJSON", () => {
       { lat: 49.0, lng: 2.0, ts: 2000 }, // 111km in 1s
     ];
     const result = buildTraceGeoJSON(points);
-    const speed = (result as any).features[0].properties.speed;
+    const collection = result as Extract<TraceGeoJSON, { type: "FeatureCollection" }>;
+    const speed = collection.features[0]?.properties.speed ?? 0;
     expect(speed).toBe(120);
   });
 
@@ -73,7 +79,9 @@ describe("buildTraceGeoJSON", () => {
     ];
     const result = buildTraceGeoJSON(points);
     expect(result.type).toBe("FeatureCollection");
-    const speed0 = (result as any).features[0].properties.speed;
+    const collection = result as Extract<TraceGeoJSON, { type: "FeatureCollection" }>;
+    expect(collection.features.length).toBeGreaterThan(0);
+    const speed0 = collection.features[0]!.properties.speed;
     expect(speed0).toBe(0);
   });
 });

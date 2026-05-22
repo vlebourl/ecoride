@@ -11,7 +11,7 @@ const removePendingTripMock = vi.fn();
 const recordRejectedTripMock = vi.fn();
 
 vi.mock("@/lib/api", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  const actual = await vi.importActual<Record<string, unknown>>("@/lib/api");
   return {
     ...actual,
     apiFetch: (...args: unknown[]) => mockApiFetch(...args),

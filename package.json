@@ -1,6 +1,6 @@
 {
   "name": "ecoride",
-  "version": "2.47.4",
+  "version": "2.47.5",
   "private": true,
   "workspaces": [
     "shared",
@@ -23,6 +23,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "quality:local": "bun run format:check && bun run lint && bun run typecheck",
+    "knip": "knip --config knip.jsonc --reporter compact --workspace . --workspace client --workspace server --workspace shared --no-exit-code",
+    "knip:strict": "knip --config knip.jsonc --reporter compact --workspace . --workspace client --workspace server --workspace shared",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -52,6 +54,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
+    "knip": "^6.14.1",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
     "typescript": "^5.8.0",

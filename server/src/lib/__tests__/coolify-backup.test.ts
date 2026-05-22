@@ -70,10 +70,16 @@ describe("coolify backup guard", () => {
   });
 
   it("triggers a fresh backup and waits for success before allowing migrations", async () => {
-    const originalBun = (globalThis as any).Bun;
-    (globalThis as any).Bun = {
-      sleep: vi.fn().mockResolvedValue(undefined),
-    };
+    type BunSleepOnly = { sleep: (ms: number) => Promise<void> };
+    const originalBun = Reflect.get(globalThis, "Bun") as BunSleepOnly | undefined;
+
+    Object.defineProperty(globalThis, "Bun", {
+      value: {
+        sleep: vi.fn().mockResolvedValue(undefined),
+      } satisfies BunSleepOnly,
+      configurable: true,
+      writable: true,
+    });
 
     try {
       const fetchMock = vi
@@ -160,7 +166,11 @@ describe("coolify backup guard", () => {
       );
     } finally {
       if (originalBun) {
-        (globalThis as any).Bun = originalBun;
+        Object.defineProperty(globalThis, "Bun", {
+          value: originalBun,
+          configurable: true,
+          writable: true,
+        });
       } else {
         Reflect.deleteProperty(globalThis, "Bun");
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   User as UserIcon,
@@ -78,14 +78,19 @@ export function ProfilePage() {
   const stats = profileData?.stats;
 
   const tripPresets = tripPresetsData ?? [];
-  // Sync form state when profile loads
-  useEffect(() => {
-    if (user) {
-      setVehicleModel(user.vehicleModel ?? "");
-      setFuelType(user.fuelType ?? "sp95");
-      setConsumption(String(user.consumptionL100 ?? ""));
+
+  const handleVehicleToggle = () => {
+    if (showVehicle) {
+      setShowVehicle(false);
+      return;
     }
-  }, [user]);
+    if (!user) return;
+
+    setVehicleModel(user.vehicleModel ?? "");
+    setFuelType(user.fuelType ?? "sp95");
+    setConsumption(String(user.consumptionL100 ?? ""));
+    setShowVehicle(true);
+  };
 
   if (profileLoading || achievementsLoading || !user || !stats) {
     return (
@@ -474,7 +479,7 @@ export function ProfilePage() {
 
             {/* Mon véhicule */}
             <button
-              onClick={() => setShowVehicle(!showVehicle)}
+              onClick={handleVehicleToggle}
               className="flex w-full items-center justify-between p-4 transition-colors hover:bg-surface-high"
             >
               <div className="flex items-center gap-4">

@@ -183,6 +183,14 @@ describe("useSuper73 helpers", () => {
         "eco",
       );
     });
+
+    it("keeps an explicit eco or race override while tracking with profile auto mode enabled", () => {
+      const state = { ...baseState, assist: 2, mode: "tour" as const };
+      expect(deriveTripModeSelection(state, prefs, tracking, "eco")).toBe("eco");
+      expect(deriveTripModeSelection({ ...state, mode: "race" }, prefs, tracking, "race")).toBe(
+        "race",
+      );
+    });
   });
 });
 

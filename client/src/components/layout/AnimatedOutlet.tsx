@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router";
+import { useEffect } from "react";
+import { Outlet } from "react-router";
 import type { SwipeDirection } from "@/hooks/useSwipeNavigation";
 
 const ANIMATION_DURATION = 250; // ms
@@ -12,25 +12,17 @@ interface Props {
 }
 
 export function AnimatedOutlet({ dragX, direction, isAnimating, onAnimationDone }: Props) {
-  const location = useLocation();
-  const prevPathRef = useRef(location.pathname);
-  const [enterDir, setEnterDir] = useState<SwipeDirection>(null);
+  const enterDir = isAnimating ? direction : null;
 
   useEffect(() => {
-    if (location.pathname !== prevPathRef.current) {
-      if (direction) {
-        // Swiped right → new page enters from the left, and vice versa
-        setEnterDir(direction);
-        const timer = setTimeout(() => {
-          setEnterDir(null);
-          onAnimationDone();
-        }, ANIMATION_DURATION);
-        prevPathRef.current = location.pathname;
-        return () => clearTimeout(timer);
-      }
-      prevPathRef.current = location.pathname;
-    }
-  }, [location.pathname, direction, onAnimationDone]);
+    if (!isAnimating || !direction) return;
+
+    const timer = setTimeout(() => {
+      onAnimationDone();
+    }, ANIMATION_DURATION);
+
+    return () => clearTimeout(timer);
+  }, [direction, isAnimating, onAnimationDone]);
 
   // During drag: follow finger with no transition
   const dragStyle: React.CSSProperties =

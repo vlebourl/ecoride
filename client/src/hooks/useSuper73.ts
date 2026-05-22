@@ -55,7 +55,9 @@ export function deriveTripModeSelection(
 ): Super73TripModeSelection {
   // Assist 3 = EPAC enforcement — auto mode doesn't apply
   if (state?.assist === 3) return "eco";
-  if (currentSelection === "auto" && tracking.isTracking) return "auto";
+  if (currentSelection === "auto")
+    return tracking.isTracking ? "auto" : state?.mode === "race" ? "race" : "eco";
+  if (currentSelection === "eco" || currentSelection === "race") return currentSelection;
   if (preferences.autoModeEnabled && tracking.isTracking) return "auto";
   return state?.mode === "race" ? "race" : "eco";
 }
@@ -191,13 +193,15 @@ function useSuper73Controller(
   const [bikeState, setBikeState] = useState<Super73State | null>(loadCachedState);
   const [bikeSpeedKmh, setBikeSpeedKmh] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tripModeSelection, setTripModeSelection] = useState<Super73TripModeSelection>("eco");
+  const [tripModeSelectionIntent, setTripModeSelectionIntent] =
+    useState<Super73TripModeSelection | null>(null);
   const [epacPollFallbackWarning, setEpacPollFallbackWarning] = useState(false);
 
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoReconnectAttemptedRef = useRef(false);
   const manualDisconnectRef = useRef(false);
   const lastAutoModeZoneRef = useRef<AutoModeZone>(null);
   // Prevents re-entrant polling if a poll round takes longer than the interval.
@@ -209,7 +213,7 @@ function useSuper73Controller(
   // filtered out in startStateNotifications. Safe to update app state here.
   // When ecoride-ble-debug=1: also fires an immediate poll for side-by-side comparison.
   const notifierHandlerBodyRef = useRef<((state: Super73State) => void) | null>(null);
-  notifierHandlerBodyRef.current = (state: Super73State) => {
+  const notifierHandlerBody = useCallback((state: Super73State) => {
     setBikeState(state);
     cacheState(state);
     if (shouldTriggerEpac(state) && serverRef.current?.connected) {
@@ -225,7 +229,12 @@ function useSuper73Controller(
         isPollActiveRef.current = false;
       });
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    notifierHandlerBodyRef.current = notifierHandlerBody;
+  }, [notifierHandlerBody]);
+
   const stableNotifierHandler = useCallback(
     (state: Super73State) => notifierHandlerBodyRef.current?.(state),
     [],
@@ -314,10 +323,14 @@ function useSuper73Controller(
   }, []);
 
   useEffect(() => {
-    if (!enabled || !isBleSupported()) return;
+    if (!enabled || !isBleSupported()) {
+      autoReconnectAttemptedRef.current = false;
+      return;
+    }
     if (status !== "disconnected") return;
-    if (deviceRef.current) return;
+    if (deviceRef.current || autoReconnectAttemptedRef.current) return;
 
+    autoReconnectAttemptedRef.current = true;
     let cancelled = false;
     (async () => {
       const device = await reconnectPairedDevice();
@@ -333,8 +346,7 @@ function useSuper73Controller(
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [enabled, status, attachDevice]);
 
   const connect = useCallback(async () => {
     if (!enabled || !isBleSupported()) return;
@@ -392,10 +404,17 @@ function useSuper73Controller(
 
   const setLight = useCallback((on: boolean) => updateState({ light: on }), [updateState]);
 
+  const tripModeSelection = deriveTripModeSelection(
+    bikeState,
+    preferences,
+    tracking,
+    tripModeSelectionIntent,
+  );
+
   const toggleMode = useCallback(async () => {
     if (!bikeState) return;
     const nextMode: Super73Mode = bikeState.mode === "race" ? "eco" : "race";
-    setTripModeSelection(nextMode === "race" ? "race" : "eco");
+    setTripModeSelectionIntent(nextMode === "race" ? "race" : "eco");
     await setMode(nextMode);
   }, [bikeState, setMode]);
 
@@ -405,7 +424,7 @@ function useSuper73Controller(
     if (nextSelection === "auto" && bikeState?.assist === 3) {
       nextSelection = nextTripModeSelection(nextSelection);
     }
-    setTripModeSelection(nextSelection);
+    setTripModeSelectionIntent(nextSelection);
     lastAutoModeZoneRef.current = null;
 
     if (nextSelection === "auto") {
@@ -430,13 +449,17 @@ function useSuper73Controller(
     if (targetMode !== bikeState?.mode) {
       await setMode(targetMode);
     }
-  }, [bikeState?.mode, setMode, tracking.isTracking, tracking.speedKmh, tripModeSelection]);
-
-  useEffect(() => {
-    setTripModeSelection((current) =>
-      deriveTripModeSelection(bikeState, preferences, tracking, current),
-    );
-  }, [bikeState, preferences.autoModeEnabled, tracking.isTracking]);
+  }, [
+    bikeSpeedKmh,
+    bikeState?.assist,
+    bikeState?.mode,
+    preferences.autoModeHighSpeedKmh,
+    preferences.autoModeLowSpeedKmh,
+    setMode,
+    tracking.isTracking,
+    tracking.speedKmh,
+    tripModeSelection,
+  ]);
 
   useEffect(() => {
     if (tripModeSelection !== "auto") {

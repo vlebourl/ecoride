@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Bike, BarChart3, Trash2, X, Save } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
@@ -95,29 +95,31 @@ export function StatsPage() {
   const deleteTrip = useDeleteTrip();
   const createTripPresetFromTrip = useCreateTripPresetFromTrip();
 
-  // Fix 3.7: Android back button closes the bottom sheet
-  useEffect(() => {
-    if (selectedTrip) {
-      window.history.pushState({ sheet: true }, "");
-      const handlePop = () => setSelectedTrip(null);
-      window.addEventListener("popstate", handlePop);
-      return () => window.removeEventListener("popstate", handlePop);
-    }
-  }, [selectedTrip]);
+  const closeSelectedTrip = useCallback(() => {
+    setTripPresetFormOpen(false);
+    setTripPresetLabel("");
+    setSelectedTrip(null);
+  }, []);
 
-  useEffect(() => {
-    if (!selectedTrip) {
-      setTripPresetFormOpen(false);
-      setTripPresetLabel("");
-      return;
-    }
-
+  const openSelectedTrip = useCallback((trip: Trip) => {
+    setTripPresetFeedback(null);
+    setTripPresetFormOpen(false);
     // Keep the legacy FR-only helper here because the existing preset test
     // mocks "@/lib/trip-utils" with `tripLabel: () => "Trajet domicile-travail"`
     // and expects the stripped value "domicile-travail". The visible labels in
     // the list and the detail sheet below use the i18n variant.
-    setTripPresetLabel(tripLabel(selectedTrip.startedAt).replace(/^Trajet /, ""));
-  }, [selectedTrip]);
+    setTripPresetLabel(tripLabel(trip.startedAt).replace(/^Trajet /, ""));
+    setSelectedTrip(trip);
+  }, []);
+
+  // Fix 3.7: Android back button closes the bottom sheet
+  useEffect(() => {
+    if (!selectedTrip) return;
+
+    window.history.pushState({ sheet: true }, "");
+    window.addEventListener("popstate", closeSelectedTrip);
+    return () => window.removeEventListener("popstate", closeSelectedTrip);
+  }, [selectedTrip, closeSelectedTrip]);
 
   // Use detailed trip data (with gpsPoints) when available, otherwise fall back to list data
   const displayTrip = tripDetail ?? selectedTrip;
@@ -137,7 +139,7 @@ export function StatsPage() {
       {
         onSuccess: () => {
           setTripPresetFormOpen(false);
-          setSelectedTrip(null);
+          closeSelectedTrip();
           setTripPresetFeedback({ type: "success", message: t("stats.detail.presetCreated") });
         },
         onError: () => {
@@ -153,7 +155,7 @@ export function StatsPage() {
   const isPending = summaryLoading || tripsLoading || chartLoading || achievementsLoading;
 
   const trips = tripsData?.trips ?? [];
-  const chartTrips = chartTripsData ?? [];
+  const chartTrips = useMemo(() => chartTripsData ?? [], [chartTripsData]);
 
   // Build chart data from trips for the selected period (memoized)
   // MUST be before any early return to respect Rules of Hooks
@@ -430,7 +432,7 @@ export function StatsPage() {
                 {trips.map((trip) => (
                   <button
                     key={trip.id}
-                    onClick={() => setSelectedTrip(trip)}
+                    onClick={() => openSelectedTrip(trip)}
                     className="flex w-full items-center justify-between rounded-xl border border-outline-variant/5 bg-surface-low p-4 text-left active:scale-[0.98] transition-transform"
                   >
                     <div className="flex items-center gap-4">
@@ -500,7 +502,7 @@ export function StatsPage() {
             aria-modal="true"
             aria-label={t("stats.detail.dialogAria")}
             className="fixed inset-0 z-[60] flex items-end justify-center"
-            onClick={() => setSelectedTrip(null)}
+            onClick={closeSelectedTrip}
           >
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/50" />
@@ -522,7 +524,7 @@ export function StatsPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => setSelectedTrip(null)}
+                  onClick={closeSelectedTrip}
                   aria-label={t("stats.detail.closeAria")}
                   className="rounded-lg p-2 text-text-muted active:bg-surface-high"
                 >
@@ -620,7 +622,7 @@ export function StatsPage() {
                 <button
                   onClick={() => {
                     deleteTrip.mutate(selectedTrip.id, {
-                      onSuccess: () => setSelectedTrip(null),
+                      onSuccess: closeSelectedTrip,
                     });
                   }}
                   disabled={deleteTrip.isPending || createTripPresetFromTrip.isPending}

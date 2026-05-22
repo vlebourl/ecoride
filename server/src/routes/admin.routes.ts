@@ -88,7 +88,10 @@ adminRouter.get("/health", async (c) => {
     const [dbSizeResult] = await db.execute(
       sql`SELECT round(pg_database_size(current_database()) / 1024.0 / 1024.0, 1) AS size_mb`,
     );
-    dbSizeMb = Number((dbSizeResult as any)?.rows?.[0]?.size_mb ?? 0);
+    dbSizeMb = Number(
+      (dbSizeResult as { rows?: Array<{ size_mb?: string | number }> } | undefined)?.rows?.[0]
+        ?.size_mb ?? 0,
+    );
   } catch {
     // dbConnected stays false
   }

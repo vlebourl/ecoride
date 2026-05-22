@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
@@ -8,39 +7,23 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { I18nProvider } from "./i18n/provider";
 import { App } from "./App";
-import { hasBlockingTripDataForUpdate } from "@/lib/update-guard";
+import { bindUnhandledRejectionListener, initSentry } from "@/lib/sentry";
+import { hasBlockingTripDataForUpdate, runWhenNoBlockingTripData } from "@/lib/update-guard";
 import { MAP_TILE_CACHE_NAME } from "@/lib/tile-cache";
 import "./app.css";
 
-// ---------------------------------------------------------------------------
-// Sentry — client-side error tracking
-// Disabled by default; set VITE_SENTRY_DSN to enable.
-// ---------------------------------------------------------------------------
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN || "",
-  environment: import.meta.env.MODE,
-  release: __APP_VERSION__,
-  enabled: !!import.meta.env.VITE_SENTRY_DSN,
-  sendDefaultPii: true,
-  integrations: [Sentry.replayIntegration()],
-  tracesSampleRate: 0.1,
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1.0,
-  beforeSend(event: Sentry.ErrorEvent) {
-    if (event.breadcrumbs) {
-      for (const b of event.breadcrumbs) {
-        if (b.data && "email" in b.data) {
-          (b.data as Record<string, unknown>).email = "[redacted]";
-        }
-      }
-    }
-    return event;
-  },
-});
+// Sentry — client-side error tracking is loaded lazily when a DSN is configured.
+
+void initSentry();
 
 // Capture unhandled promise rejections
-window.addEventListener("unhandledrejection", (event) => {
-  Sentry.captureException(event.reason);
+bindUnhandledRejectionListener();
+
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+  runWhenNoBlockingTripData(() => {
+    window.location.reload();
+  });
 });
 
 const CACHE_VERSION_KEY = "ecoride-version";

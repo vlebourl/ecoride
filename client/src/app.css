@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "maplibre-gl/dist/maplibre-gl.css";
 
 @theme {
   /* Core palette — Luminous Carbon (charcoal + leaf green + white) */

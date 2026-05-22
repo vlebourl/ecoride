@@ -1,4 +1,5 @@
-import * as Sentry from "@sentry/react";
+import { captureClientError } from "@/lib/sentry";
+import { runWhenNoBlockingTripData } from "@/lib/update-guard";
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { Bike } from "lucide-react";
@@ -49,9 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info.componentStack);
-    Sentry.captureException(error, {
-      extra: { componentStack: info.componentStack },
-    });
+    captureClientError(error, { componentStack: info.componentStack });
 
     // Auto-reload on stale chunk errors (after deploy, old JS files are gone)
     const msg = error.message || "";
@@ -59,9 +58,12 @@ export class ErrorBoundary extends Component<Props, State> {
       msg.includes("not a valid JavaScript MIME type") ||
       msg.includes("Failed to fetch dynamically imported module") ||
       msg.includes("Loading chunk") ||
-      msg.includes("Loading CSS chunk")
+      msg.includes("Loading CSS chunk") ||
+      msg.includes("Unable to preload CSS")
     ) {
-      window.location.reload();
+      runWhenNoBlockingTripData(() => {
+        window.location.reload();
+      });
     }
   }
 

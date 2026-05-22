@@ -1,8 +1,9 @@
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Play, Keyboard, AlertTriangle, MapPin, X, LocateFixed } from "lucide-react";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef, LayerProps } from "react-map-gl/maplibre";
-// maplibre-gl.css imported in app.css to avoid orphan CSS chunks
+// Imported here so MapLibre styles stay off the initial app shell bundle.
 import { useCreateTrip, useProfile, useTripPresets } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
 import { useAppGpsTracking } from "@/hooks/useGpsTracking";

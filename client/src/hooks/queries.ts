@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import type { Trip, Achievement, TripPreset } from "@ecoride/shared/types";
+import type { Trip, Achievement, TripPreset, User } from "@ecoride/shared/types";
 import type {
   StatsSummaryResponse,
   CommunityStatsResponse,
@@ -140,7 +140,7 @@ export function useProfile() {
       apiFetch<{
         ok: boolean;
         data: {
-          user: import("@ecoride/shared/types").User;
+          user: User;
           stats: {
             totalDistanceKm: number;
             totalCo2SavedKg: number;
@@ -530,13 +530,10 @@ export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: UpdateUserRequest) =>
-      apiFetch<{ ok: boolean; data: { user: import("@ecoride/shared/types").User } }>(
-        "/user/profile",
-        {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        },
-      ).then((r) => r.data.user),
+      apiFetch<{ ok: boolean; data: { user: User } }>("/user/profile", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }).then((r) => r.data.user),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["profile"] });
     },

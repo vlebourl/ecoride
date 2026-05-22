@@ -65,7 +65,7 @@ export function bleDebugLog(source: string, bytes: Uint8Array, decoded: Super73S
     .join(" ");
   const label = `${MODE_HUMAN[decoded.mode]} / assist=${decoded.assist} / lumière=${decoded.light ? "ON" : "OFF"} / ${decoded.region.toUpperCase()}`;
   const src = source.padEnd(12);
-  console.debug(`[BLE:${src}] ${label}  ←  raw ${String(bytes.length).padStart(2)}B: ${hex}`);
+  console.info(`[BLE:${src}] ${label}  ←  raw ${String(bytes.length).padStart(2)}B: ${hex}`);
 }
 
 // ---- Byte parsing ----

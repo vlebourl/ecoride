@@ -174,7 +174,7 @@ describe("useGpsTracking — background backup (ECO-22)", () => {
 describe("useGpsTracking — pause/resume (#166)", () => {
   let localStorageStub: ReturnType<typeof makeLocalStorageStub>;
   let watchPositionCallback: ((pos: GeolocationPosition) => void) | null = null;
-  let watchPositionErrorCallback: ((err: GeolocationPositionError) => void) | null = null;
+  let _watchPositionErrorCallback: ((err: GeolocationPositionError) => void) | null = null;
   let clearWatchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -188,12 +188,12 @@ describe("useGpsTracking — pause/resume (#166)", () => {
 
     clearWatchMock = vi.fn();
     watchPositionCallback = null;
-    watchPositionErrorCallback = null;
+    _watchPositionErrorCallback = null;
     Object.defineProperty(navigator, "geolocation", {
       value: {
         watchPosition: vi.fn().mockImplementation((success, error) => {
           watchPositionCallback = success;
-          watchPositionErrorCallback = error;
+          _watchPositionErrorCallback = error;
           return 1;
         }),
         clearWatch: clearWatchMock,
@@ -218,7 +218,7 @@ describe("useGpsTracking — pause/resume (#166)", () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     watchPositionCallback = null;
-    watchPositionErrorCallback = null;
+    _watchPositionErrorCallback = null;
   });
 
   /** Inject a fake GPS fix at the given coordinates. */

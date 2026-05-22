@@ -37,9 +37,9 @@ vi.mock("@/hooks/queries", () => ({
         name: "Lyra",
         email: "lyra@example.com",
         image: null,
-        vehicleModel: null,
-        fuelType: "sp95",
-        consumptionL100: 7,
+        vehicleModel: "Longtail Cargo",
+        fuelType: "sp98",
+        consumptionL100: 4.2,
         mileage: null,
         timezone: null,
         leaderboardOptOut: false,
@@ -134,5 +134,19 @@ describe("ProfilePage preset management", () => {
       "Supprimer le trajet pré-enregistré « Domicile → Travail » ?",
     );
     expect(deleteTripPresetMock).toHaveBeenCalledWith("preset-1");
+  });
+
+  it("hydrates the vehicle form with the current profile values when opened", () => {
+    render(
+      <I18nProvider>
+        <ProfilePage />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Mon véhicule" }));
+
+    expect(screen.getByDisplayValue("Longtail Cargo")).toBeTruthy();
+    expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("sp98");
+    expect(screen.getByDisplayValue("4.2")).toBeTruthy();
   });
 });

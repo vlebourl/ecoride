@@ -100,6 +100,8 @@ vi.mock("@/hooks/useSessionRecovery", () => ({
     sessionRef: { current: null },
     setPendingBackup: vi.fn(),
     setSessionPersistFailed: vi.fn(),
+    setSession: vi.fn(),
+    clearSession: vi.fn(),
     sessionPersistFailed: false,
     handleRestore: (cb: () => void) => cb(),
     handleDismissBackup: vi.fn(),

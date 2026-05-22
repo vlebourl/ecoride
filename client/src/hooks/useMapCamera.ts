@@ -27,6 +27,7 @@ export function useMapCamera(
   options: UseMapCameraOptions,
 ): UseMapCameraResult {
   const { bearing, pitch, padding, enabled } = options;
+  const [lat, lng] = position;
   const flyToRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapLoadSeq, setMapLoadSeq] = useState(0);
@@ -57,7 +58,7 @@ export function useMapCamera(
       }
       flyToRef.current = Date.now();
       nextMap.flyTo({
-        center: [position[1], position[0]],
+        center: [lng, lat],
         bearing: bearing ?? 0,
         pitch: bearing != null ? (pitch ?? 0) : 0,
         duration: 400,
@@ -78,9 +79,9 @@ export function useMapCamera(
     }
 
     return clearRetryTimer;
-    // flyToRef is a ref (stable) — mapLoadSeq is intentionally listed
-    // so onLoad triggers a replay for GPS updates that arrived before the map was ready.
-  }, [enabled, position[0], position[1], bearing, pitch, padding, mapLoadSeq, clearRetryTimer]);
+    // mapLoadSeq is intentionally listed so onLoad triggers a replay for GPS
+    // updates that arrived before the map was ready.
+  }, [enabled, mapRef, lat, lng, bearing, pitch, padding, mapLoadSeq, clearRetryTimer]);
 
   useEffect(() => clearRetryTimer, [clearRetryTimer]);
 

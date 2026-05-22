@@ -57,11 +57,10 @@ function extractApiErrorMessage(error: ApiError): string | null {
 
 export function TripPage() {
   const t = useT();
-  const [uiState, setUiState] = useState<TripState>("idle");
   const [saveError, setSaveError] = useState("");
   const [initialPos, setInitialPos] = useState<[number, number]>(DEFAULT_CENTER);
-  const [gpsStatus, setGpsStatus] = useState<"waiting" | "active" | "denied" | "unavailable">(
-    "waiting",
+  const [gpsStatus, setGpsStatus] = useState<"waiting" | "active" | "denied" | "unavailable">(() =>
+    typeof navigator === "undefined" || !navigator.geolocation ? "unavailable" : "waiting",
   );
   const [idleAccuracy, setIdleAccuracy] = useState<number | null>(null);
   const [interruptMenuOpen, setInterruptMenuOpen] = useState(false);
@@ -87,14 +86,8 @@ export function TripPage() {
 
   // --- Custom hooks ---
   const recovery = useSessionRecovery({ gps });
+  const [uiState, setUiState] = useState<TripState>(() => recovery.initialUiState ?? "idle");
   const manual = useManualTrip(tripPresets);
-
-  // Apply initial UI state from session recovery (mount only)
-  useEffect(() => {
-    if (recovery.initialUiState) {
-      setUiState(recovery.initialUiState);
-    }
-  }, [recovery.initialUiState]);
 
   // Fix 1.7: Navigation guard — beforeunload for browser close/refresh
   useEffect(() => {
@@ -108,10 +101,7 @@ export function TripPage() {
 
   // Get user's real position on page load + keep watching for idle GPS status
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setGpsStatus("unavailable");
-      return;
-    }
+    if (!navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
@@ -176,14 +166,11 @@ export function TripPage() {
   const mapStyleReadyRef = useRef(false);
   const [mapLoadError, setMapLoadError] = useState(false);
 
+  const stoppedSession = recovery.sessionRef.current;
   const distance =
-    uiState === "stopped" && recovery.sessionRef.current
-      ? recovery.sessionRef.current.distanceKm
-      : gps.state.distanceKm;
+    uiState === "stopped" && stoppedSession ? stoppedSession.distanceKm : gps.state.distanceKm;
   const elapsed =
-    uiState === "stopped" && recovery.sessionRef.current
-      ? recovery.sessionRef.current.durationSec
-      : gps.state.durationSec;
+    uiState === "stopped" && stoppedSession ? stoppedSession.durationSec : gps.state.durationSec;
 
   const consumptionL100 = profileData?.user?.consumptionL100 ?? 7;
   const co2Saved = distance * (consumptionL100 / 100) * CO2_KG_PER_LITER;
@@ -231,7 +218,7 @@ export function TripPage() {
           recovery.setPendingBackup(null);
           setUiState("idle");
           manual.resetManualForm();
-          recovery.sessionRef.current = null;
+          recovery.clearSession();
           gps.reset();
         },
         onError: (error) => {
@@ -247,7 +234,7 @@ export function TripPage() {
             setUiState("idle");
             clearStoppedSession();
             manual.resetManualForm();
-            recovery.sessionRef.current = null;
+            recovery.clearSession();
             gps.reset();
             setSaveError("");
           }, 3000);
@@ -263,7 +250,7 @@ export function TripPage() {
     recovery.setSessionPersistFailed(false);
     setInterruptMenuOpen(false);
     recovery.setPendingBackup(null);
-    recovery.sessionRef.current = null;
+    recovery.clearSession();
     gps.start();
     setUiState("tracking");
   }, [gps, recovery, resetMapState]);
@@ -280,7 +267,7 @@ export function TripPage() {
 
   const handleStopFromInterrupt = useCallback(() => {
     const session = gps.stop();
-    recovery.sessionRef.current = session;
+    recovery.setSession(session);
     resetMapState();
     setIsTrackingMapFollowing(true);
     setInterruptMenuOpen(false);
@@ -299,7 +286,7 @@ export function TripPage() {
       setInterruptMenuOpen(false);
       setIsTrackingMapFollowing(true);
       setUiState("idle");
-      recovery.sessionRef.current = null;
+      recovery.clearSession();
       gps.reset();
       navigation.clearRoute();
     }
@@ -609,7 +596,7 @@ export function TripPage() {
               recovery.setPendingBackup(null);
               clearStoppedSession();
               setUiState("idle");
-              recovery.sessionRef.current = null;
+              recovery.clearSession();
               gps.reset();
             }
           }}

@@ -1,9 +1,64 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getTrackingBackup, clearTrackingBackup, getTrackingSession } from "@/hooks/useGpsTracking";
 import { getStoppedSession } from "@/lib/stopped-session";
 import type { TrackingSession, TrackingBackup, UseGpsTrackingResult } from "@/hooks/useGpsTracking";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
+
+interface RecoveryBootstrap {
+  initialUiState: TripState | null;
+  initialSession: TrackingSession | null;
+  initialPendingBackup: TrackingBackup | null;
+  restoreBackup: TrackingBackup | null;
+}
+
+function getRecoveryBootstrap(isTracking: boolean): RecoveryBootstrap {
+  const session = getStoppedSession();
+  if (session) {
+    return {
+      initialUiState: "stopped",
+      initialSession: session,
+      initialPendingBackup: null,
+      restoreBackup: null,
+    };
+  }
+
+  if (isTracking) {
+    return {
+      initialUiState: "tracking",
+      initialSession: null,
+      initialPendingBackup: null,
+      restoreBackup: null,
+    };
+  }
+
+  const backup = getTrackingBackup();
+  if (!backup) {
+    return {
+      initialUiState: null,
+      initialSession: null,
+      initialPendingBackup: null,
+      restoreBackup: null,
+    };
+  }
+
+  const sessionStartedAt = getTrackingSession();
+  if (sessionStartedAt && sessionStartedAt === backup.startedAt) {
+    return {
+      initialUiState: "tracking",
+      initialSession: null,
+      initialPendingBackup: null,
+      restoreBackup: backup,
+    };
+  }
+
+  return {
+    initialUiState: null,
+    initialSession: null,
+    initialPendingBackup: backup,
+    restoreBackup: null,
+  };
+}
 
 export interface UseSessionRecoveryOptions {
   gps: UseGpsTrackingResult;
@@ -15,6 +70,8 @@ export interface UseSessionRecoveryResult {
   sessionPersistFailed: boolean;
   setSessionPersistFailed: (v: boolean) => void;
   sessionRef: React.MutableRefObject<TrackingSession | null>;
+  setSession: (session: TrackingSession | null) => void;
+  clearSession: () => void;
   /** Non-null on mount when an existing session/backup was detected. */
   initialUiState: TripState | null;
   handleRestore: (resetMapState: () => void) => void;
@@ -26,49 +83,42 @@ export interface UseSessionRecoveryResult {
  * and localStorage for a tracking backup. Returns state + handlers for TripPage.
  */
 export function useSessionRecovery({ gps }: UseSessionRecoveryOptions): UseSessionRecoveryResult {
-  const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(null);
+  const [bootstrap] = useState<RecoveryBootstrap>(() => getRecoveryBootstrap(gps.state.isTracking));
+  const [pendingBackup, setPendingBackup] = useState<TrackingBackup | null>(
+    bootstrap.initialPendingBackup,
+  );
   const [sessionPersistFailed, setSessionPersistFailed] = useState(false);
-  const sessionRef = useRef<TrackingSession | null>(null);
-  const [initialUiState, setInitialUiState] = useState<TripState | null>(null);
+  const sessionRef = useRef<TrackingSession | null>(bootstrap.initialSession);
+  const restoredBackupRef = useRef(false);
 
-  // On mount: check for an active trip backup.
   useEffect(() => {
-    // Restore an unsaved trip that survived navigation or a transparent app update.
+    if (!bootstrap.restoreBackup || restoredBackupRef.current) return;
+    restoredBackupRef.current = true;
+    gps.restore(bootstrap.restoreBackup);
+  }, [gps, bootstrap.restoreBackup]);
 
-    const session = getStoppedSession();
-    if (session) {
-      sessionRef.current = session;
-      setInitialUiState("stopped");
-      return;
-    }
-    if (gps.state.isTracking) {
-      setInitialUiState("tracking");
-      return;
-    }
-    const backup = getTrackingBackup();
-    if (!backup) return;
-    const sessionStartedAt = getTrackingSession();
-    if (sessionStartedAt && sessionStartedAt === backup.startedAt) {
-      // User navigated away mid-trip — restore silently
-      gps.restore(backup);
-      setInitialUiState("tracking");
-    } else {
-      // Crash recovery — ask the user whether to resume
-      setPendingBackup(backup);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const setSession = useCallback((session: TrackingSession | null) => {
+    sessionRef.current = session;
+  }, []);
 
-  const handleRestore = (resetMapState: () => void) => {
-    if (!pendingBackup) return;
-    resetMapState();
-    gps.restore(pendingBackup);
-    setPendingBackup(null);
-  };
+  const clearSession = useCallback(() => {
+    sessionRef.current = null;
+  }, []);
 
-  const handleDismissBackup = () => {
+  const handleRestore = useCallback(
+    (resetMapState: () => void) => {
+      if (!pendingBackup) return;
+      resetMapState();
+      gps.restore(pendingBackup);
+      setPendingBackup(null);
+    },
+    [gps, pendingBackup],
+  );
+
+  const handleDismissBackup = useCallback(() => {
     clearTrackingBackup();
     setPendingBackup(null);
-  };
+  }, []);
 
   return {
     pendingBackup,
@@ -76,7 +126,9 @@ export function useSessionRecovery({ gps }: UseSessionRecoveryOptions): UseSessi
     sessionPersistFailed,
     setSessionPersistFailed,
     sessionRef,
-    initialUiState,
+    setSession,
+    clearSession,
+    initialUiState: bootstrap.initialUiState,
     handleRestore,
     handleDismissBackup,
   };

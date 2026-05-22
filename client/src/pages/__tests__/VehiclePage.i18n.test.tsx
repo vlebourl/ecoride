@@ -45,12 +45,12 @@ vi.mock("@/hooks/queries", () => ({
         reminderDays: null,
         isAdmin: false,
         super73Enabled: true,
-        super73AutoModeEnabled: false,
-        super73DefaultMode: "eco",
-        super73DefaultAssist: 0,
-        super73DefaultLight: false,
-        super73AutoModeLowSpeedKmh: 10,
-        super73AutoModeHighSpeedKmh: 17,
+        super73AutoModeEnabled: true,
+        super73DefaultMode: "race",
+        super73DefaultAssist: 3,
+        super73DefaultLight: true,
+        super73AutoModeLowSpeedKmh: 13,
+        super73AutoModeHighSpeedKmh: 29,
         createdAt: "2026-04-08T10:00:00.000Z",
       },
     },
@@ -95,5 +95,20 @@ describe("VehiclePage i18n", () => {
     expect(screen.getByRole("heading", { name: "Default settings" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save auto mode" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save settings" })).toBeTruthy();
+  });
+
+  it("hydrates the super73 defaults form from the current profile", () => {
+    vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
+    render(
+      <I18nProvider>
+        <VehiclePage />
+      </I18nProvider>,
+    );
+
+    const selects = screen.getAllByRole("combobox") as HTMLSelectElement[];
+    expect(selects[0]?.value).toBe("race");
+    expect(selects[1]?.value).toBe("3");
+    expect(screen.getByDisplayValue("13")).toBeTruthy();
+    expect(screen.getByDisplayValue("29")).toBeTruthy();
   });
 });

@@ -20,7 +20,7 @@ import { getPendingTrips, getRejectedTrips } from "@/lib/offline-queue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useT } from "@/i18n/provider";
 import type { TranslationKey } from "@/i18n/locales/fr";
-import appLogo from "/pwa-192x192.png?url";
+const appLogo = "/favicon.svg";
 
 interface Milestone {
   value: number;

@@ -1,51 +1,24 @@
 import { describe, it, expect } from "vitest";
-import * as Sentry from "@sentry/react";
+import { captureClientError, initSentry, redactBreadcrumbEmails } from "@/lib/sentry";
 
 describe("Sentry integration", () => {
-  it("Sentry.init does not throw when DSN is empty", () => {
+  it("initSentry resolves when DSN is not configured", async () => {
+    await expect(initSentry()).resolves.toBeUndefined();
+  });
+
+  it("captureClientError does not throw when Sentry is disabled", () => {
     expect(() => {
-      Sentry.init({
-        dsn: "",
-        enabled: false,
-      });
+      captureClientError(new Error("test error"));
     }).not.toThrow();
   });
 
-  it("Sentry.init does not throw when DSN is undefined", () => {
-    expect(() => {
-      Sentry.init({
-        dsn: undefined,
-        enabled: false,
-      });
-    }).not.toThrow();
-  });
-
-  it("Sentry.captureException does not throw when disabled", () => {
-    Sentry.init({ dsn: "", enabled: false });
-    expect(() => {
-      Sentry.captureException(new Error("test error"));
-    }).not.toThrow();
-  });
-
-  it("beforeSend strips email PII from breadcrumbs", () => {
-    // Test the beforeSend logic that we use in main.tsx
-    const beforeSend = (event: Sentry.ErrorEvent) => {
-      if (event.breadcrumbs) {
-        event.breadcrumbs = event.breadcrumbs.map((b) => {
-          if (b.data?.email) b.data.email = "[redacted]";
-          return b;
-        });
-      }
-      return event;
-    };
-
-    const event = beforeSend({
-      type: undefined,
+  it("redactBreadcrumbEmails strips email PII from breadcrumbs", () => {
+    const event = redactBreadcrumbEmails({
       breadcrumbs: [
         { data: { email: "user@example.com", url: "/api/trips" } },
         { data: { url: "/api/health" } },
       ],
-    } as unknown as Sentry.ErrorEvent);
+    });
 
     expect(event.breadcrumbs?.[0]?.data?.email).toBe("[redacted]");
     expect(event.breadcrumbs?.[0]?.data?.url).toBe("/api/trips");

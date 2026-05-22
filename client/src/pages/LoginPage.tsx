@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { signIn, signUp } from "@/lib/auth";
 import { useT } from "@/i18n/provider";
-import appLogo from "/pwa-192x192.png?url";
+const appLogo = "/favicon.svg";
 
 export function LoginPage() {
   const t = useT();

@@ -12,3 +12,9 @@ export function hasBlockingTripDataForUpdate(): boolean {
     hasPendingTrips()
   );
 }
+
+export function runWhenNoBlockingTripData(action: () => void): boolean {
+  if (hasBlockingTripDataForUpdate()) return false;
+  action();
+  return true;
+}

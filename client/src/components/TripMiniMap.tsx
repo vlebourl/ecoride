@@ -1,3 +1,4 @@
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useState, useMemo, useEffect, useRef } from "react";
 import Map, { Source, Layer, useMap } from "react-map-gl/maplibre";
 import type { LayerProps } from "react-map-gl/maplibre";

@@ -3,7 +3,7 @@ module.exports = {
     collect: {
       staticDistDir: "./client/dist",
       url: ["http://localhost/"],
-      numberOfRuns: 1,
+      numberOfRuns: 3,
     },
     upload: {
       target: "temporary-public-storage",

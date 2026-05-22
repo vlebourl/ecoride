@@ -11,7 +11,7 @@ vi.mock("@/lib/stopped-session", () => ({
   hasStoppedSession: () => hasStoppedSessionMock(),
 }));
 
-import { hasBlockingTripDataForUpdate } from "../update-guard";
+import { hasBlockingTripDataForUpdate, runWhenNoBlockingTripData } from "../update-guard";
 
 const localStore = new Map<string, string>();
 const sessionStore = new Map<string, string>();
@@ -67,5 +67,18 @@ describe("hasBlockingTripDataForUpdate", () => {
 
   it("returns false when no trip data needs protection", () => {
     expect(hasBlockingTripDataForUpdate()).toBe(false);
+  });
+
+  it("skips automatic actions when trip data must be protected", () => {
+    const action = vi.fn();
+    sessionStorage.setItem("ecoride-trip-session", "2026-04-09T10:00:00.000Z");
+    expect(runWhenNoBlockingTripData(action)).toBe(false);
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it("runs automatic actions when no trip data is at risk", () => {
+    const action = vi.fn();
+    expect(runWhenNoBlockingTripData(action)).toBe(true);
+    expect(action).toHaveBeenCalledOnce();
   });
 });

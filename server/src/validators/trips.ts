@@ -41,8 +41,6 @@ export const createTripSchema = z
     },
   );
 
-export type CreateTripInput = z.infer<typeof createTripSchema>;
-
 const importTripSchema = z
   .object({
     distanceKm: z.number().positive().max(500),
@@ -64,6 +62,3 @@ const importTripSchema = z
 export const importDataSchema = z.object({
   trips: z.array(importTripSchema).max(5000),
 });
-
-export type ImportTripInput = z.infer<typeof importTripSchema>;
-export type ImportDataInput = z.infer<typeof importDataSchema>;

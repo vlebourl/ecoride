@@ -93,7 +93,7 @@ export async function unsubscribeFromPush(): Promise<void> {
 /**
  * Get the current push subscription, if any.
  */
-export async function getCurrentPushSubscription(): Promise<PushSubscription | null> {
+async function getCurrentPushSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
   try {
     const registration = await navigator.serviceWorker.getRegistration();

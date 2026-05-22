@@ -38,5 +38,3 @@ export const updateUserSchema = z
       path: ["super73AutoModeLowSpeedKmh"],
     },
   );
-
-export type UpdateUserInput = z.infer<typeof updateUserSchema>;

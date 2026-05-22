@@ -7,7 +7,6 @@ import type {
   CommunityTimelineResponse,
   LeaderboardEntry,
   CreateTripRequest,
-  CreateTripPresetRequest,
   CreateTripPresetFromTripRequest,
   UpdateUserRequest,
   StatsPeriod,
@@ -194,7 +193,7 @@ export interface AdminHealthData {
   dbSizeMb: number;
 }
 
-export interface AdminStatsUser {
+interface AdminStatsUser {
   id: string;
   name: string;
   email: string;
@@ -460,21 +459,6 @@ export function useCreateTrip() {
       qc.invalidateQueries({ queryKey: ["stats"] });
       qc.invalidateQueries({ queryKey: ["achievements"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
-    },
-  });
-}
-
-export function useCreateTripPreset() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: CreateTripPresetRequest) =>
-      apiFetch<{ ok: boolean; data: { tripPreset: TripPreset } }>("/trip-presets", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }).then((r) => r.data.tripPreset),
-    onSuccess: (tripPreset) => {
-      qc.setQueryData<TripPreset[]>(["trip-presets"], (current = []) => [tripPreset, ...current]);
-      qc.invalidateQueries({ queryKey: ["trip-presets"] });
     },
   });
 }

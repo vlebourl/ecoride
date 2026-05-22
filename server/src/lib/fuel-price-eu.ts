@@ -12,7 +12,7 @@ import type { FuelType } from "@ecoride/shared/types";
  * fuel-price.ts. The Oil Bulletin does not publish E85/GPL for most members,
  * so those fall back to the French average too.
  */
-export const EU_COUNTRY_PRICES: Record<string, Partial<Record<FuelType, number>>> = {
+const EU_COUNTRY_PRICES: Record<string, Partial<Record<FuelType, number>>> = {
   BE: { sp95: 1.72, sp98: 1.78, diesel: 1.78 },
   LU: { sp95: 1.5, sp98: 1.56, diesel: 1.4 },
   DE: { sp95: 1.75, sp98: 1.83, diesel: 1.65 },

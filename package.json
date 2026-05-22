@@ -19,8 +19,10 @@
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lint:strict": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "quality:local": "bun run format:check && bun run lint && bun run typecheck",
     "prepare": "husky"
   },
   "lint-staged": {

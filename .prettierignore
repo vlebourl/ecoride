@@ -3,3 +3,9 @@ dist
 .claude
 design
 bun.lock
+
+# Local workspace artifacts
+client/test-results
+/entities.json
+/mempalace.yaml
+/quality-gate.md

@@ -28,4 +28,19 @@ describe("InterruptMenu", () => {
     const btn = screen.getByRole("button", { name: "Enregistrer" }) as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
   });
+
+  it("renders Enregistrer as a positive secondary action distinct from Reprendre", () => {
+    renderWithI18n(<InterruptMenu {...baseProps} canStop={true} />);
+
+    const resume = screen.getByRole("button", { name: "Reprendre" });
+    const save = screen.getByRole("button", { name: "Enregistrer" });
+
+    expect(resume.className).toContain("bg-primary");
+    expect(resume.className).toContain("text-bg");
+    expect(save.className).toContain("border-primary/40");
+    expect(save.className).toContain("bg-primary/10");
+    expect(save.className).toContain("text-primary-light");
+    expect(save.className).not.toContain("bg-primary ");
+    expect(save.className).not.toContain("bg-surface-high");
+  });
 });

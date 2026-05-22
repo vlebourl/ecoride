@@ -52,7 +52,7 @@ export function InterruptMenu({
             onClick={onStop}
             disabled={!canStop}
             title={canStop ? undefined : t("trip.interrupt.tooShort")}
-            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-surface-high py-4 text-base font-bold text-text active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border border-primary/40 bg-primary/10 py-4 text-base font-bold text-primary-light active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Square size={18} fill="currentColor" />
             {t("trip.interrupt.save")}

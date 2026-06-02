@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import {
   Super73Provider,
   useSuper73,
@@ -21,6 +21,7 @@ const startStateNotificationsMock = vi.fn().mockResolvedValue(null);
 
 vi.mock("@/lib/super73-ble", () => ({
   isBleSupported: () => true,
+  isBleDebugEnabled: () => false,
   scanAndConnect: (...args: unknown[]) => scanAndConnectMock(...args),
   reconnectPairedDevice: (...args: unknown[]) => reconnectPairedDeviceMock(...args),
   readState: (...args: unknown[]) => readStateMock(...args),
@@ -53,6 +54,7 @@ function Consumer({ label }: { label: string }) {
   return (
     <div>
       <button onClick={() => ble.connect()}>{label} connect</button>
+      <button onClick={() => void ble.toggleMode()}>{label} toggle</button>
       <span>
         {label}:{ble.status}
       </span>
@@ -64,6 +66,9 @@ function Consumer({ label }: { label: string }) {
       </span>
       <span>
         {label}-light:{ble.bikeState?.light ? "on" : "off"}
+      </span>
+      <span>
+        {label}-selection:{ble.tripModeSelection}
       </span>
       <span>
         {label}-poll-warning:{ble.epacPollFallbackWarning ? "yes" : "no"}
@@ -338,5 +343,77 @@ describe("useSuper73 provider", () => {
         mode: "eco",
       });
     });
+  });
+});
+
+// Regression for issue #326: in connected-bike mode, selecting Off-Road then using
+// the bike's assist-3 button to force EPAC must NOT leave a stale "race" selection
+// behind. Otherwise, once the rider moves assist back to 4, the mode stays EPAC
+// (eco) but the compact icon resurfaces as Off-Road (blue triangle).
+describe("useSuper73 provider — EPAC enforcement resets stale trip-mode selection (issue #326)", () => {
+  let notify: ((state: Super73State) => void) | undefined;
+
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+    reconnectPairedDeviceMock.mockResolvedValue(null);
+    writeStateMock.mockResolvedValue(undefined);
+    // Bike starts in EPAC (eco) at assist 4 so toggleMode flips the selection to race.
+    readStateMock.mockResolvedValue({ mode: "eco", assist: 4, light: false, region: "eu" });
+    scanAndConnectMock.mockResolvedValue(buildDevice());
+    // Capture the notifier callback so the test can simulate bike-side state pushes.
+    notify = undefined;
+    startStateNotificationsMock.mockImplementation((_server: unknown, onState: unknown) => {
+      notify = onState as (state: Super73State) => void;
+      return Promise.resolve(() => {});
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    // Restore the default (notifier unavailable) for the rest of the suite.
+    startStateNotificationsMock.mockReset().mockResolvedValue(null);
+  });
+
+  it("keeps the icon on EPAC after assist 3 → 4 when Off-Road was previously selected", async () => {
+    render(
+      <Super73Provider enabled tracking={{ isTracking: true, speedKmh: 20 }}>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:connected")).toBeTruthy();
+    });
+
+    // Rider selects Off-Road → intent becomes "race", icon shows Off-Road.
+    fireEvent.click(screen.getByText("trip toggle"));
+    await waitFor(() => {
+      expect(screen.getByText("trip-mode:race")).toBeTruthy();
+      expect(screen.getByText("trip-selection:race")).toBeTruthy();
+    });
+
+    // Rider sets assist to 3 on the bike → EPAC enforcement forces mode back to eco.
+    await act(async () => {
+      notify?.({ mode: "race", assist: 3, light: false, region: "eu" });
+    });
+    await waitFor(() => {
+      expect(screen.getByText("trip-mode:eco")).toBeTruthy();
+      // Masked by the assist===3 branch while assist stays at the trigger level.
+      expect(screen.getByText("trip-selection:eco")).toBeTruthy();
+    });
+
+    // Rider sets assist back to 4 → mode stays EPAC; the icon MUST stay EPAC too.
+    await act(async () => {
+      notify?.({ mode: "eco", assist: 4, light: false, region: "eu" });
+    });
+    await waitFor(() => {
+      expect(screen.getByText("trip-assist:4")).toBeTruthy();
+    });
+    expect(screen.getByText("trip-mode:eco")).toBeTruthy();
+    // Before the fix this resurfaced as "race" (Off-Road icon) — the bug.
+    expect(screen.getByText("trip-selection:eco")).toBeTruthy();
   });
 });

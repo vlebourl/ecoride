@@ -218,6 +218,12 @@ function useSuper73Controller(
     cacheState(state);
     if (shouldTriggerEpac(state) && serverRef.current?.connected) {
       const epacState: Super73State = { ...state, mode: "eco" };
+      // EPAC enforcement overrides the bike mode to eco. Clear any stale trip-mode
+      // intent (e.g. "race") so the compact icon doesn't resurface as off-road once
+      // the rider moves assist away from the trigger level — without this reset the
+      // assist===3 branch in deriveTripModeSelection only masks the stale intent,
+      // which reappears at assist 4 while the mode legitimately stays eco. See #326.
+      setTripModeSelectionIntent("eco");
       void writeState(serverRef.current, epacState).then(() => {
         setBikeState(epacState);
         cacheState(epacState);

@@ -510,3 +510,82 @@ describe("writeState", () => {
     ]);
   });
 });
+
+// Regression for issue #326: Web Bluetooth rejects overlapping GATT operations and
+// rapid concurrent reads/writes (mode cycling + EPAC notifier write + auto-mode
+// effect) can destabilize the link and drop the connection. readState/writeState
+// must be funneled through a single FIFO queue so only one operation runs at a time.
+describe("GATT operation serialization", () => {
+  function makeGatedGATT(stateBytes: number[]) {
+    let active = 0;
+    let maxActive = 0;
+    // Each gated op holds the "GATT busy" slot until a real timer fires, so any
+    // overlap between concurrent operations is observable via maxActive.
+    const gate = () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      return new Promise<void>((resolve) =>
+        setTimeout(() => {
+          active -= 1;
+          resolve();
+        }, 0),
+      );
+    };
+
+    const registerIdChar = { writeValue: vi.fn().mockImplementation(gate) };
+    const registerChar = {
+      writeValue: vi.fn().mockImplementation(gate),
+      readValue: vi.fn().mockImplementation(async () => {
+        await gate();
+        return { buffer: new Uint8Array(stateBytes).buffer };
+      }),
+    };
+    const service = {
+      getCharacteristic: vi.fn().mockImplementation((uuid: string) => {
+        if (uuid === "00001564-1212-efde-1523-785feabcd123") return Promise.resolve(registerIdChar);
+        if (uuid === "0000155f-1212-efde-1523-785feabcd123") return Promise.resolve(registerChar);
+        return Promise.reject(new Error("Unknown char"));
+      }),
+    };
+    const server = {
+      connected: true,
+      getPrimaryService: vi.fn().mockResolvedValue(service),
+    } as unknown as BluetoothRemoteGATTServer;
+
+    return { server, getMaxActive: () => maxActive };
+  }
+
+  it("never runs two GATT operations concurrently across reads and writes", async () => {
+    const { server, getMaxActive } = makeGatedGATT([3, 0, 2, 0, 1, 6, 0, 0, 0, 0]);
+    const state: Super73State = { mode: "race", assist: 4, light: true, region: "eu" };
+
+    // Fire several operations at once — exactly the pattern that overloads the bike
+    // when the rider cycles modes while the notifier and auto-mode effect also write.
+    await Promise.all([
+      readState(server),
+      writeState(server, state),
+      readState(server),
+      writeState(server, state),
+    ]);
+
+    expect(getMaxActive()).toBe(1);
+  });
+
+  it("does not wedge the queue when one operation fails", async () => {
+    const failing = {
+      connected: true,
+      getPrimaryService: vi.fn().mockRejectedValue(new Error("GATT error")),
+    } as unknown as BluetoothRemoteGATTServer;
+
+    await expect(readState(failing)).rejects.toThrow();
+
+    // A subsequent healthy operation must still run.
+    const { server } = makeGatedGATT([3, 0, 2, 0, 1, 6, 0, 0, 0, 0]);
+    await expect(readState(server)).resolves.toEqual({
+      mode: "sport",
+      assist: 2,
+      light: true,
+      region: "eu",
+    });
+  });
+});

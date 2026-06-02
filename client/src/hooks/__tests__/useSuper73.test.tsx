@@ -189,6 +189,13 @@ describe("useSuper73 helpers", () => {
       );
     });
 
+    it("shows off-road at assist=3 when the bike is actually still in race (EPAC write pending or failed)", () => {
+      const state = { ...baseState, assist: 3, mode: "race" as const };
+      // The icon must reflect reality, not blindly assume EPAC landed.
+      expect(deriveTripModeSelection(state, prefs, tracking, "eco")).toBe("race");
+      expect(deriveTripModeSelection(state, prefs, tracking, "race")).toBe("race");
+    });
+
     it("keeps an explicit eco or race override while tracking with profile auto mode enabled", () => {
       const state = { ...baseState, assist: 2, mode: "tour" as const };
       expect(deriveTripModeSelection(state, prefs, tracking, "eco")).toBe("eco");
@@ -443,6 +450,12 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     // bike stays in race.
     await act(async () => {
       notify?.({ mode: "race", assist: 3, light: false, region: "eu" });
+    });
+    // While assist stays at 3, the icon must NOT claim EPAC — the bike is still in
+    // off-road because the write failed.
+    await waitFor(() => {
+      expect(screen.getByText("trip-mode:race")).toBeTruthy();
+      expect(screen.getByText("trip-selection:race")).toBeTruthy();
     });
 
     // Rider sets assist back to 4 — the bike is still in race (the write failed).

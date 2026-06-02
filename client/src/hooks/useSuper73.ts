@@ -53,8 +53,12 @@ export function deriveTripModeSelection(
   tracking: Super73TrackingInput,
   currentSelection: Super73TripModeSelection | null = null,
 ): Super73TripModeSelection {
-  // Assist 3 = EPAC enforcement — auto mode doesn't apply
-  if (state?.assist === 3) return "eco";
+  // Assist 3 = EPAC enforcement — auto mode doesn't apply. The icon must stay
+  // honest: show off-road only while the bike actually reports race (e.g. the EPAC
+  // write is still pending or failed). Once enforcement lands (mode === eco) it
+  // shows EPAC. Don't blindly assume eco, or a failed write would claim EPAC while
+  // the bike is still in off-road for as long as assist stays at 3. See #326.
+  if (state?.assist === 3) return state.mode === "race" ? "race" : "eco";
   if (currentSelection === "auto")
     return tracking.isTracking ? "auto" : state?.mode === "race" ? "race" : "eco";
   if (currentSelection === "eco" || currentSelection === "race") return currentSelection;

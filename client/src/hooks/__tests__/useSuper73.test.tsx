@@ -416,4 +416,46 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     // Before the fix this resurfaced as "race" (Off-Road icon) — the bug.
     expect(screen.getByText("trip-selection:eco")).toBeTruthy();
   });
+
+  it("keeps the icon on the real off-road mode when the EPAC write fails", async () => {
+    render(
+      <Super73Provider enabled tracking={{ isTracking: true, speedKmh: 20 }}>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:connected")).toBeTruthy();
+    });
+
+    // Rider selects Off-Road → intent "race".
+    fireEvent.click(screen.getByText("trip toggle"));
+    await waitFor(() => {
+      expect(screen.getByText("trip-mode:race")).toBeTruthy();
+      expect(screen.getByText("trip-selection:race")).toBeTruthy();
+    });
+
+    // The EPAC enforcement write fails (bike out of range, GATT error, ...).
+    writeStateMock.mockRejectedValueOnce(new Error("BLE write failed"));
+
+    // Rider sets assist to 3 — enforcement is attempted but the write fails, so the
+    // bike stays in race.
+    await act(async () => {
+      notify?.({ mode: "race", assist: 3, light: false, region: "eu" });
+    });
+
+    // Rider sets assist back to 4 — the bike is still in race (the write failed).
+    await act(async () => {
+      notify?.({ mode: "race", assist: 4, light: false, region: "eu" });
+    });
+    await waitFor(() => {
+      expect(screen.getByText("trip-assist:4")).toBeTruthy();
+    });
+
+    // The icon must reflect the bike's real mode (off-road), not a phantom EPAC.
+    // An over-eager intent reset (before the write is confirmed) would lie here.
+    expect(screen.getByText("trip-mode:race")).toBeTruthy();
+    expect(screen.getByText("trip-selection:race")).toBeTruthy();
+  });
 });

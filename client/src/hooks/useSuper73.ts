@@ -218,16 +218,25 @@ function useSuper73Controller(
     cacheState(state);
     if (shouldTriggerEpac(state) && serverRef.current?.connected) {
       const epacState: Super73State = { ...state, mode: "eco" };
-      // EPAC enforcement overrides the bike mode to eco. Clear any stale trip-mode
-      // intent (e.g. "race") so the compact icon doesn't resurface as off-road once
-      // the rider moves assist away from the trigger level — without this reset the
-      // assist===3 branch in deriveTripModeSelection only masks the stale intent,
-      // which reappears at assist 4 while the mode legitimately stays eco. See #326.
-      setTripModeSelectionIntent("eco");
-      void writeState(serverRef.current, epacState).then(() => {
-        setBikeState(epacState);
-        cacheState(epacState);
-      });
+      void writeState(serverRef.current, epacState)
+        .then(() => {
+          setBikeState(epacState);
+          cacheState(epacState);
+          // Reset the stale trip-mode intent (e.g. "race") ONLY after the bike has
+          // confirmed eco. The assist===3 branch in deriveTripModeSelection masks the
+          // stale intent while assist stays at the trigger level; without this reset
+          // it would resurface as the off-road icon once assist returns to 4 even
+          // though the mode legitimately stays eco. Gating on write success is what
+          // keeps the icon honest: a *failed* write must leave the icon on the bike's
+          // real (still off-road) mode rather than claiming EPAC. See #326.
+          setTripModeSelectionIntent("eco");
+        })
+        .catch(() => {
+          // Write failed: leave bikeState and the trip-mode intent untouched so the
+          // icon keeps reflecting the bike's real mode. The bike is still at the
+          // trigger assist level with a non-eco mode, so the next notifier packet
+          // re-triggers EPAC enforcement.
+        });
     }
     if (isBleDebugEnabled() && !isPollActiveRef.current && serverRef.current?.connected) {
       isPollActiveRef.current = true;

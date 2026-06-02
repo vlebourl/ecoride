@@ -53,8 +53,12 @@ export function deriveTripModeSelection(
   tracking: Super73TrackingInput,
   currentSelection: Super73TripModeSelection | null = null,
 ): Super73TripModeSelection {
-  // Assist 3 = EPAC enforcement — auto mode doesn't apply
-  if (state?.assist === 3) return "eco";
+  // Assist 3 = EPAC enforcement — auto mode doesn't apply. The icon must stay
+  // honest: show off-road only while the bike actually reports race (e.g. the EPAC
+  // write is still pending or failed). Once enforcement lands (mode === eco) it
+  // shows EPAC. Don't blindly assume eco, or a failed write would claim EPAC while
+  // the bike is still in off-road for as long as assist stays at 3. See #326.
+  if (state?.assist === 3) return state.mode === "race" ? "race" : "eco";
   if (currentSelection === "auto")
     return tracking.isTracking ? "auto" : state?.mode === "race" ? "race" : "eco";
   if (currentSelection === "eco" || currentSelection === "race") return currentSelection;
@@ -218,10 +222,25 @@ function useSuper73Controller(
     cacheState(state);
     if (shouldTriggerEpac(state) && serverRef.current?.connected) {
       const epacState: Super73State = { ...state, mode: "eco" };
-      void writeState(serverRef.current, epacState).then(() => {
-        setBikeState(epacState);
-        cacheState(epacState);
-      });
+      void writeState(serverRef.current, epacState)
+        .then(() => {
+          setBikeState(epacState);
+          cacheState(epacState);
+          // Reset the stale trip-mode intent (e.g. "race") ONLY after the bike has
+          // confirmed eco. The assist===3 branch in deriveTripModeSelection masks the
+          // stale intent while assist stays at the trigger level; without this reset
+          // it would resurface as the off-road icon once assist returns to 4 even
+          // though the mode legitimately stays eco. Gating on write success is what
+          // keeps the icon honest: a *failed* write must leave the icon on the bike's
+          // real (still off-road) mode rather than claiming EPAC. See #326.
+          setTripModeSelectionIntent("eco");
+        })
+        .catch(() => {
+          // Write failed: leave bikeState and the trip-mode intent untouched so the
+          // icon keeps reflecting the bike's real mode. The bike is still at the
+          // trigger assist level with a non-eco mode, so the next notifier packet
+          // re-triggers EPAC enforcement.
+        });
     }
     if (isBleDebugEnabled() && !isPollActiveRef.current && serverRef.current?.connected) {
       isPollActiveRef.current = true;

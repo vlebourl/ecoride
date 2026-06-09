@@ -176,24 +176,46 @@ async function getCharacteristics(server: BluetoothRemoteGATTServer) {
   return { registerIdChar, registerChar };
 }
 
+// Web Bluetooth rejects overlapping GATT operations ("GATT operation already in
+// progress") and rapid concurrent reads/writes can destabilize the link and drop
+// the connection. Mode cycling, the EPAC notifier write, and the auto-mode effect
+// can all issue operations at once, so every read/write is funneled through a single
+// FIFO queue to guarantee only one GATT operation runs at a time.
+let gattQueue: Promise<unknown> = Promise.resolve();
+
+function serializeGatt<T>(operation: () => Promise<T>): Promise<T> {
+  // Chain onto the queue regardless of whether the previous op resolved or rejected,
+  // so a single failed operation never wedges the queue for subsequent ones.
+  const result = gattQueue.then(operation, operation);
+  gattQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
 export async function readState(
   server: BluetoothRemoteGATTServer,
   source = "poll",
 ): Promise<Super73State> {
-  const { registerIdChar, registerChar } = await getCharacteristics(server);
-  // Request state by writing [3, 0] to register ID
-  await withTimeout(registerIdChar.writeValue(new Uint8Array([3, 0])));
-  const value = await withTimeout(registerChar.readValue());
-  return parseStateBytes(new Uint8Array(value.buffer), source);
+  return serializeGatt(async () => {
+    const { registerIdChar, registerChar } = await getCharacteristics(server);
+    // Request state by writing [3, 0] to register ID
+    await withTimeout(registerIdChar.writeValue(new Uint8Array([3, 0])));
+    const value = await withTimeout(registerChar.readValue());
+    return parseStateBytes(new Uint8Array(value.buffer), source);
+  });
 }
 
 export async function writeState(
   server: BluetoothRemoteGATTServer,
   state: Super73State,
 ): Promise<void> {
-  const { registerChar } = await getCharacteristics(server);
-  const command = buildWriteCommand(state);
-  await withTimeout(registerChar.writeValue(command as unknown as BufferSource));
+  return serializeGatt(async () => {
+    const { registerChar } = await getCharacteristics(server);
+    const command = buildWriteCommand(state);
+    await withTimeout(registerChar.writeValue(command as unknown as BufferSource));
+  });
 }
 
 /**

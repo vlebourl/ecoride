@@ -230,6 +230,31 @@ export function parseSpeedPacket(bytes: Uint8Array): number | null {
 }
 
 /**
+ * Battery/range calibration. The bike reports a single raw byte (data[8] of the
+ * RIDE frame). With BASE === REAL === 60 the raw byte maps 1:1 to km, matching
+ * Walker73's defaults. Recalibrate REAL on a real bike if a model tops out elsewhere.
+ */
+export const SUPER73_BASE_MAX_RANGE = 60;
+export const SUPER73_REAL_MAX_RANGE = 60;
+
+/**
+ * Parse a RIDE telemetry packet (byte[0]=0x02, byte[1]=0x03).
+ * byte[8] = raw remaining range reported by the bike's computer.
+ * Returns null for non-RIDE or truncated frames.
+ */
+export function parseRidePacket(
+  bytes: Uint8Array,
+): { rangeKm: number; batteryPercent: number } | null {
+  if (bytes.length < 9 || bytes[0] !== 0x02 || bytes[1] !== 0x03) return null;
+  const clamped = Math.min(Math.max(bytes[8]!, 0), SUPER73_BASE_MAX_RANGE);
+  const ratio = clamped / SUPER73_BASE_MAX_RANGE;
+  return {
+    rangeKm: ratio * SUPER73_REAL_MAX_RANGE,
+    batteryPercent: Math.round(ratio * 100),
+  };
+}
+
+/**
  * Subscribe to state change notifications pushed by the bike.
  * Returns a cleanup function on success, or null if the firmware doesn't support it.
  *

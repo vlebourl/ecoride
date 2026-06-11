@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   parseStateBytes,
   parseSpeedPacket,
+  parseRidePacket,
   buildWriteCommand,
   decodeMode,
   encodeMode,
@@ -587,5 +588,34 @@ describe("GATT operation serialization", () => {
       light: true,
       region: "eu",
     });
+  });
+});
+
+describe("parseRidePacket", () => {
+  const ride = (raw: number) => {
+    const b = new Uint8Array(10);
+    b[0] = 0x02;
+    b[1] = 0x03;
+    b[8] = raw;
+    return b;
+  };
+
+  it("decodes data[8] to km and battery percent (identity 60/60)", () => {
+    expect(parseRidePacket(ride(45))).toEqual({ rangeKm: 45, batteryPercent: 75 });
+  });
+
+  it("returns 0/0 for an empty battery", () => {
+    expect(parseRidePacket(ride(0))).toEqual({ rangeKm: 0, batteryPercent: 0 });
+  });
+
+  it("caps at 100% / max range when raw exceeds the base", () => {
+    expect(parseRidePacket(ride(60))).toEqual({ rangeKm: 60, batteryPercent: 100 });
+    expect(parseRidePacket(ride(255))).toEqual({ rangeKm: 60, batteryPercent: 100 });
+  });
+
+  it("returns null for non-RIDE frames", () => {
+    const speed = new Uint8Array([0x02, 0x01, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(parseRidePacket(speed)).toBeNull();
+    expect(parseRidePacket(new Uint8Array([0x02, 0x03]))).toBeNull(); // too short
   });
 });

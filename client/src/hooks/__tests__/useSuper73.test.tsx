@@ -15,6 +15,7 @@ import type { Super73State } from "@/lib/super73-ble";
 const scanAndConnectMock = vi.fn();
 const reconnectPairedDeviceMock = vi.fn();
 const readStateMock = vi.fn();
+const readRideMock = vi.fn().mockResolvedValue(null);
 const writeStateMock = vi.fn();
 // Simulates notifier unavailable by default (returns null = firmware doesn't support it).
 const startStateNotificationsMock = vi.fn().mockResolvedValue(null);
@@ -25,6 +26,7 @@ vi.mock("@/lib/super73-ble", () => ({
   scanAndConnect: (...args: unknown[]) => scanAndConnectMock(...args),
   reconnectPairedDevice: (...args: unknown[]) => reconnectPairedDeviceMock(...args),
   readState: (...args: unknown[]) => readStateMock(...args),
+  readRide: (...args: unknown[]) => readRideMock(...args),
   writeState: (...args: unknown[]) => writeStateMock(...args),
   startStateNotifications: (...args: unknown[]) => startStateNotificationsMock(...args),
 }));
@@ -72,6 +74,23 @@ function Consumer({ label }: { label: string }) {
       </span>
       <span>
         {label}-poll-warning:{ble.epacPollFallbackWarning ? "yes" : "no"}
+      </span>
+    </div>
+  );
+}
+
+function BatteryConsumer({ label }: { label: string }) {
+  const ble = useSuper73();
+  // Render "null" vs "undefined" distinctly so the test fails (shows "undefined")
+  // until the hook actually exposes the field initialised to null.
+  const fmt = (v: number | null) => (v === null ? "null" : v === undefined ? "undefined" : v);
+  return (
+    <div>
+      <span>
+        {label}-battery:{fmt(ble.batteryPercent)}
+      </span>
+      <span>
+        {label}-range:{fmt(ble.rangeKm)}
       </span>
     </div>
   );
@@ -239,6 +258,16 @@ describe("useSuper73 provider", () => {
     });
 
     expect(scanAndConnectMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes null battery telemetry before any RIDE frame", () => {
+    render(
+      <Super73Provider enabled>
+        <BatteryConsumer label="trip" />
+      </Super73Provider>,
+    );
+    expect(screen.getByText("trip-battery:null")).toBeTruthy();
+    expect(screen.getByText("trip-range:null")).toBeTruthy();
   });
 
   it("applies default mode, assist and light at connection time in one write", async () => {

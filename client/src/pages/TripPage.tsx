@@ -33,6 +33,8 @@ import { useNavigation } from "@/hooks/useNavigation";
 import { DestinationSearch } from "@/components/trip/DestinationSearch";
 import { NavigationBanner } from "@/components/trip/NavigationBanner";
 import { useSuper73 } from "@/hooks/useSuper73";
+import { modeIndex } from "@/lib/super73-ble";
+import { BatteryIndicator } from "@/components/trip/BatteryIndicator";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -84,6 +86,9 @@ export function TripPage() {
 
   const tripPresets = tripPresetsData ?? [];
   const effectiveSpeedKmh = ble.bikeSpeedKmh ?? gps.state.speedKmh;
+  const s73Connected = ble.status === "connected";
+  const assistLevel = s73Connected ? (ble.bikeState?.assist ?? null) : null;
+  const classeLevel = s73Connected && ble.bikeState ? modeIndex(ble.bikeState.mode) + 1 : null;
 
   // --- Custom hooks ---
   const recovery = useSessionRecovery({ gps });
@@ -323,6 +328,11 @@ export function TripPage() {
       <PageHeader
         title={t("trip.header.title")}
         titleHidden
+        center={
+          s73Connected ? (
+            <BatteryIndicator percent={ble.batteryPercent} rangeKm={ble.rangeKm} />
+          ) : undefined
+        }
         right={
           <GpsStatusBadge
             uiState={uiState}
@@ -362,6 +372,8 @@ export function TripPage() {
             co2Saved={co2Saved}
             elapsed={elapsed}
             formatTime={formatTime}
+            assistLevel={assistLevel}
+            classeLevel={classeLevel}
           />
 
           {navigation.destination && (

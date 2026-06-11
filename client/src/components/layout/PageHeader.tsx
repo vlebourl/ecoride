@@ -18,9 +18,11 @@ interface PageHeaderProps {
   back?: { to: string; label?: string };
   /** Slot rendered on the right side of the sticky header bar. */
   right?: ReactNode;
+  /** Slot rendered in the center of the sticky header bar. */
+  center?: ReactNode;
 }
 
-export function PageHeader({ title, subtitle, titleHidden, back, right }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, titleHidden, back, center, right }: PageHeaderProps) {
   const t = useT();
   return (
     <>
@@ -46,6 +48,7 @@ export function PageHeader({ title, subtitle, titleHidden, back, right }: PageHe
             <span className="text-xs text-text-dim">v{__APP_VERSION__}</span>
           </div>
         </div>
+        {center ? <div className="flex items-center">{center}</div> : null}
         {right ? <div className="flex items-center gap-2">{right}</div> : null}
       </header>
 

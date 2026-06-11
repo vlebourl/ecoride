@@ -218,6 +218,18 @@ export async function writeState(
   });
 }
 
+export async function readRide(
+  server: BluetoothRemoteGATTServer,
+): Promise<{ rangeKm: number; batteryPercent: number } | null> {
+  return serializeGatt(async () => {
+    const { registerIdChar, registerChar } = await getCharacteristics(server);
+    // Select the RIDE register, then read its 10 bytes.
+    await withTimeout(registerIdChar.writeValue(new Uint8Array([0x02, 0x03])));
+    const value = await withTimeout(registerChar.readValue());
+    return parseRidePacket(new Uint8Array(value.buffer));
+  });
+}
+
 /**
  * Parse a speed telemetry packet (byte[0]=0x02, byte[1]=0x01).
  * bytes[2-3] as little-endian uint16 / 100 = speed in km/h.
@@ -261,12 +273,14 @@ export function parseRidePacket(
  * The S73 notifier multiplexes packet types on a single characteristic:
  *   byte[0]=0x03 → state packet (mode/assist/light/region) — calls onState
  *   byte[0]=0x02, byte[1]=0x01 → speed telemetry (km/h)   — calls onSpeed
+ *   byte[0]=0x02, byte[1]=0x03 → RIDE frame (range/battery) — calls onRide
  *   byte[0]=0x02 other / 0x04  → odometer / timer          — ignored
  */
 export async function startStateNotifications(
   server: BluetoothRemoteGATTServer,
   onState: (state: Super73State) => void,
   onSpeed?: (speedKmh: number) => void,
+  onRide?: (data: { rangeKm: number; batteryPercent: number }) => void,
 ): Promise<(() => void) | null> {
   try {
     const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE));
@@ -282,6 +296,9 @@ export async function startStateNotifications(
         } catch {
           // malformed packet — skip
         }
+      } else if (bytes[0] === 0x02 && bytes[1] === 0x03) {
+        const ride = parseRidePacket(bytes);
+        if (ride && onRide) onRide(ride);
       } else if (onSpeed) {
         const speedKmh = parseSpeedPacket(bytes);
         if (speedKmh !== null) onSpeed(speedKmh);

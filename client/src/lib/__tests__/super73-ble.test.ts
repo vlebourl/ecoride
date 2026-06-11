@@ -591,6 +591,39 @@ describe("GATT operation serialization", () => {
   });
 });
 
+describe("startStateNotifications RIDE routing", () => {
+  function makeServer() {
+    const listeners: ((e: Event) => void)[] = [];
+    const char = {
+      startNotifications: vi.fn().mockResolvedValue(undefined),
+      addEventListener: (_: string, cb: (e: Event) => void) => listeners.push(cb),
+      removeEventListener: vi.fn(),
+    };
+    const server = {
+      getPrimaryService: vi.fn().mockResolvedValue({
+        getCharacteristic: vi.fn().mockResolvedValue(char),
+      }),
+    } as unknown as BluetoothRemoteGATTServer;
+    const emit = (bytes: number[]) => {
+      const value = { buffer: new Uint8Array(bytes).buffer } as DataView;
+      listeners.forEach((cb) => cb({ target: { value } } as unknown as Event));
+    };
+    return { server, emit };
+  }
+
+  it("routes a 0x02 0x03 frame to onRide", async () => {
+    const { server, emit } = makeServer();
+    const onRide = vi.fn();
+    await startStateNotifications(server, vi.fn(), vi.fn(), onRide);
+    const frame = new Array(10).fill(0);
+    frame[0] = 0x02;
+    frame[1] = 0x03;
+    frame[8] = 30;
+    emit(frame);
+    expect(onRide).toHaveBeenCalledWith({ rangeKm: 30, batteryPercent: 50 });
+  });
+});
+
 describe("parseRidePacket", () => {
   const ride = (raw: number) => {
     const b = new Uint8Array(10);

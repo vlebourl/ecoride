@@ -2,7 +2,7 @@
 
 **Date :** 2026-06-11
 **Statut :** Validé (design), en attente plan d'implémentation
-**Maquette de référence :** `extended-screen.png` (racine du repo)
+**Maquette de référence :** `./2026-06-11-super73-trip-gauges-mockup.png`
 
 ## Objectif
 

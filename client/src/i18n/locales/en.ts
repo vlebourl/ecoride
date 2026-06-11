@@ -42,6 +42,8 @@ export const en: Record<TranslationKey, string> = {
   "trip.dashboard.km": "km",
   "trip.dashboard.co2Unit": "kg CO₂",
   "trip.dashboard.time": "time",
+  "trip.dashboard.assistLabel": "Assist",
+  "trip.dashboard.classeLabel": "Class",
 
   "trip.controls.interrupt": "Pause",
   "trip.controls.interrupted": "Paused",

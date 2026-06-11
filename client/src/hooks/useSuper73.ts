@@ -16,6 +16,7 @@ import {
   readState,
   writeState,
   startStateNotifications,
+  readRide,
   type Super73State,
   type Super73Mode,
 } from "@/lib/super73-ble";
@@ -40,6 +41,9 @@ const MAX_RECONNECT_ATTEMPTS = 1;
 // If a firmware where the notifier silently fails is found, re-enable and consider
 // a smarter trigger (one-shot after action rather than fixed interval).
 // const EPAC_TRIGGER_POLL_INTERVAL_MS = 5_000;
+// Battery/range change slowly; a low-frequency poll guarantees telemetry even if
+// the notifier never pushes RIDE frames on a given firmware.
+const RIDE_POLL_INTERVAL_MS = 20_000;
 const DEFAULT_AUTO_MODE_LOW_SPEED_KMH = 10;
 const DEFAULT_AUTO_MODE_HIGH_SPEED_KMH = 17;
 
@@ -153,6 +157,10 @@ export interface UseSuper73Result {
   bikeState: Super73State | null;
   /** Speed in km/h from the S73 wheel sensor (02 01 BLE packet). Null when not connected. */
   bikeSpeedKmh: number | null;
+  /** Estimated battery percentage (0–100) from the bike's RIDE telemetry. Null until first read. */
+  batteryPercent: number | null;
+  /** Estimated remaining range in km from the bike's RIDE telemetry. Null until first read. */
+  rangeKm: number | null;
   error: string | null;
   tripModeSelection: Super73TripModeSelection;
   connect: () => Promise<void>;
@@ -171,6 +179,8 @@ const NOOP_RESULT: UseSuper73Result = {
   status: "unsupported",
   bikeState: null,
   bikeSpeedKmh: null,
+  batteryPercent: null,
+  rangeKm: null,
   error: null,
   tripModeSelection: "eco",
   connect: async () => {},
@@ -196,6 +206,8 @@ function useSuper73Controller(
   );
   const [bikeState, setBikeState] = useState<Super73State | null>(loadCachedState);
   const [bikeSpeedKmh, setBikeSpeedKmh] = useState<number | null>(null);
+  const [batteryPercent, setBatteryPercent] = useState<number | null>(null);
+  const [rangeKm, setRangeKm] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tripModeSelectionIntent, setTripModeSelectionIntent] =
     useState<Super73TripModeSelection | null>(null);
@@ -287,6 +299,10 @@ function useSuper73Controller(
         device.gatt!,
         stableNotifierHandler,
         setBikeSpeedKmh,
+        (ride) => {
+          setBatteryPercent(ride.batteryPercent);
+          setRangeKm(ride.rangeKm);
+        },
       );
       setStatus("connected");
     },
@@ -319,6 +335,8 @@ function useSuper73Controller(
     serverRef.current = null;
     lastAutoModeZoneRef.current = null;
     setBikeSpeedKmh(null);
+    setBatteryPercent(null);
+    setRangeKm(null);
     if (manualDisconnectRef.current) {
       setStatus("disconnected");
       return;
@@ -522,6 +540,33 @@ function useSuper73Controller(
     preferences.autoModeHighSpeedKmh,
   ]);
 
+  // Low-frequency RIDE telemetry poll (battery % + range). Seeds immediately on
+  // connect, then refreshes every RIDE_POLL_INTERVAL_MS. Best-effort: errors are
+  // swallowed and the indicator simply stays on its last value (or hidden).
+  useEffect(() => {
+    if (status !== "connected") return;
+    const server = serverRef.current;
+    if (!server) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const ride = await readRide(server);
+        if (!cancelled && ride) {
+          setBatteryPercent(ride.batteryPercent);
+          setRangeKm(ride.rangeKm);
+        }
+      } catch {
+        // best-effort telemetry — ignore transient BLE errors
+      }
+    };
+    void poll();
+    const id = setInterval(poll, RIDE_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [status]);
+
   // TODO: poll disabled — see EPAC_TRIGGER_POLL_INTERVAL_MS comment above.
   // useEffect(() => {
   //   if (status !== "connected") return;
@@ -561,6 +606,8 @@ function useSuper73Controller(
     status,
     bikeState,
     bikeSpeedKmh,
+    batteryPercent,
+    rangeKm,
     error,
     tripModeSelection,
     connect,

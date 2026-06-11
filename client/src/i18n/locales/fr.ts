@@ -40,6 +40,8 @@ export const fr = {
   "trip.dashboard.km": "km",
   "trip.dashboard.co2Unit": "kg CO₂",
   "trip.dashboard.time": "temps",
+  "trip.dashboard.assistLabel": "Assistance",
+  "trip.dashboard.classeLabel": "Classe",
 
   "trip.controls.interrupt": "Interrompre",
   "trip.controls.interrupted": "Interrompu",

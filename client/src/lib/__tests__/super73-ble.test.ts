@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   parseStateBytes,
   parseSpeedPacket,
+  parseRidePacket,
   buildWriteCommand,
   decodeMode,
   encodeMode,
@@ -587,5 +588,67 @@ describe("GATT operation serialization", () => {
       light: true,
       region: "eu",
     });
+  });
+});
+
+describe("startStateNotifications RIDE routing", () => {
+  function makeServer() {
+    const listeners: ((e: Event) => void)[] = [];
+    const char = {
+      startNotifications: vi.fn().mockResolvedValue(undefined),
+      addEventListener: (_: string, cb: (e: Event) => void) => listeners.push(cb),
+      removeEventListener: vi.fn(),
+    };
+    const server = {
+      getPrimaryService: vi.fn().mockResolvedValue({
+        getCharacteristic: vi.fn().mockResolvedValue(char),
+      }),
+    } as unknown as BluetoothRemoteGATTServer;
+    const emit = (bytes: number[]) => {
+      const value = { buffer: new Uint8Array(bytes).buffer } as DataView;
+      listeners.forEach((cb) => cb({ target: { value } } as unknown as Event));
+    };
+    return { server, emit };
+  }
+
+  it("routes a 0x02 0x03 frame to onRide", async () => {
+    const { server, emit } = makeServer();
+    const onRide = vi.fn();
+    await startStateNotifications(server, vi.fn(), vi.fn(), onRide);
+    const frame = new Array(10).fill(0);
+    frame[0] = 0x02;
+    frame[1] = 0x03;
+    frame[8] = 30;
+    emit(frame);
+    expect(onRide).toHaveBeenCalledWith({ rangeKm: 30, batteryPercent: 50 });
+  });
+});
+
+describe("parseRidePacket", () => {
+  const ride = (raw: number) => {
+    const b = new Uint8Array(10);
+    b[0] = 0x02;
+    b[1] = 0x03;
+    b[8] = raw;
+    return b;
+  };
+
+  it("decodes data[8] to km and battery percent (identity 60/60)", () => {
+    expect(parseRidePacket(ride(45))).toEqual({ rangeKm: 45, batteryPercent: 75 });
+  });
+
+  it("returns 0/0 for an empty battery", () => {
+    expect(parseRidePacket(ride(0))).toEqual({ rangeKm: 0, batteryPercent: 0 });
+  });
+
+  it("caps at 100% / max range when raw exceeds the base", () => {
+    expect(parseRidePacket(ride(60))).toEqual({ rangeKm: 60, batteryPercent: 100 });
+    expect(parseRidePacket(ride(255))).toEqual({ rangeKm: 60, batteryPercent: 100 });
+  });
+
+  it("returns null for non-RIDE frames", () => {
+    const speed = new Uint8Array([0x02, 0x01, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(parseRidePacket(speed)).toBeNull();
+    expect(parseRidePacket(new Uint8Array([0x02, 0x03]))).toBeNull(); // too short
   });
 });

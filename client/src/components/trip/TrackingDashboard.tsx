@@ -1,4 +1,5 @@
 import { useT } from "@/i18n/provider";
+import { LevelStack } from "./LevelStack";
 
 export interface TrackingDashboardProps {
   isPaused: boolean;
@@ -7,6 +8,10 @@ export interface TrackingDashboardProps {
   co2Saved: number;
   elapsed: number;
   formatTime: (s: number) => string;
+  /** Pedal-assist level 0–4 (green gauge). Null/undefined hides the left gauge. */
+  assistLevel?: number | null;
+  /** Drive-class level 1–4 (blue gauge). Null/undefined hides the right gauge. */
+  classeLevel?: number | null;
 }
 
 export function TrackingDashboard({
@@ -16,28 +21,50 @@ export function TrackingDashboard({
   co2Saved,
   elapsed,
   formatTime,
+  assistLevel,
+  classeLevel,
 }: TrackingDashboardProps) {
   const t = useT();
 
   return (
     <>
-      {/* Speed — hero central */}
-      <div className="flex flex-col items-center py-6">
-        {isPaused ? (
-          <span
-            className="text-5xl font-black tracking-tighter text-warning"
-            aria-label={t("trip.dashboard.pausedAria")}
-          >
-            {t("trip.dashboard.pausedLabel")}
-          </span>
-        ) : (
-          <span className="text-7xl font-black tracking-tighter text-text">
-            {speedKmh != null ? speedKmh.toFixed(0) : "—"}
-          </span>
+      {/* Speed hero, optionally flanked by assist (left) and classe (right) gauges */}
+      <div className="flex items-center justify-center gap-4 py-6">
+        {assistLevel != null && (
+          <LevelStack
+            level={assistLevel}
+            activeColor="bg-primary"
+            label={t("trip.dashboard.assistLabel")}
+            ariaLabel={`${t("trip.dashboard.assistLabel")} ${assistLevel}/4`}
+          />
         )}
-        <span className="text-sm font-bold uppercase tracking-widest text-text-dim">
-          {isPaused ? t("trip.dashboard.pausedUnit") : t("trip.dashboard.speedUnit")}
-        </span>
+
+        <div className="flex flex-col items-center">
+          {isPaused ? (
+            <span
+              className="text-5xl font-black tracking-tighter text-warning"
+              aria-label={t("trip.dashboard.pausedAria")}
+            >
+              {t("trip.dashboard.pausedLabel")}
+            </span>
+          ) : (
+            <span className="text-7xl font-black tracking-tighter text-text">
+              {speedKmh != null ? speedKmh.toFixed(0) : "—"}
+            </span>
+          )}
+          <span className="text-sm font-bold uppercase tracking-widest text-text-dim">
+            {isPaused ? t("trip.dashboard.pausedUnit") : t("trip.dashboard.speedUnit")}
+          </span>
+        </div>
+
+        {classeLevel != null && (
+          <LevelStack
+            level={classeLevel}
+            activeColor="bg-[#60A5FA]"
+            label={t("trip.dashboard.classeLabel")}
+            ariaLabel={`${t("trip.dashboard.classeLabel")} ${classeLevel}/4`}
+          />
+        )}
       </div>
 
       {/* Distance / CO₂ / Temps — row */}

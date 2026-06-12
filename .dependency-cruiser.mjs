@@ -1,6 +1,12 @@
 const SOURCE_PATH = "^(client/src|server/src|shared)";
 const APP_SOURCE_PATH = "^(client/src|server/src)";
 const NON_PROD_PATH = "(?:^|/)(?:__tests__/|[^/]+[.](?:test|spec)[.](?:ts|tsx)$)";
+const ACCEPTED_ORPHAN_PATHS = [
+  "^client/src/vite-env\\.d\\.ts$",
+  "^server/src/types/context\\.ts$",
+  "^shared/api-contracts\\.ts$",
+  "^shared/types\\.ts$",
+];
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 export default {
@@ -34,6 +40,18 @@ export default {
           "^vite/",
         ],
       },
+    },
+    {
+      name: "no-orphans",
+      severity: "error",
+      comment:
+        "Flag source files with no in-repo dependents, while explicitly baselining known entrypoint/type-only modules.",
+      from: {
+        orphan: true,
+        path: SOURCE_PATH,
+        pathNot: [NON_PROD_PATH, ...ACCEPTED_ORPHAN_PATHS],
+      },
+      to: {},
     },
     {
       name: "client-does-not-import-server",

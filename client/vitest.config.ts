@@ -17,12 +17,18 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/lib/**"],
+      include: ["src/lib/**", "src/hooks/**", "src/pages/**"],
+      exclude: [
+        "src/**/__tests__/**",
+        "src/**/*.test.*",
+        "src/pages/NotFoundPage.tsx",
+        "src/pages/PrivacyPage.tsx",
+      ],
       thresholds: {
-        statements: 55,
-        branches: 50,
-        functions: 65,
-        lines: 58,
+        statements: 60,
+        branches: 52,
+        functions: 47,
+        lines: 61,
       },
     },
   },

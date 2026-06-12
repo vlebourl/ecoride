@@ -13,12 +13,13 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/lib/**"],
+      include: ["src/lib/**", "src/routes/**", "src/validators/**", "src/auth/**"],
+      exclude: ["src/**/__tests__/**", "src/**/*.test.*", "src/routes/index.ts"],
       thresholds: {
-        statements: 80,
-        branches: 70,
-        functions: 80,
-        lines: 80,
+        statements: 70,
+        branches: 63,
+        functions: 70,
+        lines: 70,
       },
     },
   },

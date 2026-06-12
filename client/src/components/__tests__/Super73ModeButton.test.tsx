@@ -42,7 +42,7 @@ describe("Super73ModeButton compact", () => {
     expect(button.className).toContain("self-stretch");
   });
 
-  it("renders the EPAC icon state", () => {
+  it("renders the EPAC icon state with the real light status", () => {
     useSuper73Mock.mockReturnValue({
       status: "connected",
       bikeState: { mode: "eco", assist: 2, light: false, region: "eu" },
@@ -59,7 +59,62 @@ describe("Super73ModeButton compact", () => {
 
     renderWithI18n(<Super73ModeButton enabled compact />);
 
+    const button = screen.getByRole("button", { name: "Mode EPAC · Phare éteint" });
+    const lightIcon = screen.getByTestId("super73-light-state-icon");
+    const lightSvg = lightIcon.querySelector("svg");
+
+    expect(button).toBeTruthy();
+    expect(lightIcon.getAttribute("data-state")).toBe("off");
+    expect(lightSvg?.getAttribute("class")).toContain("lucide-sun-dim");
+  });
+
+  it("renders the light-on state with the accessible label and sun icon", () => {
+    useSuper73Mock.mockReturnValue({
+      status: "connected",
+      bikeState: { mode: "eco", assist: 2, light: true, region: "eu" },
+      error: null,
+      tripModeSelection: "eco",
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      setMode: vi.fn(),
+      setAssist: vi.fn(),
+      setLight: vi.fn(),
+      toggleMode: vi.fn(),
+      cycleTripModeSelection: vi.fn(),
+    });
+
+    renderWithI18n(<Super73ModeButton enabled compact />);
+
+    const button = screen.getByRole("button", { name: "Mode EPAC · Phare allumé" });
+    const lightIcon = screen.getByTestId("super73-light-state-icon");
+    const lightSvg = lightIcon.querySelector("svg");
+
+    expect(button).toBeTruthy();
+    expect(lightIcon.getAttribute("data-state")).toBe("on");
+    expect(lightSvg?.getAttribute("class")).toContain("lucide-sun");
+    expect(lightSvg?.querySelectorAll("circle")).toHaveLength(1);
+    expect(lightSvg?.querySelectorAll("path")).toHaveLength(8);
+  });
+
+  it("falls back to the mode label when bikeState is unavailable", () => {
+    useSuper73Mock.mockReturnValue({
+      status: "connected",
+      bikeState: null,
+      error: null,
+      tripModeSelection: "eco",
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      setMode: vi.fn(),
+      setAssist: vi.fn(),
+      setLight: vi.fn(),
+      toggleMode: vi.fn(),
+      cycleTripModeSelection: vi.fn(),
+    });
+
+    renderWithI18n(<Super73ModeButton enabled compact />);
+
     expect(screen.getByRole("button", { name: "Mode EPAC" })).toBeTruthy();
+    expect(screen.queryByTestId("super73-light-state-icon")).toBeNull();
   });
 
   it("renders the Off-Road icon state", () => {
@@ -79,7 +134,7 @@ describe("Super73ModeButton compact", () => {
 
     renderWithI18n(<Super73ModeButton enabled compact />);
 
-    expect(screen.getByRole("button", { name: "Mode Off-Road" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Mode Off-Road · Phare éteint" })).toBeTruthy();
   });
 
   it("renders the Auto icon state", () => {
@@ -99,6 +154,6 @@ describe("Super73ModeButton compact", () => {
 
     renderWithI18n(<Super73ModeButton enabled compact />);
 
-    expect(screen.getByRole("button", { name: "Mode Auto" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Mode Auto · Phare éteint" })).toBeTruthy();
   });
 });

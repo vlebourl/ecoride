@@ -1,4 +1,4 @@
-import { BluetoothOff, Loader2, Star } from "lucide-react";
+import { BluetoothOff, Loader2, Star, Sun, SunDim } from "lucide-react";
 import { useSuper73, type BleStatus, type Super73TripModeSelection } from "@/hooks/useSuper73";
 import { useT } from "@/i18n/provider";
 
@@ -104,14 +104,34 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
         : selection === "race"
           ? t("super73.compact.modeOffRoad")
           : t("super73.compact.modeEpac");
+    const lightLabel = ble.bikeState
+      ? ble.bikeState.light
+        ? t("super73.compact.lightOn")
+        : t("super73.compact.lightOff")
+      : null;
+    const compactAriaLabel = lightLabel ? `${labelBySelection} · ${lightLabel}` : labelBySelection;
 
     return (
       <button
         onClick={() => void ble.cycleTripModeSelection()}
-        className={`${compactBaseClass} ${compactClassBySelection}`}
-        aria-label={labelBySelection}
+        className={`relative ${compactBaseClass} ${compactClassBySelection}`}
+        aria-label={compactAriaLabel}
       >
         <CompactModeIcon selection={selection} />
+        {ble.bikeState && (
+          <span
+            data-testid="super73-light-state-icon"
+            data-state={ble.bikeState.light ? "on" : "off"}
+            className={`absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full border ${
+              ble.bikeState.light
+                ? "border-primary/30 bg-primary/15 text-primary-light"
+                : "border-surface-highest bg-surface-container text-text-muted"
+            }`}
+            aria-hidden="true"
+          >
+            {ble.bikeState.light ? <Sun size={12} /> : <SunDim size={12} />}
+          </span>
+        )}
       </button>
     );
   }

@@ -1,82 +1,40 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { Bike, BarChart3, Trash2, X, Save } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { BarChart3 } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { BADGES } from "@ecoride/shared/types";
-import type { BadgeId } from "@ecoride/shared/types";
-import {
-  useDashboardSummary,
-  useTrips,
-  useTrip,
-  useChartTrips,
   useAchievements,
-  useDeleteTrip,
+  useChartTrips,
   useCreateTripPresetFromTrip,
+  useDashboardSummary,
+  useDeleteTrip,
   useProfile,
+  useTrip,
+  useTrips,
 } from "@/hooks/queries";
-import { formatDayMonth, formatLongDate, formatMonthYear } from "@/lib/format-utils";
-import { tripLabel, tripLabelKey } from "@/lib/trip-utils";
-import { useT, type TranslateFn } from "@/i18n/provider";
-import { TripMiniMap } from "@/components/TripMiniMap";
 import { PageHeader } from "@/components/layout/PageHeader";
-
-type Period = "week" | "month" | "year";
-type Metric = "km" | "co2" | "eur";
-
-const getPeriodLabels = (t: TranslateFn): Record<Period, string> => ({
-  week: t("stats.chart.period.week"),
-  month: t("stats.chart.period.month"),
-  year: t("stats.chart.period.year"),
-});
-
-const getMetricLabels = (t: TranslateFn): Record<Metric, string> => ({
-  km: t("stats.chart.metric.km"),
-  co2: t("stats.chart.metric.co2"),
-  eur: t("stats.chart.metric.eur"),
-});
-
-const getDayLabels = (t: TranslateFn): string[] => [
-  t("stats.days.mon"),
-  t("stats.days.tue"),
-  t("stats.days.wed"),
-  t("stats.days.thu"),
-  t("stats.days.fri"),
-  t("stats.days.sat"),
-  t("stats.days.sun"),
-];
-
-const getMonthLabels = (t: TranslateFn): string[] => [
-  t("stats.months.jan"),
-  t("stats.months.feb"),
-  t("stats.months.mar"),
-  t("stats.months.apr"),
-  t("stats.months.may"),
-  t("stats.months.jun"),
-  t("stats.months.jul"),
-  t("stats.months.aug"),
-  t("stats.months.sep"),
-  t("stats.months.oct"),
-  t("stats.months.nov"),
-  t("stats.months.dec"),
-];
-
-const allBadgeIds = Object.keys(BADGES) as BadgeId[];
+import { useT } from "@/i18n/provider";
+import { tripLabel } from "@/lib/trip-utils";
+import { StatsBadgesSection } from "@/components/stats/StatsBadgesSection";
+import {
+  buildChartData,
+  getDayLabels,
+  getMetricLabels,
+  getMonthLabels,
+  getPeriodLabels,
+  type Metric,
+  type Period,
+} from "@/components/stats/chartData";
+import { StatsMonthlySummarySection } from "@/components/stats/StatsMonthlySummarySection";
+import { StatsRecentTripsSection } from "@/components/stats/StatsRecentTripsSection";
+import { StatsTripDetailSheet } from "@/components/stats/StatsTripDetailSheet";
+import { StatsTrendSection } from "@/components/stats/StatsTrendSection";
 
 export function StatsPage() {
   const t = useT();
   const periodLabels = useMemo(() => getPeriodLabels(t), [t]);
   const metricLabels = useMemo(() => getMetricLabels(t), [t]);
-  const DAY_LABELS = useMemo(() => getDayLabels(t), [t]);
-  const MONTH_LABELS = useMemo(() => getMonthLabels(t), [t]);
+  const dayLabels = useMemo(() => getDayLabels(t), [t]);
+  const monthLabels = useMemo(() => getMonthLabels(t), [t]);
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("km");
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
@@ -86,7 +44,7 @@ export function StatsPage() {
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const { data: s, isPending: summaryLoading } = useDashboardSummary("month");
+  const { data: summary, isPending: summaryLoading } = useDashboardSummary("month");
   const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
   const { data: chartTripsData, isPending: chartLoading } = useChartTrips(period);
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
@@ -104,31 +62,37 @@ export function StatsPage() {
   const openSelectedTrip = useCallback((trip: Trip) => {
     setTripPresetFeedback(null);
     setTripPresetFormOpen(false);
-    // Keep the legacy FR-only helper here because the existing preset test
-    // mocks "@/lib/trip-utils" with `tripLabel: () => "Trajet domicile-travail"`
-    // and expects the stripped value "domicile-travail". The visible labels in
-    // the list and the detail sheet below use the i18n variant.
     setTripPresetLabel(tripLabel(trip.startedAt).replace(/^Trajet /, ""));
     setSelectedTrip(trip);
   }, []);
 
-  // Fix 3.7: Android back button closes the bottom sheet
   useEffect(() => {
-    if (!selectedTrip) return;
+    if (!selectedTrip) {
+      return;
+    }
 
     window.history.pushState({ sheet: true }, "");
     window.addEventListener("popstate", closeSelectedTrip);
     return () => window.removeEventListener("popstate", closeSelectedTrip);
   }, [selectedTrip, closeSelectedTrip]);
 
-  // Use detailed trip data (with gpsPoints) when available, otherwise fall back to list data
+  const isPending = summaryLoading || tripsLoading || chartLoading || achievementsLoading;
+  const trips = tripsData?.trips ?? [];
+  const chartTrips = useMemo(() => chartTripsData ?? [], [chartTripsData]);
   const displayTrip = tripDetail ?? selectedTrip;
   const gpsPoints = displayTrip?.gpsPoints;
   const hasGpsTrack = Array.isArray(gpsPoints) && gpsPoints.length > 1;
-  const userTimezone = profileData?.user.timezone;
+  const userTimezone = profileData?.user.timezone ?? undefined;
+
+  const chartData = useMemo(
+    () => buildChartData(chartTrips, period, dayLabels, monthLabels),
+    [chartTrips, period, dayLabels, monthLabels],
+  );
 
   const handleSaveTripPreset = () => {
-    if (!selectedTrip || !tripPresetLabel.trim()) return;
+    if (!selectedTrip || !tripPresetLabel.trim()) {
+      return;
+    }
 
     setTripPresetFeedback(null);
     createTripPresetFromTrip.mutate(
@@ -143,74 +107,13 @@ export function StatsPage() {
           setTripPresetFeedback({ type: "success", message: t("stats.detail.presetCreated") });
         },
         onError: () => {
-          setTripPresetFeedback({
-            type: "error",
-            message: t("stats.detail.presetError"),
-          });
+          setTripPresetFeedback({ type: "error", message: t("stats.detail.presetError") });
         },
       },
     );
   };
 
-  const isPending = summaryLoading || tripsLoading || chartLoading || achievementsLoading;
-
-  const trips = tripsData?.trips ?? [];
-  const chartTrips = useMemo(() => chartTripsData ?? [], [chartTripsData]);
-
-  // Build chart data from trips for the selected period (memoized)
-  // MUST be before any early return to respect Rules of Hooks
-  const chartData = useMemo(() => {
-    let data: { label: string; km: number; co2: number; eur: number }[];
-
-    if (period === "week") {
-      data = DAY_LABELS.map((label) => ({ label, km: 0, co2: 0, eur: 0 }));
-      for (const trip of chartTrips) {
-        const dayIdx = (new Date(trip.startedAt).getDay() + 6) % 7;
-        if (data[dayIdx]) {
-          data[dayIdx].km += trip.distanceKm;
-          data[dayIdx].co2 += trip.co2SavedKg;
-          data[dayIdx].eur += trip.moneySavedEur;
-        }
-      }
-    } else if (period === "month") {
-      const now = new Date();
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      data = Array.from({ length: daysInMonth }, (_, i) => ({
-        label: String(i + 1),
-        km: 0,
-        co2: 0,
-        eur: 0,
-      }));
-      for (const trip of chartTrips) {
-        const dayOfMonth = new Date(trip.startedAt).getDate() - 1;
-        if (data[dayOfMonth]) {
-          data[dayOfMonth].km += trip.distanceKm;
-          data[dayOfMonth].co2 += trip.co2SavedKg;
-          data[dayOfMonth].eur += trip.moneySavedEur;
-        }
-      }
-    } else {
-      data = MONTH_LABELS.map((label) => ({ label, km: 0, co2: 0, eur: 0 }));
-      for (const trip of chartTrips) {
-        const monthIdx = new Date(trip.startedAt).getMonth();
-        if (data[monthIdx]) {
-          data[monthIdx].km += trip.distanceKm;
-          data[monthIdx].co2 += trip.co2SavedKg;
-          data[monthIdx].eur += trip.moneySavedEur;
-        }
-      }
-    }
-
-    for (const d of data) {
-      d.km = Math.round(d.km * 10) / 10;
-      d.co2 = Math.round(d.co2 * 10) / 10;
-      d.eur = Math.round(d.eur * 100) / 100;
-    }
-
-    return data;
-  }, [chartTrips, period, DAY_LABELS, MONTH_LABELS]);
-
-  if (isPending || !s) {
+  if (isPending || !summary) {
     return (
       <div
         className="flex flex-1 items-center justify-center"
@@ -239,7 +142,7 @@ export function StatsPage() {
       <PageHeader title={t("stats.header.title")} />
 
       <div className="space-y-12 px-6 pb-6">
-        {s.tripCount === 0 ? (
+        {summary.tripCount === 0 ? (
           <div className="flex flex-col items-center justify-center gap-6 py-20">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <BarChart3 size={40} className="text-primary-light" />
@@ -251,391 +154,52 @@ export function StatsPage() {
           </div>
         ) : (
           <>
-            {/* Monthly Totals */}
-            <section className="space-y-6">
-              <div className="flex items-end justify-between">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                    {t("stats.monthly.caption")}
-                  </span>
-                  <h2 className="text-3xl font-extrabold tracking-tight">
-                    {formatMonthYear(new Date(), userTimezone)}
-                  </h2>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {/* Distance highlight */}
-                <div className="col-span-1 flex min-h-[160px] flex-col justify-between rounded-xl border border-outline-variant/10 bg-surface-low p-6 md:col-span-2">
-                  <div className="flex items-start justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                      {t("stats.monthly.totalDistance")}
-                    </span>
-                    <Bike size={22} className="text-primary-light" />
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-6xl font-bold tracking-tighter">
-                      {Math.round(s.totalDistanceKm)}
-                    </span>
-                    <span className="text-xl font-bold text-on-surface-variant">
-                      {t("stats.monthly.distanceUnit")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* CO2 */}
-                <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                    {t("stats.monthly.co2Saved")}
-                  </span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold tracking-tighter">
-                      {Math.round(s.totalCo2SavedKg)}
-                    </span>
-                    <span className="text-base font-bold text-primary-light">
-                      {t("stats.monthly.co2Unit")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Money */}
-                <div className="flex flex-col gap-4 rounded-xl border border-outline-variant/10 bg-surface-low p-6">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                    {t("stats.monthly.savings")}
-                  </span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold tracking-tighter">
-                      {Math.round(s.totalMoneySavedEur)}
-                    </span>
-                    <span className="text-base font-bold text-primary-light">€</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Chart Section */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-                  {t("stats.chart.title")}
-                </h3>
-              </div>
-
-              {/* Period switcher */}
-              <nav className="flex items-center border-b border-surface-low">
-                {(Object.keys(periodLabels) as Period[]).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                      p === period
-                        ? "border-b-2 border-primary-light font-bold text-primary-light"
-                        : "text-text-muted hover:text-text"
-                    }`}
-                  >
-                    {periodLabels[p]}
-                  </button>
-                ))}
-              </nav>
-
-              {/* Metric switcher */}
-              <div className="flex gap-2">
-                {(Object.keys(metricLabels) as Metric[]).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMetric(m)}
-                    className={`rounded-lg px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                      m === metric
-                        ? "bg-primary/20 text-primary-light"
-                        : "bg-surface-high text-text-muted"
-                    }`}
-                  >
-                    {m === "km"
-                      ? t("stats.chart.metricShort.km")
-                      : m === "co2"
-                        ? t("stats.chart.metricShort.co2")
-                        : t("stats.chart.metricShort.eur")}
-                  </button>
-                ))}
-              </div>
-
-              {/* Line Chart */}
-              <div className="rounded-xl border border-outline-variant/10 bg-surface-low p-4">
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid stroke="#2e3842" strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fill: "#8a9ba8", fontSize: 11, fontWeight: 600 }}
-                      axisLine={false}
-                      tickLine={false}
-                      interval={period === "month" ? 4 : 0}
-                    />
-                    <YAxis
-                      tick={{ fill: "#8a9ba8", fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={48}
-                      unit={
-                        metric === "km"
-                          ? ` ${t("stats.chart.unit.km")}`
-                          : metric === "co2"
-                            ? ` ${t("stats.chart.unit.co2")}`
-                            : ` ${t("stats.chart.unit.eur")}`
-                      }
-                      tickFormatter={(v) =>
-                        metric === "eur" ? Number(v).toFixed(0) : Number(v).toFixed(1)
-                      }
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#283240",
-                        border: "1px solid #333e47",
-                        borderRadius: 8,
-                        fontSize: 12,
-                      }}
-                      labelStyle={{ color: "#8a9ba8", fontWeight: 600 }}
-                      itemStyle={{ color: "#2ecc71" }}
-                      formatter={(value) => [
-                        `${Number(value).toFixed(metric === "eur" ? 2 : 1)} ${
-                          metric === "km"
-                            ? t("stats.chart.unit.km")
-                            : metric === "co2"
-                              ? t("stats.chart.unit.co2")
-                              : t("stats.chart.unit.eur")
-                        }`,
-                        metricLabels[metric],
-                      ]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey={metric}
-                      stroke="#2ecc71"
-                      strokeWidth={2.5}
-                      dot={{ fill: "#2ecc71", r: 4, strokeWidth: 0 }}
-                      activeDot={{ r: 6, fill: "#54e98a", strokeWidth: 0 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            {/* Recent Activity */}
-            <section className="space-y-6">
-              <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-                {t("stats.recent.title")}
-              </h3>
-              <div className="max-h-80 space-y-3 overflow-y-auto">
-                {trips.length === 0 && (
-                  <p className="text-center text-sm text-text-muted">{t("stats.recent.empty")}</p>
-                )}
-                {trips.map((trip) => (
-                  <button
-                    key={trip.id}
-                    onClick={() => openSelectedTrip(trip)}
-                    className="flex w-full items-center justify-between rounded-xl border border-outline-variant/5 bg-surface-low p-4 text-left active:scale-[0.98] transition-transform"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-high">
-                        <Bike size={20} className="text-primary-light" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold">{t(tripLabelKey(trip.startedAt))}</p>
-                        <p className="text-xs font-medium text-on-surface-variant">
-                          {formatDayMonth(trip.startedAt, userTimezone)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-primary-light">
-                        +{Number(trip.distanceKm).toFixed(1)} {t("stats.recent.kmSuffix")}
-                      </p>
-                      <p className="text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
-                        {trip.co2SavedKg.toFixed(1)} {t("stats.recent.co2Suffix")}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
+            <StatsMonthlySummarySection summary={summary} userTimezone={userTimezone} />
+            <StatsTrendSection
+              period={period}
+              metric={metric}
+              periodLabels={periodLabels}
+              metricLabels={metricLabels}
+              chartData={chartData}
+              onPeriodChange={setPeriod}
+              onMetricChange={setMetric}
+            />
+            <StatsRecentTripsSection
+              trips={trips}
+              userTimezone={userTimezone}
+              onSelectTrip={openSelectedTrip}
+            />
           </>
         )}
 
-        {/* Badges */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-on-surface-variant">
-            {t("stats.badges.title")}
-          </h3>
-          <div className="grid grid-cols-4 gap-4">
-            {allBadgeIds.map((id) => {
-              const badge = BADGES[id];
-              const unlocked = (achievements ?? []).some((a) => a.badgeId === id);
-              return (
-                <div
-                  key={id}
-                  className={`flex flex-col items-center gap-2 ${!unlocked ? "opacity-40" : ""}`}
-                >
-                  <div
-                    className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
-                      unlocked
-                        ? "bg-primary/10 text-primary-light"
-                        : "bg-surface-high text-text-dim"
-                    }`}
-                  >
-                    <span className="text-2xl">{badge.icon}</span>
-                  </div>
-                  <span className="text-center text-xs font-bold uppercase leading-tight text-text-muted">
-                    {badge.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        <StatsBadgesSection achievements={achievements ?? []} />
       </div>
 
-      {/* Bottom sheet — trip detail / delete (portal to escape PullToRefresh transform) */}
-      {selectedTrip &&
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("stats.detail.dialogAria")}
-            className="fixed inset-0 z-[60] flex items-end justify-center"
-            onClick={closeSelectedTrip}
-          >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/50" />
-
-            {/* Sheet */}
-            <div
-              className="relative w-full max-w-lg overflow-y-auto max-h-[85vh] rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Handle */}
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-highest" />
-
-              {/* Header */}
-              <div className="mb-6 flex items-start justify-between">
-                <div>
-                  <h3 className="text-lg font-bold">{t(tripLabelKey(selectedTrip.startedAt))}</h3>
-                  <p className="text-sm text-text-muted">
-                    {formatLongDate(selectedTrip.startedAt, userTimezone)}
-                  </p>
-                </div>
-                <button
-                  onClick={closeSelectedTrip}
-                  aria-label={t("stats.detail.closeAria")}
-                  className="rounded-lg p-2 text-text-muted active:bg-surface-high"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* GPS Track Map */}
-              {hasGpsTrack && <TripMiniMap gpsPoints={gpsPoints} />}
-
-              {/* Manual entry label */}
-              {!hasGpsTrack && (
-                <p className="mb-4 text-center text-xs text-text-dim">
-                  {t("stats.detail.manualEntry")}
-                </p>
-              )}
-
-              {/* Stats */}
-              <div className="mb-6 grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-xl font-bold text-primary-light">
-                    {Number(selectedTrip.distanceKm).toFixed(1)}
-                  </p>
-                  <p className="text-xs font-bold uppercase text-text-muted">
-                    {t("stats.detail.km")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-primary-light">
-                    {selectedTrip.co2SavedKg.toFixed(1)}
-                  </p>
-                  <p className="text-xs font-bold uppercase text-text-muted">
-                    {t("stats.detail.co2")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-primary-light">
-                    {selectedTrip.moneySavedEur.toFixed(2)}
-                  </p>
-                  <p className="text-xs font-bold uppercase text-text-muted">
-                    {t("stats.detail.eur")}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setTripPresetFeedback(null);
-                    setTripPresetFormOpen((open) => !open);
-                  }}
-                  disabled={createTripPresetFromTrip.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 py-3 text-sm font-bold text-primary-light active:scale-95 disabled:opacity-50"
-                >
-                  <Save size={16} />
-                  {tripPresetFormOpen ? t("stats.detail.hideForm") : t("stats.detail.createPreset")}
-                </button>
-
-                {tripPresetFormOpen && (
-                  <div className="rounded-xl bg-surface-low p-4">
-                    <label
-                      htmlFor="trip-preset-label-input"
-                      className="mb-2 block text-xs font-bold uppercase tracking-widest text-text-muted"
-                    >
-                      {t("stats.detail.presetLabel")}
-                    </label>
-                    <input
-                      id="trip-preset-label-input"
-                      type="text"
-                      value={tripPresetLabel}
-                      onChange={(e) => setTripPresetLabel(e.target.value)}
-                      className="w-full rounded-lg bg-surface-high p-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                    <div className="mt-3 flex gap-3">
-                      <button
-                        onClick={handleSaveTripPreset}
-                        disabled={createTripPresetFromTrip.isPending || !tripPresetLabel.trim()}
-                        className="flex-1 rounded-lg bg-primary py-3 text-sm font-bold text-bg active:scale-95 disabled:opacity-50"
-                      >
-                        {createTripPresetFromTrip.isPending
-                          ? t("stats.detail.saving")
-                          : t("stats.detail.save")}
-                      </button>
-                      <button
-                        onClick={() => setTripPresetFormOpen(false)}
-                        disabled={createTripPresetFromTrip.isPending}
-                        className="flex-1 rounded-lg bg-surface-high py-3 text-sm font-bold text-text-muted active:scale-95 disabled:opacity-50"
-                      >
-                        {t("stats.detail.cancel")}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => {
-                    deleteTrip.mutate(selectedTrip.id, {
-                      onSuccess: closeSelectedTrip,
-                    });
-                  }}
-                  disabled={deleteTrip.isPending || createTripPresetFromTrip.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-danger/10 py-3 text-sm font-bold text-danger active:scale-95 disabled:opacity-50"
-                >
-                  <Trash2 size={16} />
-                  {deleteTrip.isPending ? t("stats.detail.deleting") : t("stats.detail.delete")}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      <StatsTripDetailSheet
+        selectedTrip={selectedTrip}
+        displayTrip={displayTrip}
+        hasGpsTrack={hasGpsTrack}
+        gpsPoints={gpsPoints}
+        userTimezone={userTimezone}
+        tripPresetFormOpen={tripPresetFormOpen}
+        tripPresetLabel={tripPresetLabel}
+        isCreatingPreset={createTripPresetFromTrip.isPending}
+        isDeletingTrip={deleteTrip.isPending}
+        onClose={closeSelectedTrip}
+        onTogglePresetForm={() => {
+          setTripPresetFeedback(null);
+          setTripPresetFormOpen((open) => !open);
+        }}
+        onTripPresetLabelChange={setTripPresetLabel}
+        onSaveTripPreset={handleSaveTripPreset}
+        onCancelTripPreset={() => setTripPresetFormOpen(false)}
+        onDeleteTrip={() => {
+          if (!selectedTrip) {
+            return;
+          }
+          deleteTrip.mutate(selectedTrip.id, { onSuccess: closeSelectedTrip });
+        }}
+      />
     </>
   );
 }

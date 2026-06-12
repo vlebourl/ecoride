@@ -1,53 +1,32 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { useNavigate } from "react-router";
-import {
-  Shield,
-  Users,
-  MapPin,
-  Calendar,
-  CalendarDays,
-  Database,
-  Clock,
-  Bike,
-  Check,
-  Rocket,
-  X,
-} from "lucide-react";
+import { Shield } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
+  type AdminStatsTrip,
+  type AdminStatsUser,
   useAdminHealth,
   useAdminStats,
-  useTriggerDeploy,
-  useProfile,
-  useGrantAdmin,
-  useRevokeAdmin,
-  useGrantSuper73Access,
-  useRevokeSuper73Access,
   useDeleteAdminUser,
+  useGrantAdmin,
+  useGrantSuper73Access,
+  useProfile,
+  useRevokeAdmin,
+  useRevokeSuper73Access,
   useTrip,
-  type AdminStatsTrip,
+  useTriggerDeploy,
 } from "@/hooks/queries";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { formatUptime, formatDate, formatDuration, formatLongDate } from "@/lib/format-utils";
-import { tripLabelKey } from "@/lib/trip-utils";
-import { TripMiniMap } from "@/components/TripMiniMap";
-import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { useT } from "@/i18n/provider";
+import { useNavigate } from "react-router";
+import { AdminOverviewStats } from "@/components/admin/AdminOverviewStats";
 import { AuditLogSection } from "@/components/admin/AuditLogSection";
+import { AdminRecentTripsSection } from "@/components/admin/AdminRecentTripsSection";
+import { AdminSystemSection } from "@/components/admin/AdminSystemSection";
+import { AdminTripDetailSheet } from "@/components/admin/AdminTripDetailSheet";
+import { AdminUserDrawer } from "@/components/admin/AdminUserDrawer";
+import { AdminUsersSection } from "@/components/admin/AdminUsersSection";
 import { AnnouncementSection } from "@/components/admin/AnnouncementSection";
 import { NotificationSection } from "@/components/admin/NotificationSection";
-import { useT } from "@/i18n/provider";
-
-type AdminManagedUser = {
-  id: string;
-  name: string;
-  email: string;
-  tripCount: number;
-  totalCo2: number;
-  createdAt: string;
-  isAdmin: boolean;
-  super73Enabled: boolean;
-};
 
 export function AdminPage() {
   const t = useT();
@@ -61,16 +40,20 @@ export function AdminPage() {
   const grantSuper73Access = useGrantSuper73Access();
   const revokeSuper73Access = useRevokeSuper73Access();
   const deleteAdminUser = useDeleteAdminUser();
-  const [deployStatus, setDeployStatus] = useState<"idle" | "success" | "error">("idle");
-  const [selectedUser, setSelectedUser] = useState<AdminManagedUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminStatsUser | null>(null);
   const [selectedAdminTrip, setSelectedAdminTrip] = useState<AdminStatsTrip | null>(null);
   const { data: adminTripDetail, isPending: adminTripPending } = useTrip(
     selectedAdminTrip?.id ?? null,
   );
 
   const isAdmin = profileData?.user?.isAdmin === true;
+  const userActionBusy =
+    grantAdmin.isPending ||
+    revokeAdmin.isPending ||
+    grantSuper73Access.isPending ||
+    revokeSuper73Access.isPending ||
+    deleteAdminUser.isPending;
 
-  // Redirect non-admin users
   useEffect(() => {
     if (!profilePending && profileData?.user && !profileData.user.isAdmin) {
       navigate("/", { replace: true });
@@ -93,26 +76,19 @@ export function AdminPage() {
     return null;
   }
 
-  const userActionBusy =
-    grantAdmin.isPending ||
-    revokeAdmin.isPending ||
-    grantSuper73Access.isPending ||
-    revokeSuper73Access.isPending ||
-    deleteAdminUser.isPending;
-
-  const mergeSelectedUser = (
-    userPatch: Pick<AdminManagedUser, "id" | "name" | "email" | "isAdmin" | "super73Enabled">,
-  ) => {
-    setSelectedUser((current) => (current ? { ...current, ...userPatch } : current));
-  };
-
-  const chartData = stats?.dailyTripCounts.map((d) => ({
-    date: new Date(d.date + "T00:00:00").toLocaleDateString("fr-FR", {
+  const chartData = (stats?.dailyTripCounts ?? []).map((day) => ({
+    date: new Date(day.date + "T00:00:00").toLocaleDateString("fr-FR", {
       weekday: "short",
       day: "numeric",
     }),
-    count: d.count,
+    count: day.count,
   }));
+
+  const mergeSelectedUser = (
+    userPatch: Pick<AdminStatsUser, "id" | "name" | "email" | "isAdmin" | "super73Enabled">,
+  ) => {
+    setSelectedUser((current) => (current ? { ...current, ...userPatch } : current));
+  };
 
   return (
     <>
@@ -123,117 +99,15 @@ export function AdminPage() {
       />
 
       <div className="space-y-6 px-6 pb-6">
-        {/* System Info Card */}
-        <section className="rounded-xl bg-surface-low p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-text-muted">
-              {t("admin.system.title")}
-            </h2>
-            <button
-              onClick={() => {
-                setDeployStatus("idle");
-                triggerDeploy.mutate(undefined, {
-                  onSuccess: () => {
-                    setDeployStatus("success");
-                    setTimeout(() => setDeployStatus("idle"), 3000);
-                  },
-                  onError: () => {
-                    setDeployStatus("error");
-                    setTimeout(() => setDeployStatus("idle"), 3000);
-                  },
-                });
-              }}
-              disabled={triggerDeploy.isPending}
-              className="flex items-center gap-1.5 rounded-lg bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary-light active:scale-95 disabled:opacity-50"
-            >
-              {triggerDeploy.isPending ? (
-                <div className="h-3 w-3 animate-spin rounded-full border border-primary-light border-t-transparent" />
-              ) : deployStatus === "success" ? (
-                <Check size={12} />
-              ) : deployStatus === "error" ? (
-                <span className="text-danger">{t("admin.system.deployErrorShort")}</span>
-              ) : (
-                <Rocket size={12} />
-              )}
-              {deployStatus === "success"
-                ? t("admin.system.deployed")
-                : deployStatus === "error"
-                  ? t("admin.system.deployError")
-                  : t("admin.system.deploy")}
-            </button>
-          </div>
-          {healthPending ? (
-            <div className="flex justify-center py-4">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          ) : health ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-xs font-bold uppercase text-text-dim">
-                  {t("admin.system.version")}
-                </span>
-                <span className="text-sm font-bold text-text">{health.version}</span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <Clock size={14} className="text-text-dim" />
-                <span className="text-xs font-bold uppercase text-text-dim">
-                  {t("admin.system.uptime")}
-                </span>
-                <span className="text-sm font-bold text-text">{formatUptime(health.uptime)}</span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <Database size={14} className="text-text-dim" />
-                <span className="text-xs font-bold uppercase text-text-dim">
-                  {t("admin.system.db")}
-                </span>
-                <span
-                  className={`text-sm font-bold ${health.dbConnected ? "text-primary-light" : "text-danger"}`}
-                >
-                  {health.dbConnected ? t("admin.system.dbOk") : t("admin.system.dbDown")}
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <Database size={14} className="text-text-dim" />
-                <span className="text-xs font-bold uppercase text-text-dim">
-                  {t("admin.system.dbSize")}
-                </span>
-                <span className="text-sm font-bold text-text">
-                  {health.dbSizeMb.toFixed(1)} {t("admin.system.dbSizeUnit")}
-                </span>
-              </div>
-            </div>
-          ) : null}
-        </section>
+        <AdminSystemSection
+          health={health}
+          healthPending={healthPending}
+          triggerDeployPending={triggerDeploy.isPending}
+          onTriggerDeploy={(callbacks) => triggerDeploy.mutate(undefined, callbacks)}
+        />
 
-        {/* Stats Cards Row */}
-        <section className="grid grid-cols-2 gap-4">
-          <AdminStatCard
-            icon={<Users size={18} className="text-primary-light" />}
-            label={t("admin.stats.users")}
-            value={health?.userCount}
-            loading={healthPending}
-          />
-          <AdminStatCard
-            icon={<MapPin size={18} className="text-primary-light" />}
-            label={t("admin.stats.totalTrips")}
-            value={health?.tripCount}
-            loading={healthPending}
-          />
-          <AdminStatCard
-            icon={<Calendar size={18} className="text-primary-light" />}
-            label={t("admin.stats.today")}
-            value={health?.tripsToday}
-            loading={healthPending}
-          />
-          <AdminStatCard
-            icon={<CalendarDays size={18} className="text-primary-light" />}
-            label={t("admin.stats.thisWeek")}
-            value={health?.tripsThisWeek}
-            loading={healthPending}
-          />
-        </section>
+        <AdminOverviewStats health={health} healthPending={healthPending} />
 
-        {/* Chart: trips per day (last 7 days) */}
         <section className="rounded-xl bg-surface-low p-5">
           <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
             {t("admin.chart.title")}
@@ -242,7 +116,7 @@ export function AdminPage() {
             <div className="flex justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
-          ) : chartData && chartData.length > 0 ? (
+          ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -282,349 +156,64 @@ export function AdminPage() {
           )}
         </section>
 
-        {/* Users Table */}
-        <section className="rounded-xl bg-surface-low p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-text-muted">
-              {t("admin.users.title")}
-            </h2>
-            <p className="text-xs text-text-dim">{t("admin.users.hint")}</p>
-          </div>
-          {statsPending ? (
-            <div className="flex justify-center py-4">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          ) : stats?.users && stats.users.length > 0 ? (
-            <div className="max-h-80 overflow-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-white/5 text-xs font-bold uppercase tracking-widest text-text-dim">
-                    <th className="pb-3 pr-4">{t("admin.users.col.name")}</th>
-                    <th className="pb-3 pr-4">{t("admin.users.col.email")}</th>
-                    <th className="pb-3 pr-4 text-right">{t("admin.users.col.trips")}</th>
-                    <th className="pb-3 pr-4 text-right">{t("admin.users.col.co2")}</th>
-                    <th className="pb-3 pr-4 text-right">{t("admin.users.col.access")}</th>
-                    <th className="pb-3 text-right">{t("admin.users.col.signedUp")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.users.map((u) => (
-                    <tr
-                      key={u.id}
-                      className="cursor-pointer border-b border-white/5 transition-colors hover:bg-surface-high last:border-0"
-                      onClick={() => setSelectedUser(u)}
-                    >
-                      <td className="py-3 pr-4 font-medium text-text">
-                        {u.name}
-                        {u.isAdmin && (
-                          <span className="ml-2 inline-flex items-center rounded bg-primary/20 px-1.5 py-0.5 text-xs font-bold text-primary-light">
-                            {t("admin.users.badgeAdmin")}
-                          </span>
-                        )}
-                        {u.super73Enabled && (
-                          <span className="ml-2 inline-flex items-center rounded bg-sky-500/20 px-1.5 py-0.5 text-xs font-bold text-sky-300">
-                            {t("admin.users.badgeS73")}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4 text-text-muted">{u.email}</td>
-                      <td className="py-3 pr-4 text-right text-text">{u.tripCount}</td>
-                      <td className="py-3 pr-4 text-right text-text">
-                        {typeof u.totalCo2 === "number" ? u.totalCo2.toFixed(1) : "0.0"}
-                      </td>
-                      <td className="py-3 pr-4 text-right text-text-dim">
-                        {u.isAdmin && u.super73Enabled
-                          ? t("admin.users.accessAdminS73")
-                          : u.isAdmin
-                            ? t("admin.users.accessAdmin")
-                            : u.super73Enabled
-                              ? t("admin.users.accessS73")
-                              : t("admin.users.accessStandard")}
-                      </td>
-                      <td className="py-3 text-right text-text-muted">{formatDate(u.createdAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="py-4 text-center text-sm text-text-muted">{t("admin.users.empty")}</p>
-          )}
-        </section>
+        <AdminUsersSection
+          users={stats?.users ?? []}
+          statsPending={statsPending}
+          onSelectUser={setSelectedUser}
+        />
 
-        {/* Recent Activity (Audit Log) */}
         <AuditLogSection />
 
-        {/* Recent Trips */}
-        <section className="rounded-xl bg-surface-low p-5">
-          <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-text-muted">
-            {t("admin.recentTrips.title")}
-          </h2>
-          {statsPending ? (
-            <div className="flex justify-center py-4">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          ) : stats?.recentTrips && stats.recentTrips.length > 0 ? (
-            <div className="max-h-80 space-y-3 overflow-auto">
-              {stats.recentTrips.map((trip) => (
-                <button
-                  key={trip.id}
-                  onClick={() => setSelectedAdminTrip(trip)}
-                  className="flex w-full items-center gap-3 rounded-lg bg-surface-high p-3 text-left active:bg-surface-highest"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                    <Bike size={18} className="text-primary-light" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <span className="truncate text-sm font-bold text-text">{trip.userName}</span>
-                      <span className="shrink-0 text-xs text-text-dim">
-                        {trip.distanceKm.toFixed(1)} {t("admin.recentTrips.kmUnit")}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-text-muted">
-                      <span>{formatDate(trip.startedAt)}</span>
-                      <span>-</span>
-                      <span>{formatDuration(trip.durationSec)}</span>
-                      <span>-</span>
-                      <span>
-                        {trip.co2SavedKg.toFixed(1)} {t("admin.recentTrips.co2Unit")}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="py-4 text-center text-sm text-text-muted">
-              {t("admin.recentTrips.empty")}
-            </p>
-          )}
-        </section>
-        {/* Announcements */}
-        <AnnouncementSection />
+        <AdminRecentTripsSection
+          trips={stats?.recentTrips ?? []}
+          statsPending={statsPending}
+          onSelectTrip={setSelectedAdminTrip}
+        />
 
-        {/* Push Notifications */}
+        <AnnouncementSection />
         <NotificationSection users={stats?.users} />
       </div>
-      {selectedUser &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/50 sm:items-stretch">
-            <div className="absolute inset-0" onClick={() => setSelectedUser(null)} />
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label={t("admin.userPanel.dialogAria", { name: selectedUser.name })}
-              className="relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface-container p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] animate-[slideUp_0.2s_ease-out] sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-2xl"
-            >
-              <div className="mb-6 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
-                    {t("admin.userPanel.userLabel")}
-                  </p>
-                  <h2 className="mt-1 text-xl font-black tracking-tight text-text">
-                    {selectedUser.name}
-                  </h2>
-                  <p className="mt-1 text-sm text-text-muted">{selectedUser.email}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedUser(null)}
-                  className="rounded-lg p-2 text-text-dim transition-colors hover:bg-surface-high hover:text-text"
-                  aria-label={t("admin.userPanel.closeAria")}
-                >
-                  <X size={18} />
-                </button>
-              </div>
 
-              <div className="space-y-4 overflow-y-auto">
-                <section className="rounded-xl bg-surface-low p-4">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-text-muted">
-                    {t("admin.userPanel.summary")}
-                  </h3>
-                  <div className="mt-3 space-y-2 text-sm text-text-muted">
-                    <div className="flex items-center justify-between">
-                      <span>{t("admin.userPanel.trips")}</span>
-                      <span className="font-bold text-text">{selectedUser.tripCount}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>{t("admin.userPanel.totalCo2")}</span>
-                      <span className="font-bold text-text">
-                        {selectedUser.totalCo2.toFixed(1)} {t("admin.userPanel.co2Unit")}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>{t("admin.userPanel.signedUp")}</span>
-                      <span className="font-bold text-text">
-                        {formatDate(selectedUser.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                </section>
+      <AdminUserDrawer
+        selectedUser={selectedUser}
+        currentUserId={profileData?.user?.id}
+        userActionBusy={userActionBusy}
+        onClose={() => setSelectedUser(null)}
+        onGrantAdmin={(user) =>
+          grantAdmin.mutate(
+            { email: user.email },
+            { onSuccess: (data) => mergeSelectedUser(data.user) },
+          )
+        }
+        onRevokeAdmin={(user) =>
+          revokeAdmin.mutate(
+            { userId: user.id },
+            { onSuccess: (data) => mergeSelectedUser(data.user) },
+          )
+        }
+        onGrantSuper73Access={(user) =>
+          grantSuper73Access.mutate(
+            { userId: user.id },
+            { onSuccess: (data) => mergeSelectedUser(data.user) },
+          )
+        }
+        onRevokeSuper73Access={(user) =>
+          revokeSuper73Access.mutate(
+            { userId: user.id },
+            { onSuccess: (data) => mergeSelectedUser(data.user) },
+          )
+        }
+        onDeleteUser={(user) =>
+          deleteAdminUser.mutate({ userId: user.id }, { onSuccess: () => setSelectedUser(null) })
+        }
+      />
 
-                <section className="rounded-xl bg-surface-low p-4">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-text-muted">
-                    {t("admin.userPanel.actions")}
-                  </h3>
-                  <div className="mt-3 grid gap-3">
-                    <button
-                      type="button"
-                      disabled={userActionBusy}
-                      onClick={() =>
-                        selectedUser.isAdmin
-                          ? revokeAdmin.mutate(
-                              { userId: selectedUser.id },
-                              { onSuccess: (data) => mergeSelectedUser(data.user) },
-                            )
-                          : grantAdmin.mutate(
-                              { email: selectedUser.email },
-                              { onSuccess: (data) => mergeSelectedUser(data.user) },
-                            )
-                      }
-                      className={`rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors disabled:opacity-50 ${
-                        selectedUser.isAdmin
-                          ? "bg-danger/15 text-danger"
-                          : "bg-primary/20 text-primary-light"
-                      }`}
-                    >
-                      {selectedUser.isAdmin
-                        ? t("admin.userPanel.revokeAdmin")
-                        : t("admin.userPanel.grantAdmin")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={userActionBusy}
-                      onClick={() =>
-                        selectedUser.super73Enabled
-                          ? revokeSuper73Access.mutate(
-                              { userId: selectedUser.id },
-                              { onSuccess: (data) => mergeSelectedUser(data.user) },
-                            )
-                          : grantSuper73Access.mutate(
-                              { userId: selectedUser.id },
-                              { onSuccess: (data) => mergeSelectedUser(data.user) },
-                            )
-                      }
-                      className={`rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors disabled:opacity-50 ${
-                        selectedUser.super73Enabled
-                          ? "bg-surface-high text-text"
-                          : "bg-sky-500/20 text-sky-300"
-                      }`}
-                    >
-                      {selectedUser.super73Enabled
-                        ? t("admin.userPanel.revokeS73")
-                        : t("admin.userPanel.grantS73")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={userActionBusy || selectedUser.id === profileData?.user?.id}
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            t("admin.userPanel.deleteConfirm", { email: selectedUser.email }),
-                          )
-                        )
-                          return;
-                        deleteAdminUser.mutate(
-                          { userId: selectedUser.id },
-                          { onSuccess: () => setSelectedUser(null) },
-                        );
-                      }}
-                      className="rounded-xl bg-danger/15 px-4 py-3 text-left text-sm font-bold text-danger transition-colors disabled:opacity-50"
-                    >
-                      {t("admin.userPanel.deleteUser")}
-                    </button>
-                    {selectedUser.id === profileData?.user?.id && (
-                      <p className="text-xs text-text-dim">{t("admin.userPanel.selfWarning")}</p>
-                    )}
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
-      {selectedAdminTrip &&
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={selectedAdminTrip.userName}
-            className="fixed inset-0 z-[60] flex items-end justify-center"
-            onClick={() => setSelectedAdminTrip(null)}
-          >
-            <div className="absolute inset-0 bg-black/50" />
-            <div
-              className="relative w-full max-w-lg overflow-y-auto max-h-[85vh] rounded-t-2xl bg-surface-container p-6 pb-10 animate-[slideUp_0.2s_ease-out]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-highest" />
-              <div className="mb-6 flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-text-dim">
-                    {selectedAdminTrip.userName}
-                  </p>
-                  <h3 className="text-lg font-bold">
-                    {t(tripLabelKey(selectedAdminTrip.startedAt))}
-                  </h3>
-                  <p className="text-sm text-text-muted">
-                    {formatLongDate(selectedAdminTrip.startedAt)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelectedAdminTrip(null)}
-                  className="rounded-lg p-2 text-text-muted active:bg-surface-high"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              {adminTripPending && (
-                <div className="flex justify-center py-8">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                </div>
-              )}
-              {!adminTripPending && adminTripDetail && (
-                <>
-                  {Array.isArray(adminTripDetail.gpsPoints) &&
-                  adminTripDetail.gpsPoints.length > 1 ? (
-                    <TripMiniMap gpsPoints={adminTripDetail.gpsPoints} />
-                  ) : (
-                    <p className="mb-4 text-center text-xs text-text-dim">
-                      {t("stats.detail.manualEntry")}
-                    </p>
-                  )}
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-xl font-bold text-primary-light">
-                        {Number(adminTripDetail.distanceKm).toFixed(1)}
-                      </p>
-                      <p className="text-xs font-bold uppercase text-text-muted">
-                        {t("stats.detail.km")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-primary-light">
-                        {adminTripDetail.co2SavedKg.toFixed(1)}
-                      </p>
-                      <p className="text-xs font-bold uppercase text-text-muted">
-                        {t("stats.detail.co2")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-primary-light">
-                        {adminTripDetail.moneySavedEur.toFixed(2)}
-                      </p>
-                      <p className="text-xs font-bold uppercase text-text-muted">
-                        {t("stats.detail.eur")}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>,
-          document.body,
-        )}
+      <AdminTripDetailSheet
+        selectedTrip={selectedAdminTrip}
+        tripDetail={adminTripDetail}
+        isPending={adminTripPending}
+        onClose={() => setSelectedAdminTrip(null)}
+      />
     </>
   );
 }

@@ -39,7 +39,8 @@ const CLIENT_COMPONENT_IMPORT_PATTERNS = [
 const SERVER_ROUTE_IMPORT_PATTERNS = [
   {
     regex: "^\\.\\.(?:/\\.\\.)*/routes(?:/|$)",
-    message: "Les routes sont la couche transport HTTP; déplace la logique partagée vers lib/auth/validators/db.",
+    message:
+      "Les routes sont la couche transport HTTP; déplace la logique partagée vers lib/auth/validators/db.",
   },
 ];
 
@@ -62,7 +63,8 @@ const SERVER_HIGH_LEVEL_IMPORT_PATTERNS = [
   },
   {
     regex: "^\\.\\.(?:/\\.\\.)*/auth(?:/|$)",
-    message: "Le module db ne doit pas dépendre de la couche auth applicative; garde seulement les imports locaux ./auth dans db/schema.",
+    message:
+      "Le module db ne doit pas dépendre de la couche auth applicative; garde seulement les imports locaux ./auth dans db/schema.",
   },
 ];
 

@@ -518,6 +518,8 @@ export const en: Record<TranslationKey, string> = {
   "super73.compact.modeAuto": "Auto mode",
   "super73.compact.modeEpac": "EPAC mode",
   "super73.compact.modeOffRoad": "Off-Road mode",
+  "super73.compact.lightOn": "Headlight on",
+  "super73.compact.lightOff": "Headlight off",
   "super73.full.connected": "Connected",
   "super73.full.connecting": "Connecting…",
   "super73.full.error": "Error",

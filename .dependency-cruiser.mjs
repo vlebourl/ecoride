@@ -14,8 +14,7 @@ export default {
     {
       name: "no-cycles",
       severity: "error",
-      comment:
-        "Keep the architecture acyclic inside client/src, server/src and shared.",
+      comment: "Keep the architecture acyclic inside client/src, server/src and shared.",
       from: {
         path: SOURCE_PATH,
         pathNot: [NON_PROD_PATH],
@@ -27,18 +26,14 @@ export default {
     {
       name: "no-unresolved",
       severity: "error",
-      comment:
-        "Imports used by production code must resolve on disk or through package metadata.",
+      comment: "Imports used by production code must resolve on disk or through package metadata.",
       from: {
         path: SOURCE_PATH,
         pathNot: [NON_PROD_PATH],
       },
       to: {
         couldNotResolve: true,
-        pathNot: [
-          "^virtual:",
-          "^vite/",
-        ],
+        pathNot: ["^virtual:", "^vite/"],
       },
     },
     {
@@ -78,8 +73,7 @@ export default {
     {
       name: "shared-stays-framework-agnostic",
       severity: "error",
-      comment:
-        "shared must stay reusable and cannot depend on client/src or server/src.",
+      comment: "shared must stay reusable and cannot depend on client/src or server/src.",
       from: {
         path: "^shared",
       },

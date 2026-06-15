@@ -33,6 +33,7 @@ import { NavigationBanner } from "@/components/trip/NavigationBanner";
 import { useSuper73 } from "@/hooks/useSuper73";
 import { modeIndex } from "@/lib/super73-ble";
 import { BatteryIndicator } from "@/components/trip/BatteryIndicator";
+import { HeadlightIndicator } from "@/components/trip/HeadlightIndicator";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -358,7 +359,10 @@ export function TripPage() {
         titleHidden
         center={
           s73Connected ? (
-            <BatteryIndicator percent={ble.batteryPercent} rangeKm={ble.rangeKm} />
+            <div className="flex items-center gap-2">
+              <BatteryIndicator percent={ble.batteryPercent} rangeKm={ble.rangeKm} />
+              <HeadlightIndicator on={ble.bikeState?.light ?? null} />
+            </div>
           ) : undefined
         }
         right={

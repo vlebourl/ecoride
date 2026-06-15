@@ -13,6 +13,10 @@ server/     Bun + Hono API + Drizzle ORM + PostgreSQL + Better Auth
 client/     React 19 + Vite + TailwindCSS v4 + PWA + Playwright e2e
 ```
 
+Module boundaries, the quality-check matrix (what runs in CI vs locally), and
+the coverage/hotspot policies are documented in
+[`docs/architecture/quality-guardrails.md`](docs/architecture/quality-guardrails.md).
+
 ## Key Technical Decisions
 
 - **Auth**: Better Auth with Google OAuth + email/password. Sessions in DB, cookies with sameSite lax (required for OAuth callback).

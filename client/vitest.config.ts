@@ -17,12 +17,16 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/lib/**"],
+      // Risk surfaces: pure logic (lib) and stateful hooks incl. the React
+      // Query data layer (hooks). View-only pages/components are left out for
+      // now — they are exercised by Playwright e2e, and including them would
+      // force artificially low thresholds dominated by untested JSX branches.
+      include: ["src/lib/**", "src/hooks/**"],
       thresholds: {
-        statements: 55,
-        branches: 50,
-        functions: 65,
-        lines: 58,
+        statements: 70,
+        branches: 60,
+        functions: 76,
+        lines: 72,
       },
     },
   },

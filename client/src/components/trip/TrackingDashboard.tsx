@@ -28,18 +28,22 @@ export function TrackingDashboard({
 
   return (
     <>
-      {/* Speed hero, optionally flanked by assist (left) and classe (right) gauges */}
-      <div className="flex items-center justify-center gap-4 py-6">
-        {assistLevel != null && (
-          <LevelStack
-            level={assistLevel}
-            activeColor="bg-primary"
-            label={t("trip.dashboard.assistLabel")}
-            ariaLabel={`${t("trip.dashboard.assistLabel")} ${assistLevel}/4`}
-          />
-        )}
+      {/* Speed hero centered between edge-pinned gauges. A 3-column grid keeps the
+          speed centered even when only one gauge is present (e.g. US mode shows no
+          classe): the empty slot still holds its column. */}
+      <div className="grid grid-cols-3 items-center px-4 py-6" data-testid="tracking-hero">
+        <div className="justify-self-start" data-testid="hero-gauge-left">
+          {assistLevel != null && (
+            <LevelStack
+              level={assistLevel}
+              activeColor="bg-primary"
+              label={t("trip.dashboard.assistLabel")}
+              ariaLabel={`${t("trip.dashboard.assistLabel")} ${assistLevel}/4`}
+            />
+          )}
+        </div>
 
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center justify-self-center">
           {isPaused ? (
             <span
               className="text-5xl font-black tracking-tighter text-warning"
@@ -57,14 +61,16 @@ export function TrackingDashboard({
           </span>
         </div>
 
-        {classeLevel != null && (
-          <LevelStack
-            level={classeLevel}
-            activeColor="bg-[#60A5FA]"
-            label={t("trip.dashboard.classeLabel")}
-            ariaLabel={`${t("trip.dashboard.classeLabel")} ${classeLevel}/4`}
-          />
-        )}
+        <div className="justify-self-end" data-testid="hero-gauge-right">
+          {classeLevel != null && (
+            <LevelStack
+              level={classeLevel}
+              activeColor="bg-[#60A5FA]"
+              label={t("trip.dashboard.classeLabel")}
+              ariaLabel={`${t("trip.dashboard.classeLabel")} ${classeLevel}/4`}
+            />
+          )}
+        </div>
       </div>
 
       {/* Distance / CO₂ / Temps — row */}

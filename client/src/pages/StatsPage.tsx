@@ -4,12 +4,12 @@ import type { Trip } from "@ecoride/shared/types";
 import {
   useAchievements,
   useChartTrips,
+  useAllTrips,
   useCreateTripPresetFromTrip,
   useDashboardSummary,
   useDeleteTrip,
   useProfile,
   useTrip,
-  useTrips,
 } from "@/hooks/queries";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useT } from "@/i18n/provider";
@@ -45,7 +45,7 @@ export function StatsPage() {
     message: string;
   } | null>(null);
   const { data: summary, isPending: summaryLoading } = useDashboardSummary("month");
-  const { data: tripsData, isPending: tripsLoading } = useTrips(1, 10);
+  const { data: tripsData, isPending: tripsLoading } = useAllTrips();
   const { data: chartTripsData, isPending: chartLoading } = useChartTrips(period);
   const { data: achievements, isPending: achievementsLoading } = useAchievements();
   const { data: profileData } = useProfile();

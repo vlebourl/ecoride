@@ -4,6 +4,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api";
 import {
+  useAllTrips,
   useTrip,
   useTripPresets,
   useTrips,
@@ -94,6 +95,35 @@ describe("trips queries", () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(mockApiFetch).toHaveBeenCalledWith("/trips?page=1&limit=50");
+    });
+  });
+
+  describe("useAllTrips", () => {
+    it("loads every trips page so stats recent activity exposes the full history", async () => {
+      mockApiFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          data: { trips: [{ id: "trip-1" }] },
+          pagination: { page: 1, limit: 100, total: 3, totalPages: 2 },
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          data: { trips: [{ id: "trip-2" }, { id: "trip-3" }] },
+          pagination: { page: 2, limit: 100, total: 3, totalPages: 2 },
+        });
+      const { wrapper } = setup();
+
+      const { result } = renderHook(() => useAllTrips(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.data?.trips.map((trip) => trip.id)).toEqual([
+          "trip-1",
+          "trip-2",
+          "trip-3",
+        ]);
+      });
+      expect(mockApiFetch).toHaveBeenNthCalledWith(1, "/trips?page=1&limit=100");
+      expect(mockApiFetch).toHaveBeenNthCalledWith(2, "/trips?page=2&limit=100");
     });
   });
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatDayMonth, formatFullDate, formatMonthYear } from "../format-utils";
+import {
+  formatDayMonth,
+  formatDayMonthTime,
+  formatFullDate,
+  formatLongDateTime,
+  formatMonthYear,
+} from "../format-utils";
 
 describe("timezone-aware formatting helpers", () => {
   it("formats the same UTC instant differently depending on the saved timezone", () => {
@@ -21,5 +27,12 @@ describe("timezone-aware formatting helpers", () => {
 
     expect(formatFullDate(iso, "UTC")).toBe("1 janvier 2026");
     expect(formatFullDate(iso, "Pacific/Honolulu")).toBe("31 décembre 2025");
+  });
+
+  it("formats exact trip times using the saved profile timezone", () => {
+    const iso = "2026-04-08T07:00:00.000Z";
+
+    expect(formatDayMonthTime(iso, "Europe/Paris")).toBe("8 avr., 09:00");
+    expect(formatLongDateTime(iso, "Europe/Paris")).toBe("mercredi 8 avril à 09:00");
   });
 });

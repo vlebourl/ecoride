@@ -3,7 +3,7 @@ import { Save, Trash2, X } from "lucide-react";
 import type { MouseEvent } from "react";
 import type { Trip } from "@ecoride/shared/types";
 import { TripMiniMap } from "@/components/TripMiniMap";
-import { formatLongDate } from "@/lib/format-utils";
+import { formatLongDateTime } from "@/lib/format-utils";
 import { tripLabelKey } from "@/lib/trip-utils";
 import { useT } from "@/i18n/provider";
 
@@ -67,7 +67,7 @@ export function StatsTripDetailSheet({
           <div>
             <h3 className="text-lg font-bold">{t(tripLabelKey(selectedTrip.startedAt))}</h3>
             <p className="text-sm text-text-muted">
-              {formatLongDate(selectedTrip.startedAt, userTimezone)}
+              {formatLongDateTime(selectedTrip.startedAt, userTimezone)}
             </p>
           </div>
           <button

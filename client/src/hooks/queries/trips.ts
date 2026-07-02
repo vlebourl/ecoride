@@ -27,18 +27,49 @@ export function useTripPresets() {
   });
 }
 
+const TRIPS_HISTORY_PAGE_SIZE = 100;
+
+type TripsListResponse = {
+  ok: boolean;
+  data: { trips: Trip[] };
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+};
+
+function fetchTripsPage(page: number, limit: number) {
+  return apiFetch<TripsListResponse>(`/trips?page=${page}&limit=${limit}`).then((response) => ({
+    trips: response.data.trips,
+    pagination: response.pagination,
+  }));
+}
+
 export function useTrips(page = 1, limit = 50) {
   return useQuery({
     queryKey: ["trips", page, limit],
-    queryFn: () =>
-      apiFetch<{
-        ok: boolean;
-        data: { trips: Trip[] };
-        pagination: { page: number; limit: number; total: number; totalPages: number };
-      }>(`/trips?page=${page}&limit=${limit}`).then((response) => ({
-        trips: response.data.trips,
-        pagination: response.pagination,
-      })),
+    queryFn: () => fetchTripsPage(page, limit),
+  });
+}
+
+export function useAllTrips() {
+  return useQuery({
+    queryKey: ["trips", "all"],
+    queryFn: async () => {
+      const firstPage = await fetchTripsPage(1, TRIPS_HISTORY_PAGE_SIZE);
+      const allTrips = [...firstPage.trips];
+
+      for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+        const nextPage = await fetchTripsPage(page, TRIPS_HISTORY_PAGE_SIZE);
+        allTrips.push(...nextPage.trips);
+      }
+
+      return {
+        trips: allTrips,
+        pagination: {
+          ...firstPage.pagination,
+          limit: allTrips.length,
+          page: 1,
+        },
+      };
+    },
   });
 }
 

@@ -1,6 +1,6 @@
 import { Bike } from "lucide-react";
 import type { Trip } from "@ecoride/shared/types";
-import { formatDayMonth } from "@/lib/format-utils";
+import { formatDayMonthTime } from "@/lib/format-utils";
 import { tripLabelKey } from "@/lib/trip-utils";
 import { useT } from "@/i18n/provider";
 
@@ -39,7 +39,7 @@ export function StatsRecentTripsSection({
               <div>
                 <p className="text-sm font-bold">{t(tripLabelKey(trip.startedAt))}</p>
                 <p className="text-xs font-medium text-on-surface-variant">
-                  {formatDayMonth(trip.startedAt, userTimezone)}
+                  {formatDayMonthTime(trip.startedAt, userTimezone)}
                 </p>
               </div>
             </div>

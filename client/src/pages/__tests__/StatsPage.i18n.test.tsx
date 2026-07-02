@@ -42,7 +42,7 @@ vi.mock("@/hooks/queries", () => ({
     },
     isPending: false,
   }),
-  useTrips: () => ({
+  useAllTrips: () => ({
     data: {
       trips: [
         {

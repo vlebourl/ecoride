@@ -162,6 +162,8 @@ export const en: Record<TranslationKey, string> = {
   "badges.category.records": "Records",
   "badges.category.habits": "Habits",
   "badges.category.performance": "Performance",
+  "badges.challenge.week": "Weekly challenge",
+  "badges.challenge.month": "Monthly challenge",
   "profile.presets.title": "Saved trips",
   "profile.presets.subtitle":
     "Manage your favourite trips here. To create a new one, open a trip from the Stats tab and choose “Create a saved trip”.",

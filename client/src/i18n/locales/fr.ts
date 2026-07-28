@@ -160,6 +160,8 @@ export const fr = {
   "badges.category.records": "Records",
   "badges.category.habits": "Habitudes",
   "badges.category.performance": "Performance",
+  "badges.challenge.week": "Défi de la semaine",
+  "badges.challenge.month": "Défi du mois",
   "profile.presets.title": "Trajets pré-enregistrés",
   "profile.presets.subtitle":
     "Gérez ici votre liste de trajets favoris. Pour en créer un nouveau, ouvrez un trajet dans l'onglet Stats puis choisissez « Créer un trajet pré-enregistré ».",

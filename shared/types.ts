@@ -156,12 +156,7 @@ export const BADGES = {
   streak_7: { id: "streak_7", label: "7 jours de streak", icon: "🔥", category: "regularity" },
   streak_14: { id: "streak_14", label: "14 jours d'affilée", icon: "🌗", category: "regularity" },
   streak_30: { id: "streak_30", label: "30 jours de streak", icon: "⚡", category: "regularity" },
-  streak_100: {
-    id: "streak_100",
-    label: "100 jours d'affilée",
-    icon: "🌟",
-    category: "regularity",
-  },
+  streak_60: { id: "streak_60", label: "60 jours d'affilée", icon: "🌟", category: "regularity" },
   months_active_6: {
     id: "months_active_6",
     label: "6 mois actifs",

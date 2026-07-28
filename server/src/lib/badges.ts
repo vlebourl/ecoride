@@ -70,7 +70,7 @@ export const BADGE_THRESHOLDS: Record<BadgeId, (s: UserStats) => boolean> = {
   streak_7: (s) => s.longestStreak >= 7,
   streak_14: (s) => s.longestStreak >= 14,
   streak_30: (s) => s.longestStreak >= 30,
-  streak_100: (s) => s.longestStreak >= 100,
+  streak_60: (s) => s.longestStreak >= 60,
   months_active_6: (s) => s.monthsActive >= 6,
   months_active_12: (s) => s.monthsActive >= 12,
   weekly_goal_10: (s) => s.weeklyGoalsMet >= 10,

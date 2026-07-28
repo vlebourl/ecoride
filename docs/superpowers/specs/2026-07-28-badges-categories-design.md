@@ -39,9 +39,9 @@ Chiffres réels de référence au 2026-07-28 : **1 159,8 km**, **187,5 kg CO₂*
 
 Rythme dérivé : ~61 km/semaine, ~10 kg CO₂/semaine, ~4,3 L/semaine, ~7,5 €/semaine.
 
-> **Hypothèse** : aucun trajet antérieur à mars 2026 n'a été importé. Si c'est faux, la
-> fenêtre de 19 semaines sous-estime la période réelle et tous les paliers ci-dessous sont
-> trop rapprochés.
+> **Hypothèse CONFIRMÉE le 2026-07-28** : aucun trajet antérieur à mars 2026 n'a été
+> importé. La fenêtre de 19 semaines est donc valide et la calibration tient.
+> Données réelles complémentaires : 137 trajets (7,4/semaine), série max 4 jours.
 
 ---
 
@@ -88,20 +88,20 @@ Les 33 nouveaux sont en **gras**.
 
 ### 🚴 Volume — 12
 
-| id              | seuil                     | icône |
-| --------------- | ------------------------- | ----- |
-| `first_trip`    | 1 trajet                  | 🚴    |
-| `trips_10`      | 10 trajets                | 🔟    |
-| `trips_50`      | 50 trajets                | 🏅    |
-| `trips_100`     | 100 trajets               | 💯    |
-| **`trips_250`** | 250 trajets ⚠️ à calibrer | 🎖️    |
-| **`trips_500`** | 500 trajets ⚠️ à calibrer | 🏆    |
-| `km_100`        | 100 km                    | 🛤️    |
-| `km_500`        | 500 km                    | 🗺️    |
-| `km_1000`       | 1 000 km                  | 🌍    |
-| **`km_2500`**   | 2 500 km (~8 mois)        | 🧭    |
-| **`km_5000`**   | 5 000 km (~20 mois)       | 🛰️    |
-| **`km_10000`**  | 10 000 km (~3 ans)        | 🌐    |
+| id              | seuil                 | icône |
+| --------------- | --------------------- | ----- |
+| `first_trip`    | 1 trajet              | 🚴    |
+| `trips_10`      | 10 trajets            | 🔟    |
+| `trips_50`      | 50 trajets            | 🏅    |
+| `trips_100`     | 100 trajets           | 💯    |
+| **`trips_250`** | 250 trajets (~4 mois) | 🎖️    |
+| **`trips_500`** | 500 trajets (~1 an)   | 🏆    |
+| `km_100`        | 100 km                | 🛤️    |
+| `km_500`        | 500 km                | 🗺️    |
+| `km_1000`       | 1 000 km              | 🌍    |
+| **`km_2500`**   | 2 500 km (~8 mois)    | 🧭    |
+| **`km_5000`**   | 5 000 km (~20 mois)   | 🛰️    |
+| **`km_10000`**  | 10 000 km (~3 ans)    | 🌐    |
 
 ### 🌱 Impact — 13
 
@@ -126,17 +126,17 @@ Les 33 nouveaux sont en **gras**.
 **Tous les badges streak passent de `currentStreak` à `longestStreak`.** Une série de
 30 jours réalisée en janvier reste un accomplissement en juillet.
 
-| id                     | seuil                           | icône |
-| ---------------------- | ------------------------------- | ----- |
-| **`streak_3`**         | 3 jours consécutifs             | 🌤️    |
-| `streak_7`             | 7 jours                         | 🔥    |
-| **`streak_14`**        | 14 jours ⚠️ à calibrer          | 🌗    |
-| `streak_30`            | 30 jours                        | ⚡    |
-| **`streak_100`**       | 100 jours ⚠️ à calibrer         | 🌟    |
-| **`months_active_6`**  | 6 mois civils avec ≥ 1 trajet   | 📆    |
-| **`months_active_12`** | 12 mois civils                  | 🎂    |
-| **`weekly_goal_10`**   | objectif hebdo atteint 10 fois  | 🎯    |
-| **`monthly_goal_3`**   | objectif mensuel atteint 3 fois | 🗓️    |
+| id                     | seuil                            | icône |
+| ---------------------- | -------------------------------- | ----- |
+| **`streak_3`**         | 3 jours consécutifs              | 🌤️    |
+| `streak_7`             | 7 jours                          | 🔥    |
+| **`streak_14`**        | 14 jours                         | 🌗    |
+| `streak_30`            | 30 jours                         | ⚡    |
+| **`streak_60`**        | 60 jours (2× le record de l'app) | 🌟    |
+| **`months_active_6`**  | 6 mois civils avec ≥ 1 trajet    | 📆    |
+| **`months_active_12`** | 12 mois civils                   | 🎂    |
+| **`weekly_goal_10`**   | objectif hebdo atteint 10 fois   | 🎯    |
+| **`monthly_goal_3`**   | objectif mensuel atteint 3 fois  | 🗓️    |
 
 Les deux derniers sont la strate « constance » : ils rendent permanent l'effort fourni
 sur les défis glissants, qui eux ne laissent aucune trace.
@@ -312,8 +312,11 @@ deux lignes de plus dans le même repli. Ils sont exposés dans la réponse `/ap
 
 ## Points ouverts
 
-1. **`trips_250` / `trips_500`** — nombre de trajets actuel inconnu, paliers au jugé.
-2. **`streak_14` / `streak_100`** — plus longue série inconnue. 100 jours est peut-être
+1. ~~**`trips_250` / `trips_500`**~~ — RÉSOLU 2026-07-28 : 137 trajets, soit 7,4/semaine.
+   Les paliers posés au jugé tombent juste (~4 mois et ~1 an). Inchangés.
+2. ~~**`streak_14` / `streak_100`**~~ — RÉSOLU 2026-07-28. Données réelles : série max 4
+   (record de l'app : 30). `streak_100` remplacé par `streak_60`, soit le double du record
+   actuel. Ancienne note : 100 jours est peut-être
    hors d'atteinte; 60 serait un repli raisonnable.
-3. **Import historique** — si des trajets antérieurs à mars 2026 ont été importés, toute
-   la calibration ci-dessus est trop optimiste et les paliers doivent être écartés.
+3. ~~**Import historique**~~ — RÉSOLU 2026-07-28 : aucun import antérieur à mars 2026.
+   La calibration est valide.

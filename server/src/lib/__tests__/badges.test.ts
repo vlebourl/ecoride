@@ -215,7 +215,7 @@ describe("nouveaux paliers cumulatifs", () => {
     ["money_1000", "totalMoneySavedEur", 1000],
     ["streak_3", "longestStreak", 3],
     ["streak_14", "longestStreak", 14],
-    ["streak_100", "longestStreak", 100],
+    ["streak_60", "longestStreak", 60],
     ["months_active_6", "monthsActive", 6],
     ["months_active_12", "monthsActive", 12],
     ["weekly_goal_10", "weeklyGoalsMet", 10],

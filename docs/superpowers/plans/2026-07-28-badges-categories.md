@@ -60,7 +60,7 @@
 **Files:**
 
 - Modify: `shared/types.ts:113-129`
-- Test: `shared/__tests__/badges-catalog.test.ts` (créer)
+- Test: `server/src/lib/__tests__/badges-catalog.test.ts` (créer)
 
 **Interfaces:**
 
@@ -68,11 +68,14 @@
 
 - [ ] **Step 1: Écrire le test qui échoue**
 
-Créer `shared/__tests__/badges-catalog.test.ts` :
+Créer `server/src/lib/__tests__/badges-catalog.test.ts`. **Pas dans `shared/__tests__/`** : la CI
+lance `cd client && bunx vitest run` et `cd server && bun run test:coverage`, aucune des deux ne
+ramasse `shared/`, un test posé là ne tournerait jamais. Il vit donc à côté de `badges.test.ts`,
+qui teste déjà les seuils.
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { BADGES, BADGE_CATEGORIES, type BadgeId } from "../types";
+import { BADGES, BADGE_CATEGORIES, type BadgeId } from "@ecoride/shared/types";
 
 describe("BADGES catalog", () => {
   it("contient 46 badges", () => {
@@ -123,7 +126,7 @@ describe("BADGES catalog", () => {
 
 - [ ] **Step 2: Lancer le test pour vérifier qu'il échoue**
 
-Run: `cd client && bunx vitest run ../shared/__tests__/badges-catalog.test.ts`
+Run: `cd server && bunx vitest run src/lib/__tests__/badges-catalog.test.ts`
 Expected: FAIL — `BADGE_CATEGORIES` n'existe pas, et `Object.keys(BADGES)` vaut 13.
 
 - [ ] **Step 3: Écrire le catalogue**
@@ -252,7 +255,7 @@ export interface ChallengeProgressDto {
 
 - [ ] **Step 4: Lancer les tests**
 
-Run: `cd client && bunx vitest run ../shared/__tests__/badges-catalog.test.ts`
+Run: `cd server && bunx vitest run src/lib/__tests__/badges-catalog.test.ts`
 Expected: PASS (5 tests).
 
 Puis `bun run typecheck` à la racine. Il **doit échouer** dans `server/src/lib/badges.ts` : `BADGE_THRESHOLDS` est un `Record<BadgeId, ...>` et il manque désormais 33 clés. C'est attendu — la tâche 2 le répare.
@@ -260,7 +263,7 @@ Puis `bun run typecheck` à la racine. Il **doit échouer** dans `server/src/lib
 - [ ] **Step 5: Commit**
 
 ```bash
-git add shared/types.ts shared/__tests__/badges-catalog.test.ts
+git add shared/types.ts server/src/lib/__tests__/badges-catalog.test.ts
 git commit -m "feat(badges): catalogue de 46 badges répartis en 6 catégories"
 ```
 

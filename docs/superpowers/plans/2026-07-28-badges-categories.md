@@ -4,7 +4,7 @@
 
 **Goal:** Faire passer le catalogue de 13 à 46 badges répartis en 6 catégories, corriger les badges streak indexés sur la mauvaise métrique, et ajouter deux défis glissants hebdo/mensuel calculés à la lecture.
 
-**Architecture:** `BADGE_THRESHOLDS` garde sa forme `Record<BadgeId, (s: UserStats) => boolean>` — on élargit `UserStats` de 5 à 16 champs plutôt que de changer le moteur. Les agrégats coûteux (records journée, mois actifs, objectifs atteints, défis courants) se replient en TypeScript depuis une seule requête « sommes par jour UTC », dans une fonction pure testable sans base. Côté client, la grille de badges dupliquée entre profil et stats devient un composant unique groupé par catégorie.
+**Architecture:** `BADGE_THRESHOLDS` garde sa forme `Record<BadgeId, (s: UserStats) => boolean>` — on élargit `UserStats` de 5 à 17 champs plutôt que de changer le moteur. Les agrégats coûteux (records journée, mois actifs, objectifs atteints, défis courants) se replient en TypeScript depuis une seule requête « sommes par jour UTC », dans une fonction pure testable sans base. Côté client, la grille de badges dupliquée entre profil et stats devient un composant unique groupé par catégorie.
 
 **Tech Stack:** Bun, Hono, Drizzle ORM, PostgreSQL, vitest, React 19, TailwindCSS v4, Playwright.
 
@@ -279,7 +279,7 @@ git commit -m "feat(badges): catalogue de 46 badges répartis en 6 catégories"
 **Interfaces:**
 
 - Consumes: `BadgeId` (Task 1).
-- Produces: `UserStats` à 16 champs, `BADGE_THRESHOLDS` à 46 entrées.
+- Produces: `UserStats` à 17 champs, `BADGE_THRESHOLDS` à 46 entrées.
 
 - [ ] **Step 1: Élargir le constructeur de test**
 

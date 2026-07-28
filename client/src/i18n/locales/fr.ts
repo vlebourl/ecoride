@@ -154,6 +154,12 @@ export const fr = {
   "profile.stats.eurUnit": "EUR",
   "profile.fuel.nationalAverage": "Prix moyen national",
   "profile.badges.title": "Badges",
+  "badges.category.volume": "Volume",
+  "badges.category.impact": "Impact",
+  "badges.category.regularity": "Régularité",
+  "badges.category.records": "Records",
+  "badges.category.habits": "Habitudes",
+  "badges.category.performance": "Performance",
   "profile.presets.title": "Trajets pré-enregistrés",
   "profile.presets.subtitle":
     "Gérez ici votre liste de trajets favoris. Pour en créer un nouveau, ouvrez un trajet dans l'onglet Stats puis choisissez « Créer un trajet pré-enregistré ».",

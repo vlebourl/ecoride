@@ -1,7 +1,9 @@
-import { eq, and, sum, count, inArray } from "drizzle-orm";
+import { eq, and, sum, count, max, sql, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { trips, achievements } from "../db/schema";
+import { trips, achievements, user } from "../db/schema";
 import { computeStreak } from "./streaks";
+import { computeDerivedStats, type DailyRow } from "./derived-stats";
+import { normalizeTimezone } from "./timezone";
 import type { BadgeId } from "@ecoride/shared/types";
 
 /**
@@ -94,6 +96,86 @@ export const BADGE_THRESHOLDS: Record<BadgeId, (s: UserStats) => boolean> = {
 };
 
 /**
+ * Agrège toutes les métriques dont dépendent les badges.
+ *
+ * Trois requêtes :
+ *   A — agrégat une-ligne (sommes, maxima, compteurs d'habitudes)
+ *   B — sommes par jour UTC, repliées en TypeScript par computeDerivedStats
+ *   C — computeStreak, dont on ne garde que `longest`
+ */
+export async function collectUserStats(userId: string): Promise<UserStats> {
+  const [profile] = await db
+    .select({ timezone: user.timezone })
+    .from(user)
+    .where(eq(user.id, userId));
+
+  // Seule exception à la règle UTC-only du backend : l'heure de la journée est
+  // intrinsèquement locale, sinon "avant 7 h" devient "avant 9 h" à Paris en été.
+  const tz = normalizeTimezone(profile?.timezone);
+  const localHour = sql<number>`EXTRACT(hour FROM ${trips.startedAt} AT TIME ZONE ${tz}::text)`;
+  const utcDow = sql<number>`EXTRACT(dow FROM ${trips.startedAt} AT TIME ZONE 'UTC')`;
+
+  const [agg] = await db
+    .select({
+      totalDistanceKm: sum(trips.distanceKm).mapWith(Number),
+      totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
+      totalMoneySavedEur: sum(trips.moneySavedEur).mapWith(Number),
+      totalFuelSavedL: sum(trips.fuelSavedL).mapWith(Number),
+      tripCount: count(),
+      maxTripDistanceKm: max(trips.distanceKm).mapWith(Number),
+      maxTripDurationSec: max(trips.durationSec).mapWith(Number),
+      // Seuls les trajets d'au moins 5 km comptent : sinon une descente de 500 m
+      // à 40 km/h débloquerait speed_25.
+      maxTripSpeedKmh: sql<number>`coalesce(max(
+        case when ${trips.distanceKm} >= 5 and ${trips.durationSec} > 0
+        then ${trips.distanceKm} / (${trips.durationSec} / 3600.0)
+        end
+      ), 0)`.mapWith(Number),
+      earlyTripCount: sql<number>`count(*) filter (where ${localHour} < 7)`.mapWith(Number),
+      nightTripCount: sql<number>`count(*) filter (where ${localHour} >= 21)`.mapWith(Number),
+      weekendTripCount: sql<number>`count(*) filter (where ${utcDow} in (0, 6))`.mapWith(Number),
+      distinctWeekdayCount: sql<number>`count(distinct ${utcDow})`.mapWith(Number),
+    })
+    .from(trips)
+    .where(eq(trips.userId, userId));
+
+  const dayExpr = sql<string>`DATE(${trips.startedAt} AT TIME ZONE 'UTC')`;
+  const dailyRows: DailyRow[] = await db
+    .select({
+      day: dayExpr.as("day"),
+      distanceKm: sum(trips.distanceKm).mapWith(Number),
+      co2Kg: sum(trips.co2SavedKg).mapWith(Number),
+      tripCount: count(),
+    })
+    .from(trips)
+    .where(eq(trips.userId, userId))
+    .groupBy(dayExpr);
+
+  const derived = computeDerivedStats(dailyRows, new Date().toISOString().slice(0, 10));
+  const streaks = await computeStreak(userId);
+
+  return {
+    totalDistanceKm: agg?.totalDistanceKm ?? 0,
+    totalCo2SavedKg: agg?.totalCo2SavedKg ?? 0,
+    totalMoneySavedEur: agg?.totalMoneySavedEur ?? 0,
+    totalFuelSavedL: agg?.totalFuelSavedL ?? 0,
+    tripCount: agg?.tripCount ?? 0,
+    longestStreak: streaks.longest,
+    maxTripDistanceKm: agg?.maxTripDistanceKm ?? 0,
+    maxTripDurationSec: agg?.maxTripDurationSec ?? 0,
+    maxTripSpeedKmh: agg?.maxTripSpeedKmh ?? 0,
+    maxDayDistanceKm: derived.maxDayDistanceKm,
+    monthsActive: derived.monthsActive,
+    earlyTripCount: agg?.earlyTripCount ?? 0,
+    nightTripCount: agg?.nightTripCount ?? 0,
+    weekendTripCount: agg?.weekendTripCount ?? 0,
+    distinctWeekdayCount: agg?.distinctWeekdayCount ?? 0,
+    weeklyGoalsMet: derived.weeklyGoalsMet,
+    monthlyGoalsMet: derived.monthlyGoalsMet,
+  };
+}
+
+/**
  * Evaluate all badge thresholds for a user and insert any newly unlocked badges.
  * Uses ON CONFLICT DO NOTHING to gracefully handle races / duplicates.
  *
@@ -101,25 +183,7 @@ export const BADGE_THRESHOLDS: Record<BadgeId, (s: UserStats) => boolean> = {
  */
 export async function evaluateAndUnlockBadges(userId: string): Promise<BadgeId[]> {
   // 1. Aggregate lifetime stats
-  const [stats] = await db
-    .select({
-      totalDistanceKm: sum(trips.distanceKm).mapWith(Number),
-      totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
-      totalMoneySavedEur: sum(trips.moneySavedEur).mapWith(Number),
-      tripCount: count(),
-    })
-    .from(trips)
-    .where(eq(trips.userId, userId));
-
-  const streaks = await computeStreak(userId);
-
-  const userStats: UserStats = {
-    totalDistanceKm: stats?.totalDistanceKm ?? 0,
-    totalCo2SavedKg: stats?.totalCo2SavedKg ?? 0,
-    totalMoneySavedEur: stats?.totalMoneySavedEur ?? 0,
-    tripCount: stats?.tripCount ?? 0,
-    currentStreak: streaks.current,
-  };
+  const userStats = await collectUserStats(userId);
 
   // 2. Get already-unlocked badge IDs
   const existing = await db
@@ -159,26 +223,8 @@ export async function evaluateAndUnlockBadges(userId: string): Promise<BadgeId[]
  * @returns Array of BadgeIds that were revoked.
  */
 export async function reevaluateBadges(userId: string): Promise<BadgeId[]> {
-  // 1. Aggregate lifetime stats (same query as evaluateAndUnlockBadges)
-  const [stats] = await db
-    .select({
-      totalDistanceKm: sum(trips.distanceKm).mapWith(Number),
-      totalCo2SavedKg: sum(trips.co2SavedKg).mapWith(Number),
-      totalMoneySavedEur: sum(trips.moneySavedEur).mapWith(Number),
-      tripCount: count(),
-    })
-    .from(trips)
-    .where(eq(trips.userId, userId));
-
-  const streaks = await computeStreak(userId);
-
-  const userStats: UserStats = {
-    totalDistanceKm: stats?.totalDistanceKm ?? 0,
-    totalCo2SavedKg: stats?.totalCo2SavedKg ?? 0,
-    totalMoneySavedEur: stats?.totalMoneySavedEur ?? 0,
-    tripCount: stats?.tripCount ?? 0,
-    currentStreak: streaks.current,
-  };
+  // 1. Aggregate lifetime stats (same collector as evaluateAndUnlockBadges)
+  const userStats = await collectUserStats(userId);
 
   // 2. Get all currently unlocked badges
   const existing = await db

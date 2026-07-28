@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 // Mock db to prevent real Postgres connection on module load
 vi.mock("../../db", () => ({ db: {} }));
-vi.mock("../../db/schema", () => ({ trips: {}, achievements: {} }));
+vi.mock("../../db/schema", () => ({ trips: {}, achievements: {}, user: {} }));
 vi.mock("../streaks", () => ({ computeStreak: vi.fn() }));
 
 import type { BadgeId } from "@ecoride/shared/types";
@@ -249,5 +249,23 @@ describe("badges streak indexés sur longestStreak", () => {
 
   it("ne débloque pas streak_30 avec un record de 29", () => {
     expect(BADGE_THRESHOLDS.streak_30(makeStats({ longestStreak: 29 }))).toBe(false);
+  });
+});
+
+describe("révocation", () => {
+  it("retire un badge de palier dont le seuil n'est plus atteint", () => {
+    expect(BADGE_THRESHOLDS.km_2500(makeStats({ totalDistanceKm: 2499 }))).toBe(false);
+  });
+
+  it("ne retire pas un badge streak quand la série en cours est nulle mais le record tient", () => {
+    // Régression : avant, les badges streak lisaient currentStreak et
+    // disparaissaient à la première suppression de trajet.
+    expect(BADGE_THRESHOLDS.streak_30(makeStats({ longestStreak: 31 }))).toBe(true);
+  });
+
+  it("ignore un trajet court et rapide pour les badges de vitesse", () => {
+    // maxTripSpeedKmh n'est alimenté que par les trajets >= 5 km,
+    // donc une descente de 500 m à 40 km/h laisse le champ à 0.
+    expect(BADGE_THRESHOLDS.speed_25(makeStats({ maxTripSpeedKmh: 0 }))).toBe(false);
   });
 });

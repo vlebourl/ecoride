@@ -6,6 +6,7 @@ import { db } from "../db";
 import { trips } from "../db/schema";
 import { validationHook } from "../lib/validation";
 import { computeStreak } from "../lib/streaks";
+import { computeDerivedStats, type DailyRow } from "../lib/derived-stats";
 import { rateLimit } from "../lib/rate-limit";
 import type { AuthEnv } from "../types/context";
 import type {
@@ -71,6 +72,20 @@ statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), asy
 
   const streaks = await computeStreak(currentUser.id);
 
+  const dayExpr = sql<string>`DATE(${trips.startedAt} AT TIME ZONE 'UTC')`;
+  const dailyRows: DailyRow[] = await db
+    .select({
+      day: dayExpr.as("day"),
+      distanceKm: sum(trips.distanceKm).mapWith(Number),
+      co2Kg: sum(trips.co2SavedKg).mapWith(Number),
+      tripCount: count(),
+    })
+    .from(trips)
+    .where(eq(trips.userId, currentUser.id))
+    .groupBy(dayExpr);
+
+  const derived = computeDerivedStats(dailyRows, new Date().toISOString().slice(0, 10));
+
   return c.json({
     ok: true,
     data: {
@@ -81,6 +96,7 @@ statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), asy
       tripCount: stats?.tripCount ?? 0,
       currentStreak: streaks.current,
       longestStreak: streaks.longest,
+      challenges: { week: derived.currentWeek, month: derived.currentMonth },
     },
   });
 });

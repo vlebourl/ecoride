@@ -254,4 +254,86 @@ describe("POST /trips", () => {
     expect(res.status).toBe(201);
     expect(mocks.mockGetFuelPrice).toHaveBeenCalledWith("sp95");
   });
+
+  // --- Rafale de notifications push ------------------------------------------
+  // Le catalogue est passé de 13 à 46 badges : au premier trajet suivant le
+  // déploiement, un utilisateur ancien franchit d'un coup une vingtaine de
+  // seuils. Sans plafond, son téléphone vibre vingt fois et vingt requêtes
+  // web-push partent pour un seul POST.
+
+  async function postLiveTrip() {
+    const endedAt = new Date().toISOString();
+    const startedAt = new Date(Date.now() - 600 * 1000).toISOString();
+    return buildApp().request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 10,
+        durationSec: 600,
+        startedAt,
+        endedAt,
+        gpsPoints: null,
+      }),
+    });
+  }
+
+  it("envoie une notification par badge tant qu'ils sont peu nombreux", async () => {
+    mocks.mockSendPushToUser.mockResolvedValue(undefined);
+    mocks.mockEvaluateAndUnlockBadges.mockResolvedValue(["first_trip", "trips_10", "km_100"]);
+
+    expect((await postLiveTrip()).status).toBe(201);
+
+    expect(mocks.mockSendPushToUser).toHaveBeenCalledTimes(3);
+    expect(mocks.mockSendPushToUser).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ body: "Badge débloqué : Premier trajet 🚴" }),
+    );
+  });
+
+  it("agrège en une seule notification au-delà de 3 badges", async () => {
+    mocks.mockSendPushToUser.mockResolvedValue(undefined);
+    const many = [
+      "first_trip",
+      "trips_10",
+      "trips_50",
+      "trips_100",
+      "km_100",
+      "km_500",
+      "km_1000",
+      "co2_10kg",
+      "co2_100kg",
+      "fuel_25l",
+      "fuel_50l",
+      "money_100",
+      "money_250",
+    ];
+    mocks.mockEvaluateAndUnlockBadges.mockResolvedValue(many);
+
+    expect((await postLiveTrip()).status).toBe(201);
+
+    // Une seule requête push, pas treize.
+    expect(mocks.mockSendPushToUser).toHaveBeenCalledTimes(1);
+    expect(mocks.mockSendPushToUser).toHaveBeenCalledWith("user-1", {
+      title: "ecoRide",
+      body: "Badge débloqué : Premier trajet 🚴 +12 autres",
+    });
+  });
+
+  it("reste par badge exactement au seuil (4 badges = agrégé, 3 = détaillé)", async () => {
+    mocks.mockSendPushToUser.mockResolvedValue(undefined);
+    mocks.mockEvaluateAndUnlockBadges.mockResolvedValue([
+      "first_trip",
+      "trips_10",
+      "km_100",
+      "co2_10kg",
+    ]);
+
+    expect((await postLiveTrip()).status).toBe(201);
+
+    expect(mocks.mockSendPushToUser).toHaveBeenCalledTimes(1);
+    expect(mocks.mockSendPushToUser).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ body: "Badge débloqué : Premier trajet 🚴 +3 autres" }),
+    );
+  });
 });

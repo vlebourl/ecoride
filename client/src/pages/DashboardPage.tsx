@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useDashboardSummary, useProfile, useActiveAnnouncement } from "@/hooks/queries";
+import { ChallengeCard } from "@/components/badges/ChallengeCard";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { getPendingTrips, getRejectedTrips } from "@/lib/offline-queue";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -305,6 +306,11 @@ export function DashboardPage() {
               className="text-bg/60 transition-transform group-hover:translate-x-1"
             />
           </Link>
+
+          {/* Weekly challenge progress */}
+          {today.challenges && (
+            <ChallengeCard period="week" progress={today.challenges.week} compact />
+          )}
 
           {/* Vehicle onboarding prompt */}
           {!vehiclePromptDismissed &&

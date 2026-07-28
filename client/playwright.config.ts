@@ -13,9 +13,12 @@ export default defineConfig({
     locale: "fr-FR",
   },
   webServer: {
-    command: "bun run preview --port 4173",
+    // Build first: `vite preview` sert `dist/` tel quel. Sans ce build, la suite
+    // teste une version antérieure de l'app et affiche un vert trompeur — ça a
+    // déjà coûté une tâche entière. Le timeout couvre build + démarrage.
+    command: "bun run build && bun run preview --port 4173",
     port: 4173,
-    timeout: 30_000,
+    timeout: 120_000,
     reuseExistingServer: false,
   },
 });

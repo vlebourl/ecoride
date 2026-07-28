@@ -129,18 +129,36 @@ tripsRouter.post(
       currentUser.id,
     );
 
-    // Fire-and-forget: push notifications for newly unlocked badges
-    for (const badgeId of newBadges) {
-      const badge = BADGES[badgeId as BadgeId];
+    // Fire-and-forget: push notifications for newly unlocked badges.
+    // Au-delà du seuil, une seule notification agrégée : un utilisateur ancien
+    // peut franchir vingt seuils d'un coup au premier trajet suivant un
+    // enrichissement du catalogue. Vingt vibrations d'affilée — et vingt
+    // requêtes web-push pour un seul POST — sont une nuisance, pas une fête.
+    const BADGE_PUSH_BURST_LIMIT = 3;
+    if (newBadges.length > BADGE_PUSH_BURST_LIMIT) {
+      const first = BADGES[newBadges[0]! as BadgeId];
       reportBackgroundError(
         sendPushToUser(currentUser.id, {
           title: "ecoRide",
-          body: `Badge débloqué : ${badge.label} ${badge.icon}`,
+          body: `Badge débloqué : ${first.label} ${first.icon} +${newBadges.length - 1} autres`,
         }),
         requestLogger,
         "badge_push_failed",
-        { badgeId },
+        { badgeCount: newBadges.length },
       );
+    } else {
+      for (const badgeId of newBadges) {
+        const badge = BADGES[badgeId as BadgeId];
+        reportBackgroundError(
+          sendPushToUser(currentUser.id, {
+            title: "ecoRide",
+            body: `Badge débloqué : ${badge.label} ${badge.icon}`,
+          }),
+          requestLogger,
+          "badge_push_failed",
+          { badgeId },
+        );
+      }
     }
 
     // Fire-and-forget: check leaderboard overtakes — only for live trips,

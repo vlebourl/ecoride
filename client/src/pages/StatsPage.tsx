@@ -172,7 +172,7 @@ export function StatsPage() {
           </>
         )}
 
-        <StatsBadgesSection achievements={achievements ?? []} />
+        <StatsBadgesSection achievements={achievements ?? []} challenges={summary.challenges} />
       </div>
 
       <StatsTripDetailSheet

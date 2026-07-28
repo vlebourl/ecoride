@@ -7,6 +7,7 @@ import type {
   FuelType,
   WeekDay,
   Super73Mode,
+  ChallengeProgressDto,
 } from "./types";
 
 // ---- Route definitions ----
@@ -195,6 +196,7 @@ export interface StatsSummaryResponse {
   tripCount: number;
   currentStreak: number;
   longestStreak: number;
+  challenges: { week: ChallengeProgressDto; month: ChallengeProgressDto };
 }
 
 export interface LeaderboardEntry {

@@ -6,6 +6,8 @@ import { db } from "../db";
 import { trips } from "../db/schema";
 import { validationHook } from "../lib/validation";
 import { computeStreak } from "../lib/streaks";
+import { computeDerivedStats, type DailyRow } from "../lib/derived-stats";
+import { fetchDailyRows } from "../lib/daily-rollup";
 import { rateLimit } from "../lib/rate-limit";
 import type { AuthEnv } from "../types/context";
 import type {
@@ -71,6 +73,12 @@ statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), asy
 
   const streaks = await computeStreak(currentUser.id);
 
+  // Partagée avec collectUserStats (badges) : voir lib/daily-rollup.ts. La carte
+  // de défi et weekly_goal_* doivent parler de la même semaine.
+  const dailyRows: DailyRow[] = await fetchDailyRows(currentUser.id);
+
+  const derived = computeDerivedStats(dailyRows, new Date().toISOString().slice(0, 10));
+
   return c.json({
     ok: true,
     data: {
@@ -81,6 +89,7 @@ statsRouter.get("/summary", zValidator("query", statsQuery, validationHook), asy
       tripCount: stats?.tripCount ?? 0,
       currentStreak: streaks.current,
       longestStreak: streaks.longest,
+      challenges: { week: derived.currentWeek, month: derived.currentMonth },
     },
   });
 });

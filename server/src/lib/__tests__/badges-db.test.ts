@@ -45,29 +45,56 @@ const mockComputeStreak = vi.mocked(computeStreak);
 /**
  * `where()` termine la requête pour les selects simples, mais la requête
  * journalière ajoute `.groupBy()`. On renvoie donc un thenable qui porte aussi
- * `groupBy`, ce qui couvre les deux formes avec un seul helper.
+ * `groupBy`, ce qui couvre les deux formes avec un seul helper. `groupBy` est
+ * ré-exposé sur le chaînage pour qu'un test puisse vérifier qu'il a bien été
+ * appelé : sans regroupement, la requête journalière renverrait une seule ligne
+ * agrégée sur tout l'historique et maxDayDistanceKm vaudrait le total à vie.
  */
 function makeSelectChain(resolvedValue: unknown[]) {
-  const terminal = Object.assign(Promise.resolve(resolvedValue), {
-    groupBy: vi.fn().mockResolvedValue(resolvedValue),
-  });
+  const groupBy = vi.fn().mockResolvedValue(resolvedValue);
+  const terminal = Object.assign(Promise.resolve(resolvedValue), { groupBy });
   const chain = {
     from: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnValue(terminal),
+    groupBy,
   };
   return chain;
 }
 
 /**
- * collectUserStats() enchaîne trois selects : profil (timezone), agrégat
- * une-ligne, puis sommes par jour. Les tests n'ont besoin de piloter que
- * l'agrégat ; les deux autres reçoivent des valeurs neutres.
+ * Les 12 colonnes que sélectionne la requête d'agrégat. Les tests partent de ce
+ * socle pour que chaque colonne soit réellement présente dans la fausse ligne :
+ * une colonne absente retomberait sur `undefined ?? 0` et masquerait un renommage.
  */
-function mockCollectStats(agg: Record<string, number> | null, daily: unknown[] = []) {
+const ZERO_AGG = {
+  totalDistanceKm: 0,
+  totalCo2SavedKg: 0,
+  totalMoneySavedEur: 0,
+  totalFuelSavedL: 0,
+  tripCount: 0,
+  maxTripDistanceKm: 0,
+  maxTripDurationSec: 0,
+  maxTripSpeedKmh: 0,
+  earlyTripCount: 0,
+  nightTripCount: 0,
+  weekendTripCount: 0,
+  distinctWeekdayCount: 0,
+};
+
+/**
+ * collectUserStats() enchaîne trois selects : profil (timezone), agrégat
+ * une-ligne, puis sommes par jour. Renvoie les trois faux chaînages pour que les
+ * tests puissent assertion sur leur usage.
+ */
+function mockCollectStats(agg: Partial<typeof ZERO_AGG> | null, daily: unknown[] = []) {
+  const profileChain = makeSelectChain([{ timezone: "UTC" }]);
+  const aggChain = makeSelectChain(agg === null ? [] : [{ ...ZERO_AGG, ...agg }]);
+  const dailyChain = makeSelectChain(daily);
   mockDb.select
-    .mockReturnValueOnce(makeSelectChain([{ timezone: "UTC" }]))
-    .mockReturnValueOnce(makeSelectChain(agg === null ? [] : [agg]))
-    .mockReturnValueOnce(makeSelectChain(daily));
+    .mockReturnValueOnce(profileChain)
+    .mockReturnValueOnce(aggChain)
+    .mockReturnValueOnce(dailyChain);
+  return { profileChain, aggChain, dailyChain };
 }
 
 function makeInsertChain() {
@@ -177,7 +204,7 @@ describe("evaluateAndUnlockBadges", () => {
 
   it("unlocks the daily record badges from the per-day rows", async () => {
     const insertChain = makeInsertChain();
-    mockCollectStats(
+    const { dailyChain } = mockCollectStats(
       { totalDistanceKm: 60, totalCo2SavedKg: 6, totalMoneySavedEur: 20, tripCount: 3 },
       [{ day: "2026-07-20", distanceKm: 55, co2Kg: 5, tripCount: 2 }],
     );
@@ -188,6 +215,65 @@ describe("evaluateAndUnlockBadges", () => {
     const result = await evaluateAndUnlockBadges("user-1");
     expect(result).toContain("day_30");
     expect(result).toContain("day_50");
+    // La requête journalière DOIT être regroupée. Sans groupBy, PostgreSQL
+    // renverrait une ligne unique agrégée sur tout l'historique : day_30 et
+    // day_50 se débloqueraient pour quiconque a cumulé 30 km à vie.
+    expect(dailyChain.groupBy).toHaveBeenCalled();
+    // computeDerivedStats attend exactement ces quatre colonnes.
+    const dailyProjection = mockDb.select.mock.calls[2]?.[0] as Record<string, unknown>;
+    expect(Object.keys(dailyProjection).sort()).toEqual(
+      ["co2Kg", "day", "distanceKm", "tripCount"].sort(),
+    );
+  });
+
+  it("lit chaque badge depuis sa propre colonne d'agrégat", async () => {
+    // Douze colonnes, douze valeurs distinctes, douze badges pilotés chacun par
+    // un seul champ. Une colonne renommée ou disparue de la requête retombe sur
+    // `undefined ?? 0` — et fait tomber précisément son badge ici.
+    const insertChain = makeInsertChain();
+    mockCollectStats({
+      totalDistanceKm: 5100, // km_5000
+      totalCo2SavedKg: 260, // co2_250kg
+      totalMoneySavedEur: 510, // money_500
+      totalFuelSavedL: 51, // fuel_50l
+      tripCount: 251, // trips_250
+      maxTripDistanceKm: 52, // trip_50
+      maxTripDurationSec: 7201, // trip_2h
+      maxTripSpeedKmh: 26, // speed_25
+      earlyTripCount: 11, // early_bird
+      nightTripCount: 12, // night_owl
+      weekendTripCount: 21, // weekend_20
+      distinctWeekdayCount: 7, // all_week
+    });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(insertChain);
+    mockComputeStreak.mockResolvedValue({ current: 0, longest: 0 });
+
+    const result = await evaluateAndUnlockBadges("user-1");
+
+    // La fausse ligne est fabriquée par le test : elle prouve que chaque champ
+    // est LU depuis la bonne clé, mais pas que la requête la PRODUIT. On vérifie
+    // donc séparément la projection réellement passée à db.select() — c'est ce
+    // qui tombe si une colonne est renommée ou supprimée de la requête.
+    const aggProjection = mockDb.select.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(Object.keys(aggProjection).sort()).toEqual(Object.keys(ZERO_AGG).sort());
+
+    for (const badgeId of [
+      "km_5000",
+      "co2_250kg",
+      "money_500",
+      "fuel_50l",
+      "trips_250",
+      "trip_50",
+      "trip_2h",
+      "speed_25",
+      "early_bird",
+      "night_owl",
+      "weekend_20",
+      "all_week",
+    ]) {
+      expect(result).toContain(badgeId);
+    }
   });
 
   it("handles empty aggregate result gracefully (fallback to 0)", async () => {

@@ -1,5 +1,8 @@
 # ecoRide — Roadmap
 
+> Dernière vérification contre le code : 2026-07-28 (v2.50.1).
+> Les sections « Livré » ont été recochées en lisant le code, pas la mémoire.
+
 ---
 
 ## v1.0–v1.6 — Livrés
@@ -12,113 +15,39 @@ Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
 
 ---
 
-## v2.0 — Tests & linting (en cours)
+## v2.0 — Tests & linting — livré
 
-### Tests serveur — PR #72
-
-- [x] Config vitest pour server/ + script `bun run test` + job CI
-- [x] Tests `calculateSavings()` (8 tests)
-- [x] Tests `computeStreak()` / `computeStreakFromDates()` (12 tests)
-- [x] Tests BADGE_THRESHOLDS (27 tests — exact threshold + juste en dessous pour chaque badge)
-- [x] Tests createTripSchema (18 tests — validation Zod complète)
-- [x] Tests `denseRank()` (8 tests)
-- [ ] Objectif : coverage > 80% sur server/src/lib/ (à mesurer)
-
-### ESLint + Prettier — PR #71
-
-- [x] Config ESLint flat (client + server + shared)
-- [x] Config Prettier
-- [x] Husky + lint-staged pre-commit hook
-- [x] Fix erreurs de linting existantes (0 errors, 15 warnings)
-- [x] Job CI `lint` + `format:check`
-
-### Commit lint — en cours
-
-- [ ] commitlint config (conventional commits)
-- [ ] Hook commit-msg qui valide le format du message
-- [ ] Empêche les "wip", "fix stuff" et les messages qui cassent l'auto-bump
-
-### CLAUDE.md projet
-
-- [x] Créé — instructions complètes pour les agents (architecture, gotchas, rules)
+- [x] Vitest serveur + client, script `bun run test`, job CI
+- [x] Tests `calculateSavings()`, `computeStreak()`, BADGE_THRESHOLDS, `createTripSchema`, `denseRank()`
+- [x] ESLint flat (client + server + shared) + Prettier + husky/lint-staged
+- [x] Jobs CI `lint` + `format:check`
+- [x] commitlint (`.husky/commit-msg` + job CI `commitlint`)
+- [x] CLAUDE.md projet
 
 ---
 
-## v2.1 — Monitoring & admin
+## v2.1 — Monitoring & admin — livré
 
-### Page admin (/admin)
-
-- [ ] Route protégée (admin only — vérifier un flag `isAdmin` sur le user)
-- [ ] Dashboard : nb users, nb trips total, trips/jour (7 derniers jours), erreurs récentes
-- [ ] Infos système : version déployée, uptime serveur, taille DB
-- [ ] Liste des users avec stats (admin peut voir tous les users)
-- [ ] Bouton pour trigger un deploy manuellement
-
-### Health check enrichi
-
-- [ ] `/api/health` retourne aussi : DB connected (ping), nb users actifs (7j), disk usage si dispo
-- [ ] Endpoint `/api/health/detailed` (admin only) avec métriques complètes
-
-### Sentry (ou alternative)
-
-- [ ] Intégrer Sentry côté client (ErrorBoundary + unhandledrejection)
-- [ ] Source maps uploadées dans la CI (pour stack traces lisibles)
-- [ ] Alertes email/push sur erreurs critiques
-- [ ] Optionnel côté serveur (Hono error handler → Sentry)
-
-### Logs structurés
-
-- [ ] Remplacer console.log/warn/error par un logger structuré (JSON)
-- [ ] Chaque log inclut : timestamp, level, requestId, userId (si auth), message, data
-- [ ] Rotation/retention des logs (ou export vers un service externe)
-
-### Audit log
-
-- [ ] Table `audit_logs` : userId, action, target, metadata, createdAt
-- [ ] Actions tracées : suppression compte, suppression trajet, changement profil véhicule
-- [ ] Visible dans la page admin
+- [x] Page admin `/admin` protégée (`adminMiddleware`), stats users/trips, infos système
+- [x] Bouton de deploy manuel (`AdminSystemSection`)
+- [x] `/api/health` enrichi (db, activeUsers7d, version) + `/api/health/detailed` admin-only
+- [x] Sentry client + serveur, source maps uploadées via `sentryVitePlugin` (`sourcemap: "hidden"`)
+- [x] Webhook Sentry → notifications (`sentry-webhook.routes.ts`)
+- [x] Logger structuré JSON avec requestId + userId (`server/src/lib/logger.ts`)
+- [x] Table `audit_logs` + consultation dans la page admin (`GET /admin/audit-logs`)
+- [ ] Rotation / rétention des logs — aujourd'hui stdout capturé par Coolify, pas de politique explicite
 
 ---
 
-## v2.2 — CI avancée
+## v2.2 — CI avancée — livré, sauf preview deploys
 
-### Coverage report dans les PRs
-
-- [ ] vitest coverage (c8 ou istanbul) pour client + server
-- [ ] GitHub Action qui poste un commentaire avec le % et les diff de coverage
-- [ ] Seuil minimum : fail la CI si coverage < 70%
-
-### Bundle size check
-
-- [ ] Mesurer la taille du bundle JS/CSS après build
-- [ ] Comparer avec main et alerter si +50 KB
-- [ ] GitHub Action comment ou status check
-
-### Lighthouse CI
-
-- [ ] Lancer Lighthouse sur le build preview (performance, PWA, a11y, SEO)
-- [ ] Poster le score dans la PR
-- [ ] Seuils : performance > 80, PWA > 90, a11y > 85
-
-### Preview deployments
-
-- [ ] Chaque PR déployée sur une URL temporaire (ex: pr-42.ecoride.tiarkaerell.com)
-- [ ] Coolify ou Vercel-like preview
-- [ ] Auto-cleanup quand la PR est fermée
-
-### Seed script
-
-- [ ] `bun run db:seed` qui crée des données de test réalistes
-- [ ] 5 users fictifs avec noms/emails anonymes
-- [ ] ~50 trips répartis sur 2 semaines avec GPS points réalistes
-- [ ] Badges débloqués, streaks en cours
-- [ ] Utile pour démo, screenshots, dev local
-
-### Dependabot / Renovate
-
-- [ ] Config Renovate ou Dependabot pour auto-update des deps
-- [ ] PRs automatiques avec changelog
-- [ ] Auto-merge si CI passe pour les patches
+- [x] Coverage vitest client + server, commentaire PR, seuil bloquant
+- [x] Bundle size check (budget +50 KB gzip, commentaire PR)
+- [x] Lighthouse CI avec seuil a11y bloquant
+- [x] Analyse dead code : Knip + dependency-cruiser (scripts `knip`, `depcruise`)
+- [x] Renovate (`renovate.json`, auto-merge des patches)
+- [ ] Preview deployments par PR (URL temporaire + auto-cleanup) — infra Coolify, gros chantier
+- [ ] Seed script `bun run db:seed` (users fictifs + ~50 trips réalistes) pour démo et dev local
 
 ---
 
@@ -126,29 +55,40 @@ Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
 
 ### Sécurité
 
-- [ ] Content-Security-Policy header strict
-- [ ] `bun audit` dans la CI (ou npm audit)
+- [x] Headers HSTS / X-Frame-Options / nosniff / Referrer-Policy
+- [x] Content-Security-Policy strict (`server/src/lib/security-headers.ts`)
+- [x] `bun audit` dans la CI (bloquant sur `critical`)
 - [ ] Documenter la procédure de rotation des secrets (VAPID, auth secret, DB password)
 - [ ] Pen test checklist automatisée (OWASP top 10)
 
-### Précision des calculs
+### Précision des calculs — livré
 
-- [ ] Migrer colonnes `real` → `numeric(10,3)` pour CO₂ et fuel
-- [ ] Migrer `moneySavedEur` → `numeric(10,2)`
-- [ ] Script de migration des données existantes
-- [ ] Tests de précision sur les agrégations SUM
+- [x] Colonnes CO₂ / fuel en `numeric(10,3)`, `moneySavedEur` en `numeric(10,2)`
+- [x] Migration des données existantes
+- [x] Tests de précision sur les agrégations
 
 ### DX
 
-- [ ] API docs auto-générées (OpenAPI/Swagger depuis routes Hono + Zod)
-- [ ] Dev containers (docker-compose pour dev en 1 commande)
+- [ ] API docs auto-générées (OpenAPI depuis routes Hono + Zod)
+- [ ] Dev containers (docker-compose, dev en 1 commande)
 - [ ] Storybook pour les composants UI
-- [ ] Dead code analysis automatique dans la CI
+
+---
+
+## Dette connue
+
+- better-auth < 1.6.11 et drizzle-kit 0.30 traînent des CVE critiques, non exploitables ici
+  (plugins oidc-provider/mcp non utilisés, shell-quote uniquement au build). Ignorées
+  explicitement dans le job `audit` de la CI. Renovate ouvrira les PRs d'upgrade —
+  à revoir à la main, ce sont l'auth et les migrations.
 
 ---
 
 ## v3.0+ — Features (après consolidation)
 
+> i18n fr/en : déjà livré (`client/src/i18n/`), retiré de la liste.
+
+- Adresses favorites ([#273](https://github.com/vlebourl/ecoride/issues/273))
 - Défis entre amis ("Je te défie de faire 50 km cette semaine")
 - Fil d'activité (voir les derniers trajets de tous les utilisateurs)
 - Partager son impact (Web Share API)
@@ -160,4 +100,3 @@ Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
 - Intégration Strava
 - Gamification avancée (niveaux, XP)
 - Widget Android
-- i18n (multi-langue)

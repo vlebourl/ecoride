@@ -19,7 +19,8 @@
 - **Tout badge est une fonction pure de `UserStats`** — jamais d'événement daté, sinon `reevaluateBadges()` ne peut pas le révoquer correctement.
 - **Seuils des défis** : 50 km/semaine (lundi→dimanche), 250 km/mois (mois civil).
 - **Garde-fou vitesse** : `maxTripSpeedKmh` ne considère que les trajets `distanceKm >= 5`.
-- **Vérification à chaque tâche** : `bun run typecheck` et `bun run lint` doivent passer avant chaque commit.
+- **Vérification à chaque tâche** : `bun run lint` et les tests de la tâche doivent passer avant chaque commit.
+- **Exception typecheck, tâches 1 à 3** : `BadgeId` est dérivé des clés de `BADGES`, donc ajouter 33 ids casse mécaniquement `BADGE_THRESHOLDS` tant que les prédicats ne suivent pas. Le typecheck est **attendu rouge** aux tâches 1, 2 et 3, et **doit être vert à partir de la tâche 4** et pour toutes les suivantes. Ne pas « réparer » ce rouge en tâche 1 ou 2 — la tâche 4 le résout en supprimant le bloc dupliqué qui portait `currentStreak`.
 
 ---
 

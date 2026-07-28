@@ -29,6 +29,20 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
 
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      # Gate on critical only — the moderate/high noise is almost entirely
+      # transitive build tooling. Renovate opens the PRs for the rest.
+      # Ignored, both reviewed as not exploitable here:
+      #   GHSA-w7jw-789q-3m8p  shell-quote via drizzle-kit — build/migration time only
+      #   GHSA-pw9m-5jxm-xr6h  better-auth — affects the oidc-provider/mcp plugins, unused
+      - run: bun audit --audit-level=critical --ignore=GHSA-w7jw-789q-3m8p --ignore=GHSA-pw9m-5jxm-xr6h
+
   typecheck:
     name: TypeScript check
     runs-on: ubuntu-latest

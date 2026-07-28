@@ -226,53 +226,58 @@ describe("evaluateAndUnlockBadges", () => {
     );
   });
 
-  it("lit chaque badge depuis sa propre colonne d'agrégat", async () => {
-    // Douze colonnes, douze valeurs distinctes, douze badges pilotés chacun par
-    // un seul champ. Une colonne renommée ou disparue de la requête retombe sur
-    // `undefined ?? 0` — et fait tomber précisément son badge ici.
-    const insertChain = makeInsertChain();
-    mockCollectStats({
-      totalDistanceKm: 5100, // km_5000
-      totalCo2SavedKg: 260, // co2_250kg
-      totalMoneySavedEur: 510, // money_500
-      totalFuelSavedL: 51, // fuel_50l
-      tripCount: 251, // trips_250
-      maxTripDistanceKm: 52, // trip_50
-      maxTripDurationSec: 7201, // trip_2h
-      maxTripSpeedKmh: 26, // speed_25
-      earlyTripCount: 11, // early_bird
-      nightTripCount: 12, // night_owl
-      weekendTripCount: 21, // weekend_20
-      distinctWeekdayCount: 7, // all_week
-    });
+  it("sélectionne exactement les 12 colonnes d'agrégat attendues", async () => {
+    // La fausse ligne est fabriquée par le test : les assertions sur les badges
+    // prouvent que chaque champ est LU depuis la bonne clé, jamais que la requête
+    // la PRODUIT. Seule la projection réellement passée à db.select() le montre —
+    // c'est elle qui tombe si une colonne est renommée ou supprimée.
+    mockCollectStats({});
     mockDb.select.mockReturnValueOnce(makeSelectChain([]));
-    mockDb.insert.mockReturnValue(insertChain);
     mockComputeStreak.mockResolvedValue({ current: 0, longest: 0 });
 
-    const result = await evaluateAndUnlockBadges("user-1");
+    await evaluateAndUnlockBadges("user-1");
 
-    // La fausse ligne est fabriquée par le test : elle prouve que chaque champ
-    // est LU depuis la bonne clé, mais pas que la requête la PRODUIT. On vérifie
-    // donc séparément la projection réellement passée à db.select() — c'est ce
-    // qui tombe si une colonne est renommée ou supprimée de la requête.
     const aggProjection = mockDb.select.mock.calls[1]?.[0] as Record<string, unknown>;
     expect(Object.keys(aggProjection).sort()).toEqual(Object.keys(ZERO_AGG).sort());
+  });
 
-    for (const badgeId of [
-      "km_5000",
-      "co2_250kg",
-      "money_500",
-      "fuel_50l",
-      "trips_250",
-      "trip_50",
-      "trip_2h",
-      "speed_25",
-      "early_bird",
-      "night_owl",
-      "weekend_20",
-      "all_week",
-    ]) {
-      expect(result).toContain(badgeId);
+  describe("chaque badge est lu depuis sa propre colonne d'agrégat", () => {
+    // Une seule colonne non nulle à la fois. Une table où toutes les colonnes
+    // dépassent leur seuil en même temps ne détecterait PAS un câblage croisé
+    // entre deux champs de même seuil (earlyTripCount et nightTripCount valent
+    // tous deux 10, donc les échanger laisserait les deux badges débloqués).
+    // En isolant chaque colonne, tout croisement fait disparaître son badge.
+    const CASES = [
+      { column: "totalDistanceKm", value: 5000, badge: "km_5000" },
+      { column: "totalCo2SavedKg", value: 250, badge: "co2_250kg" },
+      { column: "totalMoneySavedEur", value: 500, badge: "money_500" },
+      { column: "totalFuelSavedL", value: 50, badge: "fuel_50l" },
+      { column: "tripCount", value: 250, badge: "trips_250" },
+      { column: "maxTripDistanceKm", value: 50, badge: "trip_50" },
+      { column: "maxTripDurationSec", value: 7200, badge: "trip_2h" },
+      { column: "maxTripSpeedKmh", value: 25, badge: "speed_25" },
+      { column: "earlyTripCount", value: 10, badge: "early_bird" },
+      { column: "nightTripCount", value: 10, badge: "night_owl" },
+      { column: "weekendTripCount", value: 20, badge: "weekend_20" },
+      { column: "distinctWeekdayCount", value: 7, badge: "all_week" },
+    ] as const;
+
+    for (const { column, value, badge } of CASES) {
+      it(`${column} alimente ${badge} et lui seul`, async () => {
+        mockDb.insert.mockReturnValue(makeInsertChain());
+        mockCollectStats({ [column]: value });
+        mockDb.select.mockReturnValueOnce(makeSelectChain([]));
+        mockComputeStreak.mockResolvedValue({ current: 0, longest: 0 });
+
+        const result = await evaluateAndUnlockBadges("user-1");
+
+        expect(result).toContain(badge);
+        // Aucun des onze autres badges pilotés par une colonne d'agrégat ne doit
+        // se débloquer : leur colonne est restée à zéro.
+        for (const other of CASES) {
+          if (other.badge !== badge) expect(result).not.toContain(other.badge);
+        }
+      });
     }
   });
 

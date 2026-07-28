@@ -12,24 +12,85 @@ export interface UserStats {
   totalDistanceKm: number;
   totalCo2SavedKg: number;
   totalMoneySavedEur: number;
+  totalFuelSavedL: number;
   tripCount: number;
-  currentStreak: number;
+  /** Plus longue série jamais réalisée. Les badges streak s'appuient dessus, pas sur la série en cours. */
+  longestStreak: number;
+  maxTripDistanceKm: number;
+  maxTripDurationSec: number;
+  /** Vitesse du meilleur trajet d'au moins 5 km. Sous ce seuil, une descente courte fausserait tout. */
+  maxTripSpeedKmh: number;
+  maxDayDistanceKm: number;
+  monthsActive: number;
+  /** Trajets démarrés avant 7 h — heure LOCALE, seule exception à la règle UTC-only du backend. */
+  earlyTripCount: number;
+  /** Trajets démarrés à 21 h ou après — heure LOCALE. */
+  nightTripCount: number;
+  weekendTripCount: number;
+  /** Nombre de jours de la semaine distincts (UTC). 7 = all_week. */
+  distinctWeekdayCount: number;
+  weeklyGoalsMet: number;
+  monthlyGoalsMet: number;
 }
 
 export const BADGE_THRESHOLDS: Record<BadgeId, (s: UserStats) => boolean> = {
+  // Volume
   first_trip: (s) => s.tripCount >= 1,
   trips_10: (s) => s.tripCount >= 10,
   trips_50: (s) => s.tripCount >= 50,
   trips_100: (s) => s.tripCount >= 100,
+  trips_250: (s) => s.tripCount >= 250,
+  trips_500: (s) => s.tripCount >= 500,
   km_100: (s) => s.totalDistanceKm >= 100,
   km_500: (s) => s.totalDistanceKm >= 500,
   km_1000: (s) => s.totalDistanceKm >= 1000,
+  km_2500: (s) => s.totalDistanceKm >= 2500,
+  km_5000: (s) => s.totalDistanceKm >= 5000,
+  km_10000: (s) => s.totalDistanceKm >= 10000,
+
+  // Impact
   co2_10kg: (s) => s.totalCo2SavedKg >= 10,
   co2_100kg: (s) => s.totalCo2SavedKg >= 100,
+  co2_250kg: (s) => s.totalCo2SavedKg >= 250,
+  co2_500kg: (s) => s.totalCo2SavedKg >= 500,
   co2_1t: (s) => s.totalCo2SavedKg >= 1000,
-  streak_7: (s) => s.currentStreak >= 7,
-  streak_30: (s) => s.currentStreak >= 30,
+  fuel_25l: (s) => s.totalFuelSavedL >= 25,
+  fuel_50l: (s) => s.totalFuelSavedL >= 50,
+  fuel_100l: (s) => s.totalFuelSavedL >= 100,
+  fuel_250l: (s) => s.totalFuelSavedL >= 250,
   money_100: (s) => s.totalMoneySavedEur >= 100,
+  money_250: (s) => s.totalMoneySavedEur >= 250,
+  money_500: (s) => s.totalMoneySavedEur >= 500,
+  money_1000: (s) => s.totalMoneySavedEur >= 1000,
+
+  // Régularité — sur longestStreak, pas sur la série en cours
+  streak_3: (s) => s.longestStreak >= 3,
+  streak_7: (s) => s.longestStreak >= 7,
+  streak_14: (s) => s.longestStreak >= 14,
+  streak_30: (s) => s.longestStreak >= 30,
+  streak_100: (s) => s.longestStreak >= 100,
+  months_active_6: (s) => s.monthsActive >= 6,
+  months_active_12: (s) => s.monthsActive >= 12,
+  weekly_goal_10: (s) => s.weeklyGoalsMet >= 10,
+  monthly_goal_3: (s) => s.monthlyGoalsMet >= 3,
+
+  // Records
+  day_30: (s) => s.maxDayDistanceKm >= 30,
+  day_50: (s) => s.maxDayDistanceKm >= 50,
+  trip_25: (s) => s.maxTripDistanceKm >= 25,
+  trip_50: (s) => s.maxTripDistanceKm >= 50,
+  trip_2h: (s) => s.maxTripDurationSec >= 7200,
+
+  // Habitudes
+  early_bird: (s) => s.earlyTripCount >= 10,
+  night_owl: (s) => s.nightTripCount >= 10,
+  weekend_20: (s) => s.weekendTripCount >= 20,
+  all_week: (s) => s.distinctWeekdayCount >= 7,
+
+  // Performance
+  speed_20: (s) => s.maxTripSpeedKmh >= 20,
+  speed_22: (s) => s.maxTripSpeedKmh >= 22,
+  speed_25: (s) => s.maxTripSpeedKmh >= 25,
 };
 
 /**

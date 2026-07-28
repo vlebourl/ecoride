@@ -5,6 +5,7 @@ vi.mock("../../db", () => ({ db: {} }));
 vi.mock("../../db/schema", () => ({ trips: {}, achievements: {} }));
 vi.mock("../streaks", () => ({ computeStreak: vi.fn() }));
 
+import type { BadgeId } from "@ecoride/shared/types";
 import { BADGE_THRESHOLDS, type UserStats } from "../badges";
 
 function makeStats(overrides: Partial<UserStats> = {}): UserStats {
@@ -12,8 +13,20 @@ function makeStats(overrides: Partial<UserStats> = {}): UserStats {
     totalDistanceKm: 0,
     totalCo2SavedKg: 0,
     totalMoneySavedEur: 0,
+    totalFuelSavedL: 0,
     tripCount: 0,
-    currentStreak: 0,
+    longestStreak: 0,
+    maxTripDistanceKm: 0,
+    maxTripDurationSec: 0,
+    maxTripSpeedKmh: 0,
+    maxDayDistanceKm: 0,
+    monthsActive: 0,
+    earlyTripCount: 0,
+    nightTripCount: 0,
+    weekendTripCount: 0,
+    distinctWeekdayCount: 0,
+    weeklyGoalsMet: 0,
+    monthlyGoalsMet: 0,
     ...overrides,
   };
 }
@@ -125,25 +138,25 @@ describe("BADGE_THRESHOLDS", () => {
 
   describe("streak_7", () => {
     it("unlocks at exactly 7-day streak", () => {
-      expect(BADGE_THRESHOLDS.streak_7(makeStats({ currentStreak: 7 }))).toBe(true);
+      expect(BADGE_THRESHOLDS.streak_7(makeStats({ longestStreak: 7 }))).toBe(true);
     });
 
     it("does not unlock at 6-day streak", () => {
-      expect(BADGE_THRESHOLDS.streak_7(makeStats({ currentStreak: 6 }))).toBe(false);
+      expect(BADGE_THRESHOLDS.streak_7(makeStats({ longestStreak: 6 }))).toBe(false);
     });
 
     it("unlocks above threshold", () => {
-      expect(BADGE_THRESHOLDS.streak_7(makeStats({ currentStreak: 14 }))).toBe(true);
+      expect(BADGE_THRESHOLDS.streak_7(makeStats({ longestStreak: 14 }))).toBe(true);
     });
   });
 
   describe("streak_30", () => {
     it("unlocks at exactly 30-day streak", () => {
-      expect(BADGE_THRESHOLDS.streak_30(makeStats({ currentStreak: 30 }))).toBe(true);
+      expect(BADGE_THRESHOLDS.streak_30(makeStats({ longestStreak: 30 }))).toBe(true);
     });
 
     it("does not unlock at 29-day streak", () => {
-      expect(BADGE_THRESHOLDS.streak_30(makeStats({ currentStreak: 29 }))).toBe(false);
+      expect(BADGE_THRESHOLDS.streak_30(makeStats({ longestStreak: 29 }))).toBe(false);
     });
   });
 
@@ -166,7 +179,7 @@ describe("BADGE_THRESHOLDS", () => {
       const stats = makeStats({
         totalDistanceKm: 100,
         tripCount: 0,
-        currentStreak: 0,
+        longestStreak: 0,
       });
       expect(BADGE_THRESHOLDS.km_100(stats)).toBe(true);
       expect(BADGE_THRESHOLDS.first_trip(stats)).toBe(false);
@@ -174,12 +187,67 @@ describe("BADGE_THRESHOLDS", () => {
 
     it("streak badge ignores distance and co2", () => {
       const stats = makeStats({
-        currentStreak: 7,
+        longestStreak: 7,
         totalDistanceKm: 0,
         totalCo2SavedKg: 0,
       });
       expect(BADGE_THRESHOLDS.streak_7(stats)).toBe(true);
       expect(BADGE_THRESHOLDS.km_100(stats)).toBe(false);
     });
+  });
+});
+
+describe("nouveaux paliers cumulatifs", () => {
+  const cases: [BadgeId, keyof UserStats, number][] = [
+    ["trips_250", "tripCount", 250],
+    ["trips_500", "tripCount", 500],
+    ["km_2500", "totalDistanceKm", 2500],
+    ["km_5000", "totalDistanceKm", 5000],
+    ["km_10000", "totalDistanceKm", 10000],
+    ["co2_250kg", "totalCo2SavedKg", 250],
+    ["co2_500kg", "totalCo2SavedKg", 500],
+    ["fuel_25l", "totalFuelSavedL", 25],
+    ["fuel_50l", "totalFuelSavedL", 50],
+    ["fuel_100l", "totalFuelSavedL", 100],
+    ["fuel_250l", "totalFuelSavedL", 250],
+    ["money_250", "totalMoneySavedEur", 250],
+    ["money_500", "totalMoneySavedEur", 500],
+    ["money_1000", "totalMoneySavedEur", 1000],
+    ["streak_3", "longestStreak", 3],
+    ["streak_14", "longestStreak", 14],
+    ["streak_100", "longestStreak", 100],
+    ["months_active_6", "monthsActive", 6],
+    ["months_active_12", "monthsActive", 12],
+    ["weekly_goal_10", "weeklyGoalsMet", 10],
+    ["monthly_goal_3", "monthlyGoalsMet", 3],
+    ["day_30", "maxDayDistanceKm", 30],
+    ["day_50", "maxDayDistanceKm", 50],
+    ["trip_25", "maxTripDistanceKm", 25],
+    ["trip_50", "maxTripDistanceKm", 50],
+    ["trip_2h", "maxTripDurationSec", 7200],
+    ["early_bird", "earlyTripCount", 10],
+    ["night_owl", "nightTripCount", 10],
+    ["weekend_20", "weekendTripCount", 20],
+    ["all_week", "distinctWeekdayCount", 7],
+    ["speed_20", "maxTripSpeedKmh", 20],
+    ["speed_22", "maxTripSpeedKmh", 22],
+    ["speed_25", "maxTripSpeedKmh", 25],
+  ];
+
+  for (const [badgeId, field, threshold] of cases) {
+    it(`${badgeId} se débloque au seuil exact et pas juste en dessous`, () => {
+      expect(BADGE_THRESHOLDS[badgeId](makeStats({ [field]: threshold }))).toBe(true);
+      expect(BADGE_THRESHOLDS[badgeId](makeStats({ [field]: threshold - 1 }))).toBe(false);
+    });
+  }
+});
+
+describe("badges streak indexés sur longestStreak", () => {
+  it("garde streak_7 quand la série actuelle est cassée mais que le record tient", () => {
+    expect(BADGE_THRESHOLDS.streak_7(makeStats({ longestStreak: 12 }))).toBe(true);
+  });
+
+  it("ne débloque pas streak_30 avec un record de 29", () => {
+    expect(BADGE_THRESHOLDS.streak_30(makeStats({ longestStreak: 29 }))).toBe(false);
   });
 });

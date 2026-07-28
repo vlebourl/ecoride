@@ -3,6 +3,7 @@ import { db } from "../db";
 import { trips, achievements, user } from "../db/schema";
 import { computeStreak } from "./streaks";
 import { computeDerivedStats, type DailyRow } from "./derived-stats";
+import { fetchDailyRows } from "./daily-rollup";
 import { normalizeTimezone } from "./timezone";
 import type { BadgeId } from "@ecoride/shared/types";
 
@@ -113,6 +114,11 @@ export async function collectUserStats(userId: string): Promise<UserStats> {
   // intrinsèquement locale, sinon "avant 7 h" devient "avant 9 h" à Paris en été.
   const tz = normalizeTimezone(profile?.timezone);
   const localHour = sql<number>`EXTRACT(hour FROM ${trips.startedAt} AT TIME ZONE ${tz}::text)`;
+  // Décalage connu et accepté : le jour de semaine reste UTC alors que
+  // localHour ci-dessus est local. Un trajet parisien du lundi 00h30 vaut
+  // 23h30 UTC dimanche et compte donc comme un trajet de week-end pour
+  // weekend_20 / all_week. Faible fréquence, et la règle UTC-only du backend
+  // prime — ce n'est pas un oubli.
   const utcDow = sql<number>`EXTRACT(dow FROM ${trips.startedAt} AT TIME ZONE 'UTC')`;
 
   const [agg] = await db
@@ -139,17 +145,8 @@ export async function collectUserStats(userId: string): Promise<UserStats> {
     .from(trips)
     .where(eq(trips.userId, userId));
 
-  const dayExpr = sql<string>`DATE(${trips.startedAt} AT TIME ZONE 'UTC')`;
-  const dailyRows: DailyRow[] = await db
-    .select({
-      day: dayExpr.as("day"),
-      distanceKm: sum(trips.distanceKm).mapWith(Number),
-      co2Kg: sum(trips.co2SavedKg).mapWith(Number),
-      tripCount: count(),
-    })
-    .from(trips)
-    .where(eq(trips.userId, userId))
-    .groupBy(dayExpr);
+  // Partagée avec GET /api/stats/summary : voir daily-rollup.ts.
+  const dailyRows: DailyRow[] = await fetchDailyRows(userId);
 
   const derived = computeDerivedStats(dailyRows, new Date().toISOString().slice(0, 10));
   const streaks = await computeStreak(userId);

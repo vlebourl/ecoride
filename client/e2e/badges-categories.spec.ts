@@ -7,8 +7,12 @@ import { test, expect } from "@playwright/test";
  * Strategy: stub /api/** (this suite runs against `vite preview`, a static
  * build with no API server) and assert on:
  * 1. all 6 category headings render — catches a dropped/renamed category.
- * 2. the weekly challenge progressbar's aria-valuenow is the correct
- *    clamped, rounded percentage — catches a wrong or unclamped computation.
+ * 2. the weekly challenge progressbar's aria-valuenow is the expected
+ *    percentage for the stubbed fixture — catches a wrong computation or the
+ *    week/month cards being swapped. It does NOT cover the >100 % clamp: the
+ *    fixture is 32/50 = 64 %, far from the boundary, so an implementation
+ *    without Math.min(100, …) would produce 64 too. The clamp is covered in
+ *    client/src/components/badges/__tests__/ChallengeCard.test.tsx (vitest).
  *
  * Note: the real client fetches achievements from /achievements (not nested
  * inside /stats/summary as an earlier draft of this spec assumed) and reads
@@ -178,8 +182,9 @@ test.describe("Badges par catégorie et défis", () => {
   test("affiche la barre de progression du défi hebdo", async ({ page }) => {
     await page.goto("/stats", { waitUntil: "networkidle" });
 
-    // 32 / 50 = 64 % — would fail if the percentage were computed wrong,
-    // left unclamped, or the week/month cards were swapped.
+    // 32 / 50 = 64 % — would fail if the percentage were computed wrong or the
+    // week/month cards were swapped. Says nothing about the >100 % clamp (64 is
+    // nowhere near the boundary) — that lives in ChallengeCard.test.tsx.
     await expect(page.getByRole("progressbar").first()).toHaveAttribute("aria-valuenow", "64");
   });
 });

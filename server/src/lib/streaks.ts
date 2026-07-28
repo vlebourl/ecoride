@@ -16,7 +16,10 @@ function todayUtc(): string {
  * @param userId - The user to compute streaks for
  */
 export async function computeStreak(userId: string): Promise<{ current: number; longest: number }> {
-  // Get distinct UTC trip dates ordered descending via GROUP BY DATE
+  // Get distinct UTC trip dates ordered descending via GROUP BY DATE.
+  // La définition du jour ci-dessous reflète volontairement celle de
+  // fetchDailyRows (lib/daily-rollup.ts) : si l'une change, l'autre doit
+  // suivre, sinon séries et défis parleront de jours différents.
   const rows = await db
     .select({ day: sql<string>`DATE(${trips.startedAt} AT TIME ZONE 'UTC')`.as("day") })
     .from(trips)

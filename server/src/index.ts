@@ -12,6 +12,7 @@ import { initCronJobs } from "./cron";
 import { AppError } from "./lib/errors";
 import { getHealthSnapshot } from "./lib/health";
 import { rateLimit } from "./lib/rate-limit";
+import { securityHeaders } from "./lib/security-headers";
 import { logger } from "./lib/logger";
 import { sentryWebhookRouter } from "./routes/sentry-webhook.routes";
 
@@ -50,15 +51,7 @@ app.use("*", async (c, next) => {
 });
 
 // ---- HTTP security headers ----
-app.use("*", async (c, next) => {
-  if (env.NODE_ENV === "production") {
-    c.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
-  }
-  c.header("X-Frame-Options", "DENY");
-  c.header("X-Content-Type-Options", "nosniff");
-  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
-  await next();
-});
+app.use("*", securityHeaders(env.NODE_ENV === "production"));
 
 // ---- CORS for auth routes (before handler, with explicit methods) ----
 app.use(

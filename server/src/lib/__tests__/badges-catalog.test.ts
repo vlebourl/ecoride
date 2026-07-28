@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { BADGES, BADGE_CATEGORIES, type BadgeId } from "../types";
+import { BADGES, BADGE_CATEGORIES, type BadgeId } from "@ecoride/shared/types";
 
 describe("BADGES catalog", () => {
   it("contient 46 badges", () => {

@@ -45,6 +45,27 @@ Rythme dérivé : ~61 km/semaine, ~10 kg CO₂/semaine, ~4,3 L/semaine, ~7,5 €
 
 ---
 
+## Modèle temporel
+
+Le backend est **UTC-only par décision explicite et testée** :
+
+- `server/src/lib/streaks.ts:13` — « Backend calculations stay UTC-only. User timezone is
+  a presentation concern handled in the frontend from the saved profile setting. »
+- `server/src/auth/timezone.test.ts:18` — `it("ignores timezone headers because backend
+processing is UTC-only")`, et `timezoneMiddleware` jette délibérément `x-timezone`.
+
+Cette spec **conserve** cette décision, avec **une seule exception assumée** :
+
+| Ce qui est calculé                                         | Fuseau    | Pourquoi                                                                                        |
+| ---------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------- |
+| Records jour / semaine / mois, mois actifs, défis, streaks | **UTC**   | Cohérence avec `computeStreak`; l'écart ne touche que les trajets à cheval sur minuit           |
+| `weekend_20`, `all_week` (jour de la semaine)              | **UTC**   | Même raison                                                                                     |
+| `early_bird`, `night_owl` (heure de la journée)            | **LOCAL** | En UTC, « avant 7 h » devient « avant 9 h » à Paris en été : le badge serait factuellement faux |
+
+Une heure de la journée est intrinsèquement locale — c'est le seul cas où l'UTC produit
+un badge dont le libellé ment. Le `user.timezone` peut être nul : dans ce cas on retombe
+sur `DEFAULT_TIMEZONE` via `normalizeTimezone()` (`server/src/lib/timezone.ts`).
+
 ## Les trois strates
 
 | Strate                | Exemple                         | Stockage                    | Reset                           |
@@ -136,7 +157,9 @@ sur les défis glissants, qui eux ne laissent aucune trace.
 
 ### 🕐 Habitudes — 4
 
-Toutes les heures sont **locales**, via `user.timezone`.
+`early_bird` et `night_owl` lisent l'**heure locale** via `user.timezone`.
+`weekend_20` et `all_week` restent en **UTC** comme le reste du backend — l'écart ne
+concerne que les trajets à cheval sur minuit. Voir « Modèle temporel » ci-dessous.
 
 | id               | seuil                                           | icône |
 | ---------------- | ----------------------------------------------- | ----- |
@@ -165,10 +188,10 @@ Seuils **fixes et partagés**, pas configurables ni adaptatifs : comparables ent
 utilisateurs, aucune UI de réglage, aucun effet de seuil qui s'effondre après une semaine
 de vacances.
 
-| Défi                                         | Objectif principal | Compteurs secondaires           |
-| -------------------------------------------- | ------------------ | ------------------------------- |
-| **Semaine** (lundi → dimanche, heure locale) | **50 km**          | trajets, jours actifs (/4), CO₂ |
-| **Mois** (mois civil, heure locale)          | **250 km**         | trajets, jours actifs, CO₂      |
+| Défi                                | Objectif principal | Compteurs secondaires           |
+| ----------------------------------- | ------------------ | ------------------------------- |
+| **Semaine** (lundi → dimanche, UTC) | **50 km**          | trajets, jours actifs (/4), CO₂ |
+| **Mois** (mois civil, UTC)          | **250 km**         | trajets, jours actifs, CO₂      |
 
 Le défi CO₂ est une transformation linéaire du défi km (facteur ADEME constant) : il
 afficherait toujours le même pourcentage. Il est donc **compteur secondaire**, pas
@@ -219,10 +242,11 @@ export interface UserStats {
 
 - **A** — agrégat une-ligne : les sommes existantes, plus `SUM(fuelSavedL)`,
   `MAX(distanceKm)`, `MAX(durationSec)`, `MAX(distanceKm / durationSec)` filtré sur
-  `distanceKm >= 5`, et des `COUNT(*) FILTER (WHERE ...)` pour les habitudes (heure
-  locale < 7, ≥ 21, week-end) plus `COUNT(DISTINCT dow)`.
-- **B** — sommes par **jour local** (`started_at AT TIME ZONE user.timezone`) :
-  une ligne par jour actif, ≤ 730 après deux ans.
+  `distanceKm >= 5`, et des `COUNT(*) FILTER (WHERE ...)` pour les habitudes : heure
+  **locale** < 7 et ≥ 21 (`EXTRACT(hour FROM started_at AT TIME ZONE $tz)`), week-end et
+  `COUNT(DISTINCT dow)` en **UTC**.
+- **B** — sommes par **jour UTC** (`DATE(started_at AT TIME ZONE 'UTC')`, même expression
+  que `computeStreak`) : une ligne par jour actif, ≤ 730 après deux ans.
 - **C** — `computeStreak()`, inchangé, dont on utilise désormais `longest`.
 
 ### computeDerivedStats — fonction pure
@@ -267,7 +291,7 @@ deux lignes de plus dans le même repli. Ils sont exposés dans la réponse `/ap
 - **`BADGE_THRESHOLDS`** — le fichier de tests existant suit déjà le pattern « seuil exact
   - juste en dessous ». Étendu aux 33 nouveaux badges.
 - **`computeDerivedStats`** — repli semaine/mois, frontière lundi, passage à l'heure
-  d'hiver, fuseau non-Paris, tableau vide.
+  d'hiver, tableau vide.
 - **Révocation** — un test par famille de nouveaux badges vérifiant que la suppression
   d'un trajet sous le seuil retire bien le badge (et, pour les streaks passés sur
   `longest`, qu'elle ne le retire **pas** à tort).

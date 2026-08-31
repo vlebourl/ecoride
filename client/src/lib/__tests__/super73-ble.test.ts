@@ -510,6 +510,22 @@ describe("writeState", () => {
       0, 209, 1, 4, 7, 0, 0, 0, 0, 0,
     ]);
   });
+
+  it("skips the write when the caller's session ended while it sat in the GATT queue", async () => {
+    const { server, registerChar } = makeMockGATT([3, 0, 0, 0, 0, 4, 0, 0, 0, 0]);
+    const state: Super73State = { mode: "race", assist: 4, light: true, region: "eu" };
+
+    // serializeGatt is a FIFO, so the operation runs a turn later than the call.
+    // The caller's BLE session ends in that gap.
+    let sessionLive = true;
+    const queued = writeState(server, state, () => sessionLive);
+    sessionLive = false;
+    await queued;
+
+    // Nothing must reach the bike: the session is gone, and a reconnect reuses
+    // the same GATT server, so this command could land on the next session.
+    expect(registerChar.writeValue).not.toHaveBeenCalled();
+  });
 });
 
 // Regression for issue #326: Web Bluetooth rejects overlapping GATT operations and

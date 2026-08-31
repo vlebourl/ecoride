@@ -460,7 +460,9 @@ function useSuper73Controller(
       // the same `device.gatt` it would otherwise land on the next session.
       if (session !== bleSessionRef.current) return;
       const next: Super73State = { ...current, ...patch };
-      await writeState(server, next);
+      // The check above guards the call; this one guards the write itself, which
+      // runs a turn later from inside the GATT queue.
+      await writeState(server, next, () => session === bleSessionRef.current);
       // Commit what the bike reports back, not what we asked for: a write the
       // bike refuses would otherwise leave the UI on an optimistic value until
       // the next notifier packet — and the notifier is absent on some firmware

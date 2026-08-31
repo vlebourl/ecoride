@@ -361,10 +361,12 @@ describe("useSuper73 provider", () => {
     );
 
     await waitFor(() => {
-      expect(writeStateMock).toHaveBeenCalledWith(expect.anything(), {
-        ...baseState,
-        mode: "race",
-      });
+      expect(writeStateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        { ...baseState, mode: "race" },
+        // Session guard, re-checked inside the GATT queue.
+        expect.any(Function),
+      );
     });
 
     writeStateMock.mockClear();
@@ -386,10 +388,11 @@ describe("useSuper73 provider", () => {
     );
 
     await waitFor(() => {
-      expect(writeStateMock).toHaveBeenCalledWith(expect.anything(), {
-        ...baseState,
-        mode: "eco",
-      });
+      expect(writeStateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        { ...baseState, mode: "eco" },
+        expect.any(Function),
+      );
     });
   });
 });
@@ -575,6 +578,7 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
       expect(writeStateMock).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ light: true }),
+        expect.any(Function),
       );
     });
     // The UI must follow the bike, not the value that was requested.
@@ -734,5 +738,28 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // pre-disconnect read — and since reconnecting reuses the same `device.gatt`,
     // it could land on the next session's bike.
     expect(writeStateMock).not.toHaveBeenCalled();
+  });
+
+  it("hands writeState a session guard that goes false once the bike drops", async () => {
+    readStateMock.mockResolvedValue({ ...baseState, light: false });
+    writeStateMock.mockResolvedValue(undefined);
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    // super73-ble re-checks this from inside the GATT queue, right before the
+    // bytes go out. It has to track the live session, not just return true.
+    const guard = writeStateMock.mock.calls[0]![2] as () => boolean;
+    expect(guard()).toBe(true);
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    expect(guard()).toBe(false);
   });
 });

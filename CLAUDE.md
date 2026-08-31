@@ -75,6 +75,27 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 - Watch for React hooks order violations (useMemo/useCallback before early returns)
 - Watch for imports that don't exist in the installed package version (e.g., useBlocker in react-router v7.13+)
 
+## Database Migrations
+
+Versioned Drizzle migrations in `server/drizzle/`, applied by `drizzle-kit migrate`
+on every production boot (`server/scripts/start-production.ts`), after an automatic
+Coolify backup. **A committed migration auto-applies on the next deploy.**
+
+- `drizzle-kit push` is local-dev only (`db:push:local`). Never against production.
+- Adding an index or column to `server/src/db/schema/` does **nothing** on its own.
+  It needs a migration, or the declaration silently never reaches the database —
+  that is how #216 left three indexes undeployed for five months.
+- `meta/` is versioned (it was gitignored until #356). `drizzle-kit generate` diffs
+  the schema against the newest snapshot there; without it, generate re-emits
+  already-applied DDL. Run `bunx drizzle-kit generate --config drizzle.config.ts`
+  and confirm it reports _"No schema changes"_ before assuming there is no drift.
+- Migrations 0001+ were hand-written with hand-picked `when` values. If you write
+  one by hand, add both the `.sql` file and its `_journal.json` entry —
+  `server/src/db/__tests__/migration-chain.test.ts` fails if they disagree.
+- `LAST_LEGACY_BASELINE_TAG` (`server/src/lib/drizzle-baseline.ts`) must stay at
+  `0003`. Baselining marks migrations applied _without running them_, so moving it
+  forward would silently skip a real change.
+
 ## Known Issues / Gotchas
 
 - `useBlocker` does NOT exist in react-router v7.13+ — don't use it

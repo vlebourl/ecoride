@@ -5,7 +5,6 @@ dev-dist/
 .env.local
 *.log
 .DS_Store
-server/drizzle/meta/
 docs/screenshots/.playwright-cli/
 .claude/scheduled_tasks.lock
 

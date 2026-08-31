@@ -83,6 +83,11 @@ Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
 - Migration `0004_account_issuer` : better-auth ≥ 1.6 exige une colonne `account.issuer`
   (`local:credential` / `https://accounts.google.com`). Le backfill est obligatoire — une
   valeur absente ou fausse verrouille le compte, vérifié sur une base réelle.
+- Fenêtre de déploiement sur `account.issuer` : la migration tourne avant le démarrage du
+  nouveau conteneur, donc si Coolify laisse l'ancien servir jusqu'au health check, une
+  inscription pendant ces quelques secondes échoue en 500 (`issuer` NOT NULL sans défaut).
+  Un `DEFAULT 'local:credential'` fermerait la fenêtre mais écrirait un issuer faux sur une
+  ligne Google — un 500 visible et rejouable vaut mieux qu'une ligne silencieusement corrompue.
 - Pas de vérification d'email : tous les comptes email/mot de passe ont `emailVerified = false`,
   donc better-auth ≥ 1.6 refuse de les lier à une connexion Google sur la même adresse
   (garde-fou GHSA-g38m-r43w-p2q7). Un flux de vérification d'email lèverait la limite.

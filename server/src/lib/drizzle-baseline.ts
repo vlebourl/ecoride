@@ -19,6 +19,18 @@ export const LEGACY_BASELINE_TABLES = [
 
 export type LegacyBaselineAction = "skip-empty" | "skip-existing" | "bootstrap";
 
+/**
+ * Last migration that merely *describes* the schema a legacy production
+ * database already has. Bootstrapping marks migrations as applied without
+ * running them, so it must stop here: every migration after this tag makes a
+ * real change and has to actually execute. Marking one applied by mistake
+ * silently skips it forever — `0004_account_issuer` would leave
+ * `account.issuer` missing and every sign-in would 500.
+ *
+ * Do not move this forward when adding a migration.
+ */
+export const LAST_LEGACY_BASELINE_TAG = "0003_lyrical_the_order";
+
 interface JournalEntry {
   when: number;
   tag: string;
@@ -58,7 +70,16 @@ export function readMigrationManifest(migrationsFolder: string): MigrationRecord
   }
 
   const journal = JSON.parse(fs.readFileSync(journalPath, "utf8")) as JournalFile;
-  return journal.entries.map((entry) => {
+  const lastLegacyIndex = journal.entries.findIndex(
+    (entry) => entry.tag === LAST_LEGACY_BASELINE_TAG,
+  );
+  if (lastLegacyIndex === -1) {
+    throw new Error(
+      `Migration journal has no entry tagged "${LAST_LEGACY_BASELINE_TAG}"; refusing to baseline.`,
+    );
+  }
+
+  return journal.entries.slice(0, lastLegacyIndex + 1).map((entry) => {
     const sqlPath = path.join(migrationsFolder, `${entry.tag}.sql`);
     const sql = fs.readFileSync(sqlPath, "utf8");
     return {

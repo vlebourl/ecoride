@@ -18,15 +18,6 @@ export interface User {
   super73Enabled: boolean;
   super73AutoModeEnabled: boolean;
   super73DefaultMode: Super73Mode | null;
-  /**
-   * @deprecated Nothing reads these any more. Connecting forces the light on
-   * (#348) and drives the assist to 4 (#349), so neither preference decides
-   * anything; the client no longer sends them. Kept because dropping the columns
-   * is a destructive migration and a separate decision.
-   */
-  super73DefaultAssist: number | null;
-  /** @deprecated See super73DefaultAssist. */
-  super73DefaultLight: boolean | null;
   super73AutoModeLowSpeedKmh: number | null;
   super73AutoModeHighSpeedKmh: number | null;
   createdAt: string;

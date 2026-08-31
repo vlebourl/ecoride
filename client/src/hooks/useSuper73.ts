@@ -357,6 +357,15 @@ function useSuper73Controller(
         setStatus("connected");
       } catch (e) {
         if (session !== bleSessionRef.current) return;
+        // `gattserverdisconnected` is delivered asynchronously, so a real drop
+        // rejects the in-flight operation *before* onDisconnected runs and moves
+        // the session. Ask the link itself rather than trusting the counter.
+        if (!device.gatt?.connected) {
+          // Only downgrade our own "connecting": if onDisconnected has already
+          // scheduled a reconnect, that attempt owns the status from here.
+          setStatus((prev) => (prev === "connecting" ? "disconnected" : prev));
+          return;
+        }
         throw e;
       }
     },

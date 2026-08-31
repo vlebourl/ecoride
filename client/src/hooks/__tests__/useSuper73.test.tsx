@@ -874,4 +874,57 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // already set the right status and surfacing "error" would overwrite it.
     expect(screen.getByText("trip:disconnected")).toBeTruthy();
   });
+
+  it("treats a real GATT drop during connect as a disconnect, not an error", async () => {
+    // Real ordering: the link dies, the in-flight operation rejects immediately,
+    // and `gattserverdisconnected` is only delivered later — so at the moment of
+    // the rejection the session counter has not moved yet.
+    const gatt = {
+      connected: true,
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn(),
+    };
+    const device = {
+      gatt,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as BluetoothDevice;
+    scanAndConnectMock.mockResolvedValue(device);
+    readStateMock.mockImplementationOnce(() => {
+      gatt.connected = false;
+      return Promise.reject(new Error("GATT Server is disconnected"));
+    });
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+
+    // Losing the bike is not a connection failure to report as such.
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+  });
+
+  it("still reports error when the link is alive and the connect read fails", async () => {
+    // Contrast to the test above: the bike is still there, so this really is a
+    // failure. Swallowing every rejection would hide genuine connection faults.
+    scanAndConnectMock.mockResolvedValue(buildDevice());
+    readStateMock.mockRejectedValueOnce(new Error("GATT operation failed"));
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+
+    await waitFor(() => {
+      expect(screen.getByText("trip:error")).toBeTruthy();
+    });
+  });
 });

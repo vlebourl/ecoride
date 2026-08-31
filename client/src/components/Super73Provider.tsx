@@ -17,7 +17,6 @@ export function Super73Provider({ children }: { children: ReactNode }) {
       preferences={{
         autoModeEnabled: user?.super73AutoModeEnabled ?? false,
         defaultMode: user?.super73DefaultMode ?? null,
-        defaultAssist: user?.super73DefaultAssist ?? null,
         autoModeLowSpeedKmh: user?.super73AutoModeLowSpeedKmh ?? 10,
         autoModeHighSpeedKmh: user?.super73AutoModeHighSpeedKmh ?? 17,
       }}

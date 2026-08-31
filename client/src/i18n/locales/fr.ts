@@ -115,7 +115,6 @@ export const fr = {
   "vehicle.defaults.title": "Réglages par défaut",
   "vehicle.defaults.subtitle": "Appliqués automatiquement à la connexion.",
   "vehicle.defaults.mode": "Mode",
-  "vehicle.defaults.assist": "Assistance",
   "vehicle.defaults.thresholdsTitle": "Seuils mode auto",
   "vehicle.defaults.thresholdsHint": "Bascule de mode selon la vitesse",
   "vehicle.defaults.thresholdsExplain":

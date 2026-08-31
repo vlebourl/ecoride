@@ -117,7 +117,6 @@ export const en: Record<TranslationKey, string> = {
   "vehicle.defaults.title": "Default settings",
   "vehicle.defaults.subtitle": "Applied automatically on connection.",
   "vehicle.defaults.mode": "Mode",
-  "vehicle.defaults.assist": "Assist",
   "vehicle.defaults.thresholdsTitle": "Auto mode thresholds",
   "vehicle.defaults.thresholdsHint": "Mode switch based on speed",
   "vehicle.defaults.thresholdsExplain":

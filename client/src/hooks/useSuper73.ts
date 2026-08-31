@@ -259,8 +259,12 @@ function useSuper73Controller(
     cacheState(state);
     if (shouldTriggerEpac(state) && serverRef.current?.connected) {
       const epacState: Super73State = { ...state, mode: "eco" };
-      void writeState(serverRef.current, epacState)
+      // Queued like any other write, and issued from the notifier — the path most
+      // likely to fire just as the link drops — so it carries the session too.
+      const session = bleSessionRef.current;
+      void writeState(serverRef.current, epacState, () => session === bleSessionRef.current)
         .then(() => {
+          if (session !== bleSessionRef.current) return;
           setBikeState(epacState);
           cacheState(epacState);
           // Reset the stale trip-mode intent (e.g. "race") ONLY after the bike has
@@ -297,10 +301,13 @@ function useSuper73Controller(
   );
 
   const applyConnectionPreferences = useCallback(
-    async (server: BluetoothRemoteGATTServer, state: Super73State) => {
+    async (server: BluetoothRemoteGATTServer, state: Super73State, session: number) => {
       const preferredState = buildStateFromPreferences(state, preferences);
       if (!preferredState) return state;
-      await writeState(server, preferredState);
+      await writeState(server, preferredState, () => session === bleSessionRef.current);
+      // The link can drop while that write waits in the queue. If it did, the
+      // preferences never reached the bike, so report the state we actually read.
+      if (session !== bleSessionRef.current) return state;
       return preferredState;
     },
     [preferences],
@@ -312,12 +319,13 @@ function useSuper73Controller(
       deviceRef.current = device;
       serverRef.current = device.gatt!;
       bleSessionRef.current += 1;
+      const session = bleSessionRef.current;
       reconnectAttemptsRef.current = 0;
       manualDisconnectRef.current = false;
       lastAutoModeZoneRef.current = null;
 
       const currentState = await readState(device.gatt!, "connect");
-      const finalState = await applyConnectionPreferences(device.gatt!, currentState);
+      const finalState = await applyConnectionPreferences(device.gatt!, currentState, session);
       setBikeState(finalState);
       cacheState(finalState);
       // Try to subscribe to push notifications. Returns null if unsupported.

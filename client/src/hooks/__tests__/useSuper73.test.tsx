@@ -300,12 +300,13 @@ describe("useSuper73 provider", () => {
     fireEvent.click(screen.getByText("vehicle connect"));
 
     await waitFor(() => {
-      expect(writeStateMock).toHaveBeenCalledWith(expect.anything(), {
-        mode: "race",
-        assist: 4,
-        light: true,
-        region: "eu",
-      });
+      expect(writeStateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        { mode: "race", assist: 4, light: true, region: "eu" },
+        // Session guard: this write is queued too, and the link can drop before
+        // it runs.
+        expect.any(Function),
+      );
       expect(screen.getByText("vehicle-mode:race")).toBeTruthy();
       expect(screen.getByText("vehicle-assist:4")).toBeTruthy();
       expect(screen.getByText("vehicle-light:on")).toBeTruthy();
@@ -521,6 +522,38 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     // An over-eager intent reset (before the write is confirmed) would lie here.
     expect(screen.getByText("trip-mode:race")).toBeTruthy();
     expect(screen.getByText("trip-selection:race")).toBeTruthy();
+  });
+
+  it("guards the EPAC enforcement write with the session", async () => {
+    render(
+      <Super73Provider enabled tracking={{ isTracking: true, speedKmh: 20 }}>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:connected")).toBeTruthy();
+    });
+
+    // Rider hits assist 3 on the bike: EPAC enforcement writes eco.
+    await bikeReports({ mode: "race", assist: 3, light: false, region: "eu" });
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalled();
+    });
+
+    // This write is queued like any other, so it must carry a session guard that
+    // stops it once the bike is gone — it is issued from the notifier, the path
+    // most likely to fire just as the link drops.
+    const guard = writeStateMock.mock.calls.at(-1)![2] as () => boolean;
+    expect(guard()).toBe(true);
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    expect(guard()).toBe(false);
   });
 });
 

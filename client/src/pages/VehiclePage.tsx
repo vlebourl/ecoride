@@ -31,7 +31,6 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
   const [defaultAssist, setDefaultAssist] = useState<(typeof ASSIST_LEVELS)[number]>(
     (user.super73DefaultAssist ?? 0) as (typeof ASSIST_LEVELS)[number],
   );
-  const [defaultLight, setDefaultLight] = useState(user.super73DefaultLight ?? false);
   const [autoModeLowSpeed, setAutoModeLowSpeed] = useState(
     String(user.super73AutoModeLowSpeedKmh ?? 10),
   );
@@ -68,7 +67,6 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
       {
         super73DefaultMode: defaultMode,
         super73DefaultAssist: defaultAssist,
-        super73DefaultLight: defaultLight,
         super73AutoModeLowSpeedKmh: parsedLowSpeed,
         super73AutoModeHighSpeedKmh: parsedHighSpeed,
       },
@@ -212,35 +210,6 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
               </select>
             </label>
           </div>
-
-          <label className="flex items-center justify-between gap-3 rounded-lg bg-surface-high px-3 py-2.5">
-            <div className="min-w-0">
-              <span className="block text-sm font-medium text-text">
-                {t("vehicle.defaults.lights")}
-              </span>
-              <span className="block text-xs text-text-dim">
-                {t("vehicle.defaults.lightsHint")}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setDefaultLight((current) => !current)}
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                defaultLight ? "bg-primary" : "bg-surface"
-              }`}
-              aria-label={
-                defaultLight
-                  ? t("vehicle.defaults.lightsDisableAria")
-                  : t("vehicle.defaults.lightsEnableAria")
-              }
-            >
-              <span
-                className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
-                  defaultLight ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </label>
 
           <div className="rounded-lg bg-surface-high p-3">
             <div>

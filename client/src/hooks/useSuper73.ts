@@ -78,7 +78,6 @@ export interface Super73Preferences {
   autoModeEnabled: boolean;
   defaultMode: Super73Mode | null;
   defaultAssist: number | null;
-  defaultLight: boolean | null;
   autoModeLowSpeedKmh?: number | null;
   autoModeHighSpeedKmh?: number | null;
 }
@@ -92,7 +91,6 @@ const DEFAULT_PREFERENCES: Super73Preferences = {
   autoModeEnabled: false,
   defaultMode: null,
   defaultAssist: null,
-  defaultLight: null,
   autoModeLowSpeedKmh: DEFAULT_AUTO_MODE_LOW_SPEED_KMH,
   autoModeHighSpeedKmh: DEFAULT_AUTO_MODE_HIGH_SPEED_KMH,
 };
@@ -144,12 +142,11 @@ export function buildStateFromPreferences(
     ...state,
     mode: preferences.defaultMode ?? state.mode,
     assist: preferences.defaultAssist ?? state.assist,
-    light: preferences.defaultLight ?? state.light,
   };
 
-  return next.mode === state.mode && next.assist === state.assist && next.light === state.light
-    ? null
-    : next;
+  // Light is deliberately absent: connecting always forces it on (#348), so a
+  // stored light preference would have no say anyway.
+  return next.mode === state.mode && next.assist === state.assist ? null : next;
 }
 
 export function resolveAutoModeZone(
@@ -300,15 +297,45 @@ function useSuper73Controller(
     [],
   );
 
-  const applyConnectionPreferences = useCallback(
+  /**
+   * Post-connect init: apply the mode/assist preferences, then force the front
+   * light on with an off→on cycle.
+   *
+   * The cycle is unconditional. Writing "light on" to a bike that already claims
+   * to be lit does nothing, and the reported state is not always the truth — the
+   * bike can boot with the light off and report otherwise. Only an actual off→on
+   * transition guarantees the hardware ends up lit. Both frames carry mode and
+   * assist, since the light bit shares their 10-byte register.
+   */
+  const applyPreferencesAndForceLight = useCallback(
     async (server: BluetoothRemoteGATTServer, state: Super73State, session: number) => {
-      const preferredState = buildStateFromPreferences(state, preferences);
-      if (!preferredState) return state;
-      await writeState(server, preferredState, () => session === bleSessionRef.current);
-      // The link can drop while that write waits in the queue. If it did, the
-      // preferences never reached the bike, so report the state we actually read.
-      if (session !== bleSessionRef.current) return state;
-      return preferredState;
+      // buildStateFromPreferences returns null when nothing differs from the
+      // bike; the cycle runs either way, so fall back to the state we read.
+      const base = buildStateFromPreferences(state, preferences) ?? state;
+      const isCurrentSession = () => session === bleSessionRef.current;
+
+      await writeState(server, { ...base, light: false }, isCurrentSession);
+      // The link can drop while a write waits in the queue. If it did, nothing
+      // reached the bike, so report the state we actually read.
+      if (!isCurrentSession()) return state;
+
+      const litState: Super73State = { ...base, light: true };
+      try {
+        await writeState(server, litState, isCurrentSession);
+      } catch {
+        // The OFF frame has already landed, so failing here leaves the bike
+        // physically dark — worse than before we touched it, and nothing
+        // retries a connection that ended in "error". Give a transient GATT
+        // timeout one more chance before handing the rider an unlit bike.
+        if (!isCurrentSession()) return state;
+        await writeState(server, litState, isCurrentSession);
+      }
+      // Here the "off" frame may already have landed, so the bike can genuinely
+      // be dark. Nothing is published either way — attachDevice drops the whole
+      // result once the session has moved on — so report the read state and let
+      // the next connection run the cycle again.
+      if (!isCurrentSession()) return state;
+      return litState;
     },
     [preferences],
   );
@@ -333,7 +360,7 @@ function useSuper73Controller(
       try {
         const currentState = await readState(device.gatt!, "connect");
         if (session !== bleSessionRef.current) return;
-        const finalState = await applyConnectionPreferences(device.gatt!, currentState, session);
+        const finalState = await applyPreferencesAndForceLight(device.gatt!, currentState, session);
         if (session !== bleSessionRef.current) return;
         setBikeState(finalState);
         cacheState(finalState);
@@ -369,7 +396,7 @@ function useSuper73Controller(
         throw e;
       }
     },
-    [applyConnectionPreferences, stableNotifierHandler],
+    [applyPreferencesAndForceLight, stableNotifierHandler],
   );
 
   // Auto-reconnect on unexpected disconnect

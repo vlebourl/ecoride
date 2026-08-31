@@ -18,7 +18,6 @@ export function Super73Provider({ children }: { children: ReactNode }) {
         autoModeEnabled: user?.super73AutoModeEnabled ?? false,
         defaultMode: user?.super73DefaultMode ?? null,
         defaultAssist: user?.super73DefaultAssist ?? null,
-        defaultLight: user?.super73DefaultLight ?? null,
         autoModeLowSpeedKmh: user?.super73AutoModeLowSpeedKmh ?? 10,
         autoModeHighSpeedKmh: user?.super73AutoModeHighSpeedKmh ?? 17,
       }}

@@ -702,4 +702,37 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // a bike it is no longer talking to.
     expect(screen.getByText("trip-light:off")).toBeTruthy();
   });
+
+  it("does not write to the bike when the session ends before the write", async () => {
+    // Hold the pre-write read open so the session can end between read and write.
+    let releasePreRead!: (state: Super73State) => void;
+    const preReadHeld = new Promise<Super73State>((resolve) => {
+      releasePreRead = resolve;
+    });
+    readStateMock
+      .mockResolvedValueOnce({ ...baseState, light: false }) // initial connect read
+      .mockImplementationOnce(() => preReadHeld); // read before the write
+    writeStateMock.mockResolvedValue(undefined);
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+    await waitFor(() => {
+      expect(readStateMock).toHaveBeenCalledTimes(2);
+    });
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releasePreRead({ ...baseState, light: false });
+      await preReadHeld;
+    });
+
+    // The session ended mid-sequence. Writing now sends a command built from a
+    // pre-disconnect read — and since reconnecting reuses the same `device.gatt`,
+    // it could land on the next session's bike.
+    expect(writeStateMock).not.toHaveBeenCalled();
+  });
 });

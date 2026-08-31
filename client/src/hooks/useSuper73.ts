@@ -455,6 +455,10 @@ function useSuper73Controller(
     if (!server?.connected || session !== bleSessionRef.current) return;
     try {
       const current = await readState(server);
+      // The session can end at any await, so re-check before touching the bike:
+      // this write carries a pre-disconnect read, and since reconnecting reuses
+      // the same `device.gatt` it would otherwise land on the next session.
+      if (session !== bleSessionRef.current) return;
       const next: Super73State = { ...current, ...patch };
       await writeState(server, next);
       // Commit what the bike reports back, not what we asked for: a write the

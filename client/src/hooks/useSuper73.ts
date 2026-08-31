@@ -27,6 +27,27 @@ import {
 // while the phone is in their pocket.
 export const ASSIST_EPAC_TRIGGER = 3;
 
+// Every connection ends with the assist at this level (#349). The bike can boot
+// at 0 and still report something else, so — exactly like the light (#348) — a
+// conditional write is not enough: the register value has to actually change for
+// the hardware to follow. The sequence writes the floor first, then the target,
+// so the move *into* the target is a real transition whatever the bike claimed.
+//
+// The floor's only job is to be a value other than the target, which is why it
+// is 2 rather than 0. Every connection path runs this sequence, auto-reconnect
+// included, so it can fire mid-ride with the phone in a pocket: a floor of 0
+// would cut the assist out from under a pedalling rider for the length of a BLE
+// round trip. 2 gives the same guaranteed transition without that.
+//
+// Neither step is ASSIST_EPAC_TRIGGER. Reaching 3 is the rider's signal to force
+// the bike into EPAC, so stepping onto it would hand back a mode change nobody
+// asked for. Assist is written as an absolute value, not as "one level up", so
+// the intermediate levels buy nothing anyway: the steps skip the trigger rather
+// than pass through it. (The light frames still carry whatever assist the bike
+// reported, 3 included — they change only the light bit.)
+export const CONNECT_ASSIST_TARGET = 4;
+const CONNECT_ASSIST_FLOOR = 2;
+
 export function shouldTriggerEpac(state: Super73State): boolean {
   return state.assist === ASSIST_EPAC_TRIGGER && state.mode !== "eco";
 }
@@ -77,7 +98,6 @@ function nextTripModeSelection(current: Super73TripModeSelection): Super73TripMo
 export interface Super73Preferences {
   autoModeEnabled: boolean;
   defaultMode: Super73Mode | null;
-  defaultAssist: number | null;
   autoModeLowSpeedKmh?: number | null;
   autoModeHighSpeedKmh?: number | null;
 }
@@ -90,7 +110,6 @@ export interface Super73TrackingInput {
 const DEFAULT_PREFERENCES: Super73Preferences = {
   autoModeEnabled: false,
   defaultMode: null,
-  defaultAssist: null,
   autoModeLowSpeedKmh: DEFAULT_AUTO_MODE_LOW_SPEED_KMH,
   autoModeHighSpeedKmh: DEFAULT_AUTO_MODE_HIGH_SPEED_KMH,
 };
@@ -138,15 +157,12 @@ export function buildStateFromPreferences(
   state: Super73State,
   preferences: Super73Preferences,
 ): Super73State | null {
-  const next: Super73State = {
-    ...state,
-    mode: preferences.defaultMode ?? state.mode,
-    assist: preferences.defaultAssist ?? state.assist,
-  };
+  const next: Super73State = { ...state, mode: preferences.defaultMode ?? state.mode };
 
-  // Light is deliberately absent: connecting always forces it on (#348), so a
-  // stored light preference would have no say anyway.
-  return next.mode === state.mode && next.assist === state.assist ? null : next;
+  // Light and assist are deliberately absent: connecting forces the light on
+  // (#348) and drives the assist to CONNECT_ASSIST_TARGET (#349), so a stored
+  // preference for either would have no say anyway.
+  return next.mode === state.mode ? null : next;
 }
 
 export function resolveAutoModeZone(
@@ -298,44 +314,58 @@ function useSuper73Controller(
   );
 
   /**
-   * Post-connect init: apply the mode/assist preferences, then force the front
-   * light on with an off→on cycle.
+   * Post-connect init: apply the mode preference, force the front light on with
+   * an off→on cycle, then drive the assist to CONNECT_ASSIST_TARGET with a
+   * floor→target cycle.
    *
-   * The cycle is unconditional. Writing "light on" to a bike that already claims
-   * to be lit does nothing, and the reported state is not always the truth — the
-   * bike can boot with the light off and report otherwise. Only an actual off→on
-   * transition guarantees the hardware ends up lit. Both frames carry mode and
-   * assist, since the light bit shares their 10-byte register.
+   * Both cycles are unconditional. Writing a value the bike already claims to
+   * hold does nothing, and the reported state is not always the truth — the bike
+   * can boot dark and at assist 0 while reporting otherwise. Only a real change
+   * of the register value guarantees the hardware follows. Every frame carries
+   * mode, assist and light together, since they share one 10-byte register.
    */
-  const applyPreferencesAndForceLight = useCallback(
-    async (server: BluetoothRemoteGATTServer, state: Super73State, session: number) => {
+  const runConnectInitSequence = useCallback(
+    async (
+      server: BluetoothRemoteGATTServer,
+      state: Super73State,
+      session: number,
+    ): Promise<Super73State> => {
       // buildStateFromPreferences returns null when nothing differs from the
-      // bike; the cycle runs either way, so fall back to the state we read.
+      // bike; the cycles run either way, so fall back to the state we read.
       const base = buildStateFromPreferences(state, preferences) ?? state;
       const isCurrentSession = () => session === bleSessionRef.current;
 
+      // Second frame of a cycle: the first one has already landed, so giving up
+      // here leaves the bike dark, or stuck at the assist floor — not what the
+      // rider asked for, and nothing retries a connection that ended in "error".
+      // Give a transient GATT timeout one more chance first.
+      const writeWithRetry = async (frame: Super73State) => {
+        try {
+          await writeState(server, frame, isCurrentSession);
+        } catch {
+          if (!isCurrentSession()) return;
+          await writeState(server, frame, isCurrentSession);
+        }
+      };
+
       await writeState(server, { ...base, light: false }, isCurrentSession);
       // The link can drop while a write waits in the queue. If it did, nothing
-      // reached the bike, so report the state we actually read.
+      // reached the bike, so report the state we actually read. Nothing is
+      // published either way — attachDevice drops the whole result once the
+      // session has moved on — and the next connection runs the sequence again.
       if (!isCurrentSession()) return state;
 
       const litState: Super73State = { ...base, light: true };
-      try {
-        await writeState(server, litState, isCurrentSession);
-      } catch {
-        // The OFF frame has already landed, so failing here leaves the bike
-        // physically dark — worse than before we touched it, and nothing
-        // retries a connection that ended in "error". Give a transient GATT
-        // timeout one more chance before handing the rider an unlit bike.
-        if (!isCurrentSession()) return state;
-        await writeState(server, litState, isCurrentSession);
-      }
-      // Here the "off" frame may already have landed, so the bike can genuinely
-      // be dark. Nothing is published either way — attachDevice drops the whole
-      // result once the session has moved on — so report the read state and let
-      // the next connection run the cycle again.
+      await writeWithRetry(litState);
       if (!isCurrentSession()) return state;
-      return litState;
+
+      await writeState(server, { ...litState, assist: CONNECT_ASSIST_FLOOR }, isCurrentSession);
+      if (!isCurrentSession()) return state;
+
+      const finalState: Super73State = { ...litState, assist: CONNECT_ASSIST_TARGET };
+      await writeWithRetry(finalState);
+      if (!isCurrentSession()) return state;
+      return finalState;
     },
     [preferences],
   );
@@ -360,7 +390,7 @@ function useSuper73Controller(
       try {
         const currentState = await readState(device.gatt!, "connect");
         if (session !== bleSessionRef.current) return;
-        const finalState = await applyPreferencesAndForceLight(device.gatt!, currentState, session);
+        const finalState = await runConnectInitSequence(device.gatt!, currentState, session);
         if (session !== bleSessionRef.current) return;
         setBikeState(finalState);
         cacheState(finalState);
@@ -396,7 +426,7 @@ function useSuper73Controller(
         throw e;
       }
     },
-    [applyPreferencesAndForceLight, stableNotifierHandler],
+    [runConnectInitSequence, stableNotifierHandler],
   );
 
   // Auto-reconnect on unexpected disconnect

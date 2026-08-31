@@ -107,7 +107,9 @@ describe("VehiclePage i18n", () => {
 
     const selects = screen.getAllByRole("combobox") as HTMLSelectElement[];
     expect(selects[0]?.value).toBe("race");
-    expect(selects[1]?.value).toBe("3");
+    // The default-assist selector is gone (#349): connecting always drives the
+    // assist to 4, so a stored default decided nothing.
+    expect(selects).toHaveLength(1);
     expect(screen.getByDisplayValue("13")).toBeTruthy();
     expect(screen.getByDisplayValue("29")).toBeTruthy();
   });

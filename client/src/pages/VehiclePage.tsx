@@ -28,9 +28,6 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [defaultsSaved, setDefaultsSaved] = useState(false);
   const [defaultMode, setDefaultMode] = useState<Super73Mode>(user.super73DefaultMode ?? "eco");
-  const [defaultAssist, setDefaultAssist] = useState<(typeof ASSIST_LEVELS)[number]>(
-    (user.super73DefaultAssist ?? 0) as (typeof ASSIST_LEVELS)[number],
-  );
   const [autoModeLowSpeed, setAutoModeLowSpeed] = useState(
     String(user.super73AutoModeLowSpeedKmh ?? 10),
   );
@@ -66,7 +63,6 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
     updateProfile.mutate(
       {
         super73DefaultMode: defaultMode,
-        super73DefaultAssist: defaultAssist,
         super73AutoModeLowSpeedKmh: parsedLowSpeed,
         super73AutoModeHighSpeedKmh: parsedHighSpeed,
       },
@@ -186,25 +182,6 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
                 {SUPER73_DEFAULT_MODES.map((mode) => (
                   <option key={mode} value={mode}>
                     {mode === "race" ? "Off-Road" : mode === "eco" ? "EPAC" : mode}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-text-dim">
-                {t("vehicle.defaults.assist")}
-              </span>
-              <select
-                value={defaultAssist}
-                onChange={(e) =>
-                  setDefaultAssist(Number(e.target.value) as (typeof ASSIST_LEVELS)[number])
-                }
-                className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
-              >
-                {ASSIST_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
                   </option>
                 ))}
               </select>

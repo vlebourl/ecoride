@@ -84,7 +84,7 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 - Bun lockfile format differs between versions — CI uses `bun install` (not `--frozen-lockfile`)
 - Dockerfile needs full node_modules (drizzle-kit is a devDep but needed at runtime for migrations)
 - VAPID keys must be configured in Coolify env vars — empty keys crash push subscription
-- The drizzle snapshot chain is incomplete: `server/drizzle/meta/` has snapshots for `0000` and `0003` only, and `0001`/`0002`/`0004` were hand-written with hand-picked `when` values. **Do not run `drizzle-kit generate`** — it diffs against the `0003` snapshot and would emit a migration re-adding `account.issuer` on top of whatever you wanted. Hand-write the SQL and the journal entry instead.
+- Migrations 0001+ were hand-written with hand-picked `when` values, so a new one needs both the `.sql` file and its `_journal.json` entry. `drizzle-kit generate` is only trustworthy once #356 lands — before it, `server/drizzle/meta/` is gitignored and generate has no snapshot to diff against, so it re-emits already-applied DDL.
 - `user.super73DefaultAssist` / `super73DefaultLight` are retired preferences (#348/#349). The columns are kept on purpose — deleting them from the Drizzle schema would generate a destructive migration that auto-applies on deploy. Nothing reads or writes them; they still appear in the profile and GDPR export because those return a full row.
 
 ## Infrastructure

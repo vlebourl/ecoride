@@ -239,6 +239,9 @@ describe("useSuper73 helpers", () => {
 
 describe("useSuper73 provider", () => {
   beforeEach(() => {
+    // Recorded calls are asserted per test (writtenStates), and restoreAllMocks
+    // does not clear hand-made vi.fn()s — without this they accumulate.
+    vi.clearAllMocks();
     vi.stubGlobal("localStorage", makeLocalStorageStub());
     reconnectPairedDeviceMock.mockResolvedValue(null);
     readStateMock.mockResolvedValue(baseState);
@@ -282,7 +285,10 @@ describe("useSuper73 provider", () => {
     expect(screen.getByText("trip-range:null")).toBeTruthy();
   });
 
-  it("applies default mode, assist and light at connection time in one write", async () => {
+  /** The states written at connect, in order, ignoring the session-guard arg. */
+  const writtenStates = () => writeStateMock.mock.calls.map((call) => call[1] as Super73State);
+
+  it("applies default mode and assist, then cycles the light off and on", async () => {
     render(
       <Super73Provider
         enabled
@@ -300,18 +306,213 @@ describe("useSuper73 provider", () => {
     fireEvent.click(screen.getByText("vehicle connect"));
 
     await waitFor(() => {
-      expect(writeStateMock).toHaveBeenCalledWith(
-        expect.anything(),
-        { mode: "race", assist: 4, light: true, region: "eu" },
-        // Session guard: this write is queued too, and the link can drop before
-        // it runs.
-        expect.any(Function),
-      );
-      expect(screen.getByText("vehicle-mode:race")).toBeTruthy();
-      expect(screen.getByText("vehicle-assist:4")).toBeTruthy();
-      expect(screen.getByText("vehicle-light:on")).toBeTruthy();
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
     });
+
+    // Off then on, and the preferences ride along in both frames — the light bit
+    // shares its 10-byte register with mode and assist.
+    expect(writtenStates()).toEqual([
+      { mode: "race", assist: 4, light: false, region: "eu" },
+      { mode: "race", assist: 4, light: true, region: "eu" },
+    ]);
+    // Every write carries the session guard.
+    for (const call of writeStateMock.mock.calls) {
+      expect(call[2]).toEqual(expect.any(Function));
+    }
+    expect(screen.getByText("vehicle-mode:race")).toBeTruthy();
+    expect(screen.getByText("vehicle-assist:4")).toBeTruthy();
+    expect(screen.getByText("vehicle-light:on")).toBeTruthy();
   });
+
+  // The AC lists these three separately; they differ only by the state the bike
+  // reports, which is exactly the variable under test.
+  it.each([
+    ["the bike already reports the light on", { ...baseState, light: true }],
+    ["the bike reports the light off", { ...baseState, light: false }],
+    [
+      "no preferences are set and nothing differs",
+      { mode: "sport", assist: 1, light: false, region: "us" } as Super73State,
+    ],
+  ])("cycles the light off then on when %s", async (_label, reported) => {
+    readStateMock.mockResolvedValue(reported);
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    // A reported "already on" is not a reason to skip: the state can be stale,
+    // and only a real off→on transition guarantees the hardware is lit. Mode and
+    // assist ride along untouched — they share the light bit's register.
+    expect(writtenStates()).toEqual([
+      { ...reported, light: false },
+      { ...reported, light: true },
+    ]);
+    expect(screen.getByText("vehicle-light:on")).toBeTruthy();
+  });
+
+  it("forces the light on even when the default-light preference is false", async () => {
+    // #348 makes the cycle unconditional, so super73DefaultLight no longer
+    // decides anything at connect. Locked in a test because it silently
+    // overrides a user-facing toggle on the vehicle page.
+    render(
+      <Super73Provider
+        enabled
+        preferences={{
+          autoModeEnabled: false,
+          defaultMode: null,
+          defaultAssist: null,
+          defaultLight: false,
+        }}
+      >
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    expect(writtenStates()).toEqual([
+      { ...baseState, light: false },
+      { ...baseState, light: true },
+    ]);
+    expect(screen.getByText("vehicle-light:on")).toBeTruthy();
+  });
+
+  it("sends rider writes after the connect cycle, not before it", async () => {
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByText("vehicle light-on"));
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(3);
+    });
+
+    // The cycle owns the first two frames; a rider action queues behind them.
+    expect(writtenStates().slice(0, 2)).toEqual([
+      { ...baseState, light: false },
+      { ...baseState, light: true },
+    ]);
+  });
+
+  it("runs the light cycle when auto-reconnecting on mount", async () => {
+    reconnectPairedDeviceMock.mockResolvedValue(buildDevice());
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    expect(writtenStates()).toEqual([
+      { ...baseState, light: false },
+      { ...baseState, light: true },
+    ]);
+  });
+
+  it("runs the light cycle again after reconnecting from an unexpected disconnect", async () => {
+    const listeners: Record<string, () => void> = {};
+    const device = {
+      gatt: {
+        connected: true,
+        connect: vi.fn().mockResolvedValue(undefined),
+        disconnect: vi.fn(),
+      },
+      addEventListener: vi.fn((event: string, handler: () => void) => {
+        listeners[event] = handler;
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as BluetoothDevice;
+    scanAndConnectMock.mockResolvedValue(device);
+    reconnectPairedDeviceMock.mockResolvedValue(device);
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+    writeStateMock.mockClear();
+
+    // The bike drops on its own; the app retries after RECONNECT_DELAY.
+    vi.useFakeTimers();
+    await act(async () => {
+      listeners["gattserverdisconnected"]?.();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    // A reconnection is a connection: the cycle has to run again, or a bike that
+    // dropped and came back would be left dark.
+    expect(writtenStates()).toEqual([
+      { ...baseState, light: false },
+      { ...baseState, light: true },
+    ]);
+  });
+
+  it.each([
+    ["the first", 0],
+    // The nastier one: the bike has already gone dark when this fails, so the
+    // rider must be told rather than left with an unlit bike and a green UI.
+    ["the second", 1],
+  ])(
+    "surfaces an error and does not half-initialise when %s light write fails",
+    async (_label, failingIndex) => {
+      let writes = 0;
+      writeStateMock.mockImplementation(() => {
+        writes += 1;
+        return writes === failingIndex + 1
+          ? Promise.reject(new Error("GATT operation failed"))
+          : Promise.resolve(undefined);
+      });
+
+      render(
+        <Super73Provider enabled>
+          <Consumer label="vehicle" />
+        </Super73Provider>,
+      );
+
+      fireEvent.click(screen.getByText("vehicle connect"));
+
+      // Surfaced like any other BLE error, and never reported as connected.
+      await waitFor(() => {
+        expect(screen.getByText("vehicle:error")).toBeTruthy();
+      });
+      // Half-initialised would mean a live notifier subscription on a bike whose
+      // init never completed.
+      expect(startStateNotificationsMock).not.toHaveBeenCalled();
+    },
+  );
 
   // TODO: poll disabled — these three tests cover the fixed-interval EPAC poll which is
   // currently commented out in useSuper73.ts pending observation. Re-enable if poll is
@@ -584,6 +785,9 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     await waitFor(() => {
       expect(screen.getByText("trip:connected")).toBeTruthy();
     });
+    // Connecting now writes twice on its own (the light off→on cycle, #348).
+    // These tests are about what happens *after* connecting, so start from zero.
+    writeStateMock.mockClear();
   }
 
   it("shows the light on when the bike confirms the write", async () => {
@@ -665,17 +869,18 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     const firstWriteHeld = new Promise<void>((resolve) => {
       releaseWrite = resolve;
     });
-    writeStateMock
-      .mockImplementationOnce(async (_server: unknown, next: Super73State) => {
-        await firstWriteHeld;
-        bikeSim = next;
-      })
-      .mockImplementation((_server: unknown, next: Super73State) => {
-        bikeSim = next;
-        return Promise.resolve(undefined);
-      });
+    writeStateMock.mockImplementation((_server: unknown, next: Super73State) => {
+      bikeSim = next;
+      return Promise.resolve(undefined);
+    });
 
     await connect();
+
+    // Queued after connecting, so the connect-time cycle does not consume it.
+    writeStateMock.mockImplementationOnce(async (_server: unknown, next: Super73State) => {
+      await firstWriteHeld;
+      bikeSim = next;
+    });
     fireEvent.click(screen.getByText("trip light+assist"));
     // Let the first update reach its (held) write, so the second is genuinely
     // queued behind it rather than not started yet.
@@ -701,7 +906,15 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // The queued assist write belonged to the previous BLE session: replaying it
     // onto the new one would apply a command the rider issued to a bike that has
     // since dropped.
-    expect(writeStateMock).toHaveBeenCalledTimes(1);
+    // Reconnecting runs the light off→on cycle, so counting writes no longer
+    // isolates this. What matters is that the queued assist change never landed.
+    // Reconnecting runs the light off→on cycle, so a bare call count no longer
+    // isolates this. Assert the shape instead: the first update's write, then the
+    // two cycle writes, and none of them the queued assist change. Checking the
+    // count too keeps the filter from being vacuously empty.
+    const written = writeStateMock.mock.calls.map((call) => call[1] as Super73State);
+    expect(written).toHaveLength(3);
+    expect(written.filter((state) => state.assist === 4)).toEqual([]);
     expect(bikeSim.assist).toBe(2);
   });
 
@@ -730,14 +943,16 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     });
 
     await act(async () => {
-      releaseReadBack({ ...baseState, light: true });
+      // Mode is the observable here: connecting now forces the light on (#348),
+      // so the light bit can no longer show whether this state was published.
+      releaseReadBack({ ...baseState, mode: "race", light: true });
       await readBackHeld;
     });
 
     // A disconnect ends the session on its own: state read over a connection the
-    // rider has left must not be published, or the UI claims a live headlight on
-    // a bike it is no longer talking to.
-    expect(screen.getByText("trip-light:off")).toBeTruthy();
+    // rider has left must not be published, or the UI describes a bike it is no
+    // longer talking to.
+    expect(screen.getByText("trip-mode:tour")).toBeTruthy();
   });
 
   it("does not write to the bike when the session ends before the write", async () => {

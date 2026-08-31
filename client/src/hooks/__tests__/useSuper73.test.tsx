@@ -795,4 +795,48 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
 
     expect(guard()).toBe(false);
   });
+
+  it("does not report connected when the bike drops while preferences are applied", async () => {
+    readStateMock.mockResolvedValue({ ...baseState, mode: "eco", assist: 1, light: false });
+
+    // Hold the preferences write open so the rider can disconnect mid-connect.
+    let releaseWrite!: () => void;
+    const writeHeld = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    writeStateMock.mockImplementation(() => writeHeld);
+
+    render(
+      <Super73Provider
+        enabled
+        preferences={{
+          autoModeEnabled: false,
+          defaultMode: "race",
+          defaultAssist: 4,
+          defaultLight: true,
+        }}
+      >
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releaseWrite();
+      await writeHeld;
+    });
+
+    // Finishing the connect sequence for a session that already ended would show
+    // a connected bike the app is not talking to — and every control with it.
+    expect(screen.getByText("trip:disconnected")).toBeTruthy();
+  });
 });

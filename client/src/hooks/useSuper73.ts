@@ -324,12 +324,17 @@ function useSuper73Controller(
       manualDisconnectRef.current = false;
       lastAutoModeZoneRef.current = null;
 
+      // Connecting takes several awaits, and the bike can drop during any of
+      // them. Finishing the sequence for a session that already ended would
+      // report a connected bike the app is not talking to.
       const currentState = await readState(device.gatt!, "connect");
+      if (session !== bleSessionRef.current) return;
       const finalState = await applyConnectionPreferences(device.gatt!, currentState, session);
+      if (session !== bleSessionRef.current) return;
       setBikeState(finalState);
       cacheState(finalState);
       // Try to subscribe to push notifications. Returns null if unsupported.
-      notifierCleanupRef.current = await startStateNotifications(
+      const notifierCleanup = await startStateNotifications(
         device.gatt!,
         stableNotifierHandler,
         setBikeSpeedKmh,
@@ -338,6 +343,13 @@ function useSuper73Controller(
           setRangeKm(ride.rangeKm);
         },
       );
+      if (session !== bleSessionRef.current) {
+        // Tear down the subscription we just made rather than storing it: the
+        // teardown for this session has already run, so nothing else would.
+        notifierCleanup?.();
+        return;
+      }
+      notifierCleanupRef.current = notifierCleanup;
       setStatus("connected");
     },
     [applyConnectionPreferences, stableNotifierHandler],

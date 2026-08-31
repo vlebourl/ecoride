@@ -95,10 +95,6 @@ export interface UpdateUserRequest {
   super73Enabled?: boolean;
   super73AutoModeEnabled?: boolean;
   super73DefaultMode?: Super73Mode | null;
-  /** @deprecated Inert since #348/#349 — see User.super73DefaultAssist. */
-  super73DefaultAssist?: number | null;
-  /** @deprecated Inert since #348/#349 — see User.super73DefaultAssist. */
-  super73DefaultLight?: boolean | null;
   super73AutoModeLowSpeedKmh?: number | null;
   super73AutoModeHighSpeedKmh?: number | null;
 }

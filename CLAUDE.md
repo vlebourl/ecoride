@@ -20,7 +20,7 @@ the coverage/hotspot policies are documented in
 ## Key Technical Decisions
 
 - **Auth**: Better Auth with Google OAuth + email/password. Sessions in DB, cookies with sameSite lax (required for OAuth callback).
-- **DB**: PostgreSQL via Drizzle ORM. Schema push (not migrations). Columns use `real` type (audit item: should migrate to `numeric`).
+- **DB**: PostgreSQL via Drizzle ORM with **versioned migrations** in `server/drizzle/`. Production runs `drizzle-kit migrate` on every boot (`server/scripts/start-production.ts`), after a Coolify backup — so a committed migration auto-applies on the next deploy. `drizzle-kit push` is local-dev only (`db:push:local`). Columns use `real` type (audit item: should migrate to `numeric`).
 - **PWA**: vite-plugin-pwa with autoUpdate. Custom version polling every 5 min via `/api/health`. Cache purge on version change. Skip auto-update during active GPS tracking.
 - **GPS**: `navigator.geolocation.watchPosition` in a `useEffect` keyed on `state.isTracking`. All side effects (timer, GPS watch, wake lock, backup) inline in one effect to avoid React StrictMode cleanup issues.
 - **Calculations**: ADEME factor 2.31 kg CO₂/L. Fuel price from data.economie.gouv.fr API (1.5s timeout, fallback to hardcoded prices). Calculated server-side at trip creation, stored immutably.
@@ -84,6 +84,8 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 - Bun lockfile format differs between versions — CI uses `bun install` (not `--frozen-lockfile`)
 - Dockerfile needs full node_modules (drizzle-kit is a devDep but needed at runtime for migrations)
 - VAPID keys must be configured in Coolify env vars — empty keys crash push subscription
+- Migrations 0001+ were hand-written with hand-picked `when` values, so a new one needs both the `.sql` file and its `_journal.json` entry. `drizzle-kit generate` is only trustworthy once #356 lands — before it, `server/drizzle/meta/` is gitignored and generate has no snapshot to diff against, so it re-emits already-applied DDL.
+- `user.super73DefaultAssist` / `super73DefaultLight` are retired preferences (#348/#349). The columns are kept on purpose — deleting them from the Drizzle schema would generate a destructive migration that auto-applies on deploy. Nothing reads or writes them; they still appear in the profile and GDPR export because those return a full row.
 
 ## Infrastructure
 

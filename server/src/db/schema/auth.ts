@@ -27,6 +27,14 @@ export const user = pgTable("user", {
   super73Enabled: boolean("super73_enabled").notNull().default(false),
   super73AutoModeEnabled: boolean("super73_auto_mode_enabled").notNull().default(false),
   super73DefaultMode: text("super73_default_mode"),
+  // Retired preferences, kept as columns on purpose. Connecting forces the light
+  // on (#348) and drives the assist to 4 (#349), so nothing reads or writes these
+  // any more — but the stored values are the riders' and dropping them is not
+  // reversible. Leave them declared: the declaration is what keeps the schema in
+  // step with the database, and it is what still puts them in the GDPR export
+  // (/api/user/export dumps a full row). Deleting these two lines would make
+  // `drizzle-kit generate` emit a destructive migration that auto-applies on the
+  // next deploy.
   super73DefaultAssist: integer("super73_default_assist"),
   super73DefaultLight: boolean("super73_default_light"),
   super73AutoModeLowSpeedKmh: numericNumber("super73_auto_mode_low_speed_kmh", {

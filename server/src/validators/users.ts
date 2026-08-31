@@ -21,8 +21,6 @@ export const updateUserSchema = z
     super73Enabled: z.boolean().optional(),
     super73AutoModeEnabled: z.boolean().optional(),
     super73DefaultMode: z.enum(SUPER73_MODES).nullable().optional(),
-    super73DefaultAssist: z.number().int().min(0).max(4).nullable().optional(),
-    super73DefaultLight: z.boolean().nullable().optional(),
     super73AutoModeLowSpeedKmh: z.number().positive().max(80).nullable().optional(),
     super73AutoModeHighSpeedKmh: z.number().positive().max(80).nullable().optional(),
   })

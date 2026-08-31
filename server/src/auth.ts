@@ -15,9 +15,17 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  accountLinking: {
-    enabled: true,
-    trustedProviders: ["google"],
+  account: {
+    // Must live under `account` — a top-level `accountLinking` key is silently
+    // ignored by Better Auth, which left this whole block dead config.
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+    },
+    // `requireLocalEmailVerified` is deliberately left at its secure default
+    // (true). ecoRide has no email-verification flow, so every email/password
+    // account has emailVerified = false; auto-linking those would reopen
+    // GHSA-g38m-r43w-p2q7 (takeover via a pre-registered unverified email).
   },
   socialProviders: {
     google: {

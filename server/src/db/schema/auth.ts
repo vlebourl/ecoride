@@ -56,6 +56,11 @@ export const session = pgTable("session", {
 // Better Auth account table (OAuth providers)
 export const account = pgTable("account", {
   id: text("id").primaryKey(),
+  // Required by Better Auth >= 1.6: identifies the identity provider that
+  // issued `accountId`. "local:credential" for email/password accounts,
+  // "https://accounts.google.com" for Google. Better Auth's Drizzle adapter
+  // hard-fails on every account read/write if this column is absent.
+  issuer: text("issuer").notNull(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
   userId: text("user_id")

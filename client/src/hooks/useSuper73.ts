@@ -78,7 +78,6 @@ export interface Super73Preferences {
   autoModeEnabled: boolean;
   defaultMode: Super73Mode | null;
   defaultAssist: number | null;
-  defaultLight: boolean | null;
   autoModeLowSpeedKmh?: number | null;
   autoModeHighSpeedKmh?: number | null;
 }
@@ -92,7 +91,6 @@ const DEFAULT_PREFERENCES: Super73Preferences = {
   autoModeEnabled: false,
   defaultMode: null,
   defaultAssist: null,
-  defaultLight: null,
   autoModeLowSpeedKmh: DEFAULT_AUTO_MODE_LOW_SPEED_KMH,
   autoModeHighSpeedKmh: DEFAULT_AUTO_MODE_HIGH_SPEED_KMH,
 };
@@ -144,12 +142,11 @@ export function buildStateFromPreferences(
     ...state,
     mode: preferences.defaultMode ?? state.mode,
     assist: preferences.defaultAssist ?? state.assist,
-    light: preferences.defaultLight ?? state.light,
   };
 
-  return next.mode === state.mode && next.assist === state.assist && next.light === state.light
-    ? null
-    : next;
+  // Light is deliberately absent: connecting always forces it on (#348), so a
+  // stored light preference would have no say anyway.
+  return next.mode === state.mode && next.assist === state.assist ? null : next;
 }
 
 export function resolveAutoModeZone(
@@ -323,7 +320,16 @@ function useSuper73Controller(
       if (!isCurrentSession()) return state;
 
       const litState: Super73State = { ...base, light: true };
-      await writeState(server, litState, isCurrentSession);
+      try {
+        await writeState(server, litState, isCurrentSession);
+      } catch {
+        // The OFF frame has already landed, so failing here leaves the bike
+        // physically dark — worse than before we touched it, and nothing
+        // retries a connection that ended in "error". Give a transient GATT
+        // timeout one more chance before handing the rider an unlit bike.
+        if (!isCurrentSession()) return state;
+        await writeState(server, litState, isCurrentSession);
+      }
       // Here the "off" frame may already have landed, so the bike can genuinely
       // be dark. Nothing is published either way — attachDevice drops the whole
       // result once the session has moved on — so report the read state and let

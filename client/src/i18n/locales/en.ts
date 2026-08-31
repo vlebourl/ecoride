@@ -118,10 +118,6 @@ export const en: Record<TranslationKey, string> = {
   "vehicle.defaults.subtitle": "Applied automatically on connection.",
   "vehicle.defaults.mode": "Mode",
   "vehicle.defaults.assist": "Assist",
-  "vehicle.defaults.lights": "Lights",
-  "vehicle.defaults.lightsHint": "Auto on connection",
-  "vehicle.defaults.lightsDisableAria": "Disable default lights",
-  "vehicle.defaults.lightsEnableAria": "Enable default lights",
   "vehicle.defaults.thresholdsTitle": "Auto mode thresholds",
   "vehicle.defaults.thresholdsHint": "Mode switch based on speed",
   "vehicle.defaults.thresholdsExplain":

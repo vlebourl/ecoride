@@ -116,10 +116,6 @@ export const fr = {
   "vehicle.defaults.subtitle": "Appliqués automatiquement à la connexion.",
   "vehicle.defaults.mode": "Mode",
   "vehicle.defaults.assist": "Assistance",
-  "vehicle.defaults.lights": "Lumières",
-  "vehicle.defaults.lightsHint": "Auto à la connexion",
-  "vehicle.defaults.lightsDisableAria": "Désactiver les lumières par défaut",
-  "vehicle.defaults.lightsEnableAria": "Activer les lumières par défaut",
   "vehicle.defaults.thresholdsTitle": "Seuils mode auto",
   "vehicle.defaults.thresholdsHint": "Bascule de mode selon la vitesse",
   "vehicle.defaults.thresholdsExplain":

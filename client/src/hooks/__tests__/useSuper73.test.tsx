@@ -155,13 +155,12 @@ describe("shouldTriggerEpac", () => {
 });
 
 describe("useSuper73 helpers", () => {
-  it("builds a preferred state only when preferences differ", () => {
+  it("builds a preferred state only when mode or assist differ", () => {
     expect(
       buildStateFromPreferences(baseState, {
         autoModeEnabled: false,
         defaultMode: null,
         defaultAssist: null,
-        defaultLight: null,
       }),
     ).toBeNull();
 
@@ -170,14 +169,29 @@ describe("useSuper73 helpers", () => {
         autoModeEnabled: false,
         defaultMode: "race",
         defaultAssist: 4,
-        defaultLight: true,
       }),
     ).toEqual({
       ...baseState,
       mode: "race",
       assist: 4,
-      light: true,
     });
+  });
+
+  it("leaves the light bit alone — the connect cycle owns it", () => {
+    // There is no light preference any more (#348): connecting always forces the
+    // light on, so this must never be the thing that decides a write is needed.
+    expect(
+      buildStateFromPreferences(
+        { ...baseState, light: true },
+        { autoModeEnabled: false, defaultMode: null, defaultAssist: null },
+      ),
+    ).toBeNull();
+    expect(
+      buildStateFromPreferences(
+        { ...baseState, light: true },
+        { autoModeEnabled: false, defaultMode: "race", defaultAssist: null },
+      ),
+    ).toEqual({ ...baseState, mode: "race", light: true });
   });
 
   it("resolves auto mode zones and target modes with hysteresis bands", () => {
@@ -480,39 +494,73 @@ describe("useSuper73 provider", () => {
     ]);
   });
 
-  it.each([
-    ["the first", 0],
-    // The nastier one: the bike has already gone dark when this fails, so the
-    // rider must be told rather than left with an unlit bike and a green UI.
-    ["the second", 1],
-  ])(
-    "surfaces an error and does not half-initialise when %s light write fails",
-    async (_label, failingIndex) => {
-      let writes = 0;
-      writeStateMock.mockImplementation(() => {
-        writes += 1;
-        return writes === failingIndex + 1
-          ? Promise.reject(new Error("GATT operation failed"))
-          : Promise.resolve(undefined);
-      });
+  it("surfaces an error and does not half-initialise when the first light write fails", async () => {
+    writeStateMock.mockRejectedValueOnce(new Error("GATT operation failed"));
 
-      render(
-        <Super73Provider enabled>
-          <Consumer label="vehicle" />
-        </Super73Provider>,
-      );
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
 
-      fireEvent.click(screen.getByText("vehicle connect"));
+    fireEvent.click(screen.getByText("vehicle connect"));
 
-      // Surfaced like any other BLE error, and never reported as connected.
-      await waitFor(() => {
-        expect(screen.getByText("vehicle:error")).toBeTruthy();
-      });
-      // Half-initialised would mean a live notifier subscription on a bike whose
-      // init never completed.
-      expect(startStateNotificationsMock).not.toHaveBeenCalled();
-    },
-  );
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:error")).toBeTruthy();
+    });
+    // Half-initialised would mean a live notifier subscription on a bike whose
+    // init never completed.
+    expect(startStateNotificationsMock).not.toHaveBeenCalled();
+  });
+
+  it("retries the ON write once rather than leaving the bike dark", async () => {
+    // The OFF frame has already landed by now, so giving up here would strand the
+    // rider with a bike this app just switched off. A transient GATT timeout must
+    // not be what turns someone's headlight off at night.
+    writeStateMock
+      .mockResolvedValueOnce(undefined) // light OFF lands
+      .mockRejectedValueOnce(new Error("GATT operation failed")) // light ON fails
+      .mockResolvedValue(undefined); // retry succeeds
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    expect(writtenStates()).toEqual([
+      { ...baseState, light: false },
+      { ...baseState, light: true },
+      { ...baseState, light: true },
+    ]);
+    expect(screen.getByText("vehicle-light:on")).toBeTruthy();
+  });
+
+  it("surfaces an error when the ON write fails twice", async () => {
+    writeStateMock
+      .mockResolvedValueOnce(undefined) // light OFF lands
+      .mockRejectedValue(new Error("GATT operation failed")); // ON fails, retry fails
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+
+    // Nothing more this code can do alone: tell the rider rather than report a
+    // healthy connection to an unlit bike.
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:error")).toBeTruthy();
+    });
+    expect(startStateNotificationsMock).not.toHaveBeenCalled();
+  });
 
   // TODO: poll disabled — these three tests cover the fixed-interval EPAC poll which is
   // currently commented out in useSuper73.ts pending observation. Re-enable if poll is

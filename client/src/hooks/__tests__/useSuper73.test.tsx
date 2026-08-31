@@ -58,6 +58,16 @@ function Consumer({ label }: { label: string }) {
       <button onClick={() => ble.connect()}>{label} connect</button>
       <button onClick={() => void ble.toggleMode()}>{label} toggle</button>
       <button onClick={() => void ble.setLight(true)}>{label} light-on</button>
+      <button
+        onClick={() => {
+          // Fired back-to-back without awaiting: the realistic race is the rider
+          // tapping the headlight while auto-mode issues its own write.
+          void ble.setLight(true);
+          void ble.setAssist(4);
+        }}
+      >
+        {label} light+assist
+      </button>
       <span>
         {label}:{ble.status}
       </span>
@@ -582,5 +592,26 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // The write landed: a failed read-back must not be reported as a connection
     // error, which would hide the controls over a change that actually applied.
     expect(screen.getByText("trip:connected")).toBeTruthy();
+  });
+
+  it("does not let a concurrent update clobber the previous one", async () => {
+    // A bike that accepts writes: each read reports the last accepted write.
+    let bikeSim: Super73State = { ...baseState, light: false, assist: 2 };
+    readStateMock.mockImplementation(() => Promise.resolve(bikeSim));
+    writeStateMock.mockImplementation((_server: unknown, next: Super73State) => {
+      bikeSim = next;
+      return Promise.resolve(undefined);
+    });
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light+assist"));
+
+    await waitFor(() => {
+      expect(screen.getByText("trip-assist:4")).toBeTruthy();
+    });
+    // Both patches must survive. Unserialised, the two updates each read the
+    // pre-write state and the second write drops the first one's light change.
+    expect(screen.getByText("trip-light:on")).toBeTruthy();
+    expect(bikeSim).toMatchObject({ light: true, assist: 4 });
   });
 });

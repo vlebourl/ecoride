@@ -77,10 +77,12 @@ Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
 
 ## Dette connue
 
-- better-auth < 1.6.11 et drizzle-kit 0.30 traînent des CVE critiques, non exploitables ici
-  (plugins oidc-provider/mcp non utilisés, shell-quote uniquement au build). Ignorées
-  explicitement dans le job `audit` de la CI. Renovate ouvrira les PRs d'upgrade —
-  à revoir à la main, ce sont l'auth et les migrations.
+- ~~better-auth < 1.6.11 et drizzle-kit 0.30 traînent des CVE critiques~~ — corrigé :
+  better-auth ^1.7.2, drizzle-kit ^0.31.10, drizzle-orm ^0.45.2. Le job `audit` de la CI
+  n'a plus aucun `--ignore`, `bun audit --audit-level=critical` est vert.
+- Pas de vérification d'email : tous les comptes email/mot de passe ont `emailVerified = false`,
+  donc better-auth ≥ 1.6 refuse de les lier à une connexion Google sur la même adresse
+  (garde-fou GHSA-g38m-r43w-p2q7). Un flux de vérification d'email lèverait la limite.
 
 ---
 

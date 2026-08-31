@@ -119,6 +119,23 @@ function cacheState(state: Super73State) {
   }
 }
 
+/**
+ * Re-reads the state the bike actually holds after a write, so the UI follows the
+ * bike rather than the value it was asked for. If only the read-back fails the
+ * write itself still landed, so the written state is kept: reporting a connection
+ * error there would hide the controls over a change that did apply.
+ */
+async function readBackState(
+  server: BluetoothRemoteGATTServer,
+  written: Super73State,
+): Promise<Super73State> {
+  try {
+    return await readState(server);
+  } catch {
+    return written;
+  }
+}
+
 export function buildStateFromPreferences(
   state: Super73State,
   preferences: Super73Preferences,
@@ -215,6 +232,9 @@ function useSuper73Controller(
 
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
+  // Serialises state updates end to end. applyPatch swallows its own errors, so
+  // a failed update never wedges the queue for the ones behind it.
+  const updateQueueRef = useRef<Promise<void>>(Promise.resolve());
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoReconnectAttemptedRef = useRef(false);
@@ -415,21 +435,40 @@ function useSuper73Controller(
     setStatus("disconnected");
   }, []);
 
+  const applyPatch = useCallback(async (patch: Partial<Super73State>) => {
+    const server = serverRef.current;
+    // Re-checked here, not just at enqueue time: the bike may have dropped while
+    // this update waited its turn in the queue.
+    if (!server?.connected) return;
+    try {
+      const current = await readState(server);
+      const next: Super73State = { ...current, ...patch };
+      await writeState(server, next);
+      // Commit what the bike reports back, not what we asked for: a write the
+      // bike refuses would otherwise leave the UI on an optimistic value until
+      // the next notifier packet — and the notifier is absent on some firmware
+      // (startStateNotifications returns null), so there may never be one.
+      const confirmed = await readBackState(server, next);
+      setBikeState(confirmed);
+      cacheState(confirmed);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur d'écriture BLE");
+      setStatus("error");
+    }
+  }, []);
+
   const updateState = useCallback(
-    async (patch: Partial<Super73State>) => {
-      if (!serverRef.current?.connected || !bikeState) return;
-      try {
-        const current = await readState(serverRef.current);
-        const next: Super73State = { ...current, ...patch };
-        await writeState(serverRef.current, next);
-        setBikeState(next);
-        cacheState(next);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Erreur d'écriture BLE");
-        setStatus("error");
-      }
+    (patch: Partial<Super73State>) => {
+      if (!serverRef.current?.connected || !bikeState) return Promise.resolve();
+      // Queue the whole read-modify-write-confirm sequence. serializeGatt only
+      // orders individual GATT operations, so two updates in flight would each
+      // read the same state and the second write would drop the first one's
+      // patch — e.g. auto-mode writing a mode while the rider taps the headlight.
+      const run = updateQueueRef.current.then(() => applyPatch(patch));
+      updateQueueRef.current = run;
+      return run;
     },
-    [bikeState],
+    [bikeState, applyPatch],
   );
 
   const setMode = useCallback((mode: Super73Mode) => updateState({ mode }), [updateState]);

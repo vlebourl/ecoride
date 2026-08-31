@@ -422,8 +422,13 @@ function useSuper73Controller(
         const current = await readState(serverRef.current);
         const next: Super73State = { ...current, ...patch };
         await writeState(serverRef.current, next);
-        setBikeState(next);
-        cacheState(next);
+        // Commit what the bike reports back, not what we asked for: a write the
+        // bike refuses would otherwise leave the UI on an optimistic value until
+        // the next notifier packet — and the notifier is absent on some firmware
+        // (startStateNotifications returns null), so there may never be one.
+        const confirmed = await readState(serverRef.current);
+        setBikeState(confirmed);
+        cacheState(confirmed);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Erreur d'écriture BLE");
         setStatus("error");

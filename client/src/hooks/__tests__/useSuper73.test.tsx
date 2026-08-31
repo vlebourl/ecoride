@@ -57,6 +57,7 @@ function Consumer({ label }: { label: string }) {
     <div>
       <button onClick={() => ble.connect()}>{label} connect</button>
       <button onClick={() => void ble.toggleMode()}>{label} toggle</button>
+      <button onClick={() => void ble.setLight(true)}>{label} light-on</button>
       <span>
         {label}:{ble.status}
       </span>
@@ -388,13 +389,28 @@ describe("useSuper73 provider", () => {
 // (eco) but the compact icon resurfaces as Off-Road (blue triangle).
 describe("useSuper73 provider — EPAC enforcement resets stale trip-mode selection (issue #326)", () => {
   let notify: ((state: Super73State) => void) | undefined;
+  // Simulated bike: reads report whatever the last accepted write left behind, so a
+  // write that fails (or is refused) is visible as the state simply not changing.
+  let bikeSim: Super73State;
+
+  /** The bike pushes a state packet; later reads report it too. */
+  async function bikeReports(state: Super73State) {
+    bikeSim = state;
+    await act(async () => {
+      notify?.(state);
+    });
+  }
 
   beforeEach(() => {
     vi.stubGlobal("localStorage", makeLocalStorageStub());
     reconnectPairedDeviceMock.mockResolvedValue(null);
-    writeStateMock.mockResolvedValue(undefined);
     // Bike starts in EPAC (eco) at assist 4 so toggleMode flips the selection to race.
-    readStateMock.mockResolvedValue({ mode: "eco", assist: 4, light: false, region: "eu" });
+    bikeSim = { mode: "eco", assist: 4, light: false, region: "eu" };
+    readStateMock.mockImplementation(() => Promise.resolve(bikeSim));
+    writeStateMock.mockImplementation((_server: unknown, next: Super73State) => {
+      bikeSim = next;
+      return Promise.resolve(undefined);
+    });
     scanAndConnectMock.mockResolvedValue(buildDevice());
     // Capture the notifier callback so the test can simulate bike-side state pushes.
     notify = undefined;
@@ -432,9 +448,7 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     });
 
     // Rider sets assist to 3 on the bike → EPAC enforcement forces mode back to eco.
-    await act(async () => {
-      notify?.({ mode: "race", assist: 3, light: false, region: "eu" });
-    });
+    await bikeReports({ mode: "race", assist: 3, light: false, region: "eu" });
     await waitFor(() => {
       expect(screen.getByText("trip-mode:eco")).toBeTruthy();
       // Masked by the assist===3 branch while assist stays at the trigger level.
@@ -442,9 +456,7 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     });
 
     // Rider sets assist back to 4 → mode stays EPAC; the icon MUST stay EPAC too.
-    await act(async () => {
-      notify?.({ mode: "eco", assist: 4, light: false, region: "eu" });
-    });
+    await bikeReports({ mode: "eco", assist: 4, light: false, region: "eu" });
     await waitFor(() => {
       expect(screen.getByText("trip-assist:4")).toBeTruthy();
     });
@@ -477,9 +489,7 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
 
     // Rider sets assist to 3 — enforcement is attempted but the write fails, so the
     // bike stays in race.
-    await act(async () => {
-      notify?.({ mode: "race", assist: 3, light: false, region: "eu" });
-    });
+    await bikeReports({ mode: "race", assist: 3, light: false, region: "eu" });
     // While assist stays at 3, the icon must NOT claim EPAC — the bike is still in
     // off-road because the write failed.
     await waitFor(() => {
@@ -488,9 +498,7 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     });
 
     // Rider sets assist back to 4 — the bike is still in race (the write failed).
-    await act(async () => {
-      notify?.({ mode: "race", assist: 4, light: false, region: "eu" });
-    });
+    await bikeReports({ mode: "race", assist: 4, light: false, region: "eu" });
     await waitFor(() => {
       expect(screen.getByText("trip-assist:4")).toBeTruthy();
     });
@@ -499,5 +507,63 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     // An over-eager intent reset (before the write is confirmed) would lie here.
     expect(screen.getByText("trip-mode:race")).toBeTruthy();
     expect(screen.getByText("trip-selection:race")).toBeTruthy();
+  });
+});
+
+describe("useSuper73 provider — setLight commits the bike's reported state (issue #347)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+    reconnectPairedDeviceMock.mockResolvedValue(null);
+    writeStateMock.mockResolvedValue(undefined);
+    scanAndConnectMock.mockResolvedValue(buildDevice());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    readStateMock.mockReset();
+  });
+
+  async function connect() {
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:connected")).toBeTruthy();
+    });
+  }
+
+  it("shows the light on when the bike confirms the write", async () => {
+    // Read-back after the write reports the light actually came on.
+    readStateMock
+      .mockResolvedValueOnce({ ...baseState, light: false }) // initial connect read
+      .mockResolvedValue({ ...baseState, light: true });
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+
+    await waitFor(() => {
+      expect(screen.getByText("trip-light:on")).toBeTruthy();
+    });
+  });
+
+  it("keeps the light off when the bike refuses the write and still reports off", async () => {
+    // The bike never accepts the change: every read still says the light is off.
+    readStateMock.mockResolvedValue({ ...baseState, light: false });
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ light: true }),
+      );
+    });
+    // The UI must follow the bike, not the value that was requested.
+    expect(screen.getByText("trip-light:off")).toBeTruthy();
   });
 });

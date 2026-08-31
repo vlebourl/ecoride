@@ -361,7 +361,7 @@ export function TripPage() {
           s73Connected ? (
             <div className="flex items-center gap-2">
               <BatteryIndicator percent={ble.batteryPercent} rangeKm={ble.rangeKm} />
-              <HeadlightIndicator on={ble.bikeState?.light ?? null} />
+              <HeadlightIndicator />
             </div>
           ) : undefined
         }

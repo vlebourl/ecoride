@@ -207,12 +207,23 @@ export async function readState(
   });
 }
 
+/**
+ * @param isStillValid re-checked inside the GATT queue, immediately before the
+ * bytes go out. Operations wait their turn here — behind a read, or behind a
+ * write stuck on its timeout — so the caller's BLE session can end between
+ * calling this and the write actually happening. Checking only at the call site
+ * would let a command from a dropped session reach the bike, and reconnecting
+ * reuses the same GATT server, so it could land on the next session.
+ */
 export async function writeState(
   server: BluetoothRemoteGATTServer,
   state: Super73State,
+  isStillValid: () => boolean = () => true,
 ): Promise<void> {
   return serializeGatt(async () => {
+    if (!isStillValid()) return;
     const { registerChar } = await getCharacteristics(server);
+    if (!isStillValid()) return;
     const command = buildWriteCommand(state);
     await withTimeout(registerChar.writeValue(command as unknown as BufferSource));
   });

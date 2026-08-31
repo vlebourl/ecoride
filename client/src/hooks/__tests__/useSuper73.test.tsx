@@ -56,6 +56,7 @@ function Consumer({ label }: { label: string }) {
   return (
     <div>
       <button onClick={() => ble.connect()}>{label} connect</button>
+      <button onClick={() => ble.disconnect()}>{label} disconnect</button>
       <button onClick={() => void ble.toggleMode()}>{label} toggle</button>
       <button onClick={() => void ble.setLight(true)}>{label} light-on</button>
       <button
@@ -299,12 +300,13 @@ describe("useSuper73 provider", () => {
     fireEvent.click(screen.getByText("vehicle connect"));
 
     await waitFor(() => {
-      expect(writeStateMock).toHaveBeenCalledWith(expect.anything(), {
-        mode: "race",
-        assist: 4,
-        light: true,
-        region: "eu",
-      });
+      expect(writeStateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        { mode: "race", assist: 4, light: true, region: "eu" },
+        // Session guard: this write is queued too, and the link can drop before
+        // it runs.
+        expect.any(Function),
+      );
       expect(screen.getByText("vehicle-mode:race")).toBeTruthy();
       expect(screen.getByText("vehicle-assist:4")).toBeTruthy();
       expect(screen.getByText("vehicle-light:on")).toBeTruthy();
@@ -360,10 +362,12 @@ describe("useSuper73 provider", () => {
     );
 
     await waitFor(() => {
-      expect(writeStateMock).toHaveBeenCalledWith(expect.anything(), {
-        ...baseState,
-        mode: "race",
-      });
+      expect(writeStateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        { ...baseState, mode: "race" },
+        // Session guard, re-checked inside the GATT queue.
+        expect.any(Function),
+      );
     });
 
     writeStateMock.mockClear();
@@ -385,10 +389,11 @@ describe("useSuper73 provider", () => {
     );
 
     await waitFor(() => {
-      expect(writeStateMock).toHaveBeenCalledWith(expect.anything(), {
-        ...baseState,
-        mode: "eco",
-      });
+      expect(writeStateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        { ...baseState, mode: "eco" },
+        expect.any(Function),
+      );
     });
   });
 });
@@ -518,6 +523,38 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     expect(screen.getByText("trip-mode:race")).toBeTruthy();
     expect(screen.getByText("trip-selection:race")).toBeTruthy();
   });
+
+  it("guards the EPAC enforcement write with the session", async () => {
+    render(
+      <Super73Provider enabled tracking={{ isTracking: true, speedKmh: 20 }}>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:connected")).toBeTruthy();
+    });
+
+    // Rider hits assist 3 on the bike: EPAC enforcement writes eco.
+    await bikeReports({ mode: "race", assist: 3, light: false, region: "eu" });
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalled();
+    });
+
+    // This write is queued like any other, so it must carry a session guard that
+    // stops it once the bike is gone — it is issued from the notifier, the path
+    // most likely to fire just as the link drops.
+    const guard = writeStateMock.mock.calls.at(-1)![2] as () => boolean;
+    expect(guard()).toBe(true);
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    expect(guard()).toBe(false);
+  });
 });
 
 describe("useSuper73 provider — setLight commits the bike's reported state (issue #347)", () => {
@@ -531,7 +568,10 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    // Both carry per-test implementations closing over that test's simulated
+    // bike — leaking one into the next test wires it to a stale bike.
     readStateMock.mockReset();
+    writeStateMock.mockReset();
   });
 
   async function connect() {
@@ -571,6 +611,7 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
       expect(writeStateMock).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ light: true }),
+        expect.any(Function),
       );
     });
     // The UI must follow the bike, not the value that was requested.
@@ -613,5 +654,277 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // pre-write state and the second write drops the first one's light change.
     expect(screen.getByText("trip-light:on")).toBeTruthy();
     expect(bikeSim).toMatchObject({ light: true, assist: 4 });
+  });
+
+  it("drops a queued update when the bike reconnects before its turn", async () => {
+    let bikeSim: Super73State = { ...baseState, light: false, assist: 2 };
+    readStateMock.mockImplementation(() => Promise.resolve(bikeSim));
+
+    // Hold the first write open so the second update is still queued behind it.
+    let releaseWrite!: () => void;
+    const firstWriteHeld = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    writeStateMock
+      .mockImplementationOnce(async (_server: unknown, next: Super73State) => {
+        await firstWriteHeld;
+        bikeSim = next;
+      })
+      .mockImplementation((_server: unknown, next: Super73State) => {
+        bikeSim = next;
+        return Promise.resolve(undefined);
+      });
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light+assist"));
+    // Let the first update reach its (held) write, so the second is genuinely
+    // queued behind it rather than not started yet.
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    // The rider loses the bike and reconnects while the second update waits.
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:connected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releaseWrite();
+      await firstWriteHeld;
+    });
+
+    // The queued assist write belonged to the previous BLE session: replaying it
+    // onto the new one would apply a command the rider issued to a bike that has
+    // since dropped.
+    expect(writeStateMock).toHaveBeenCalledTimes(1);
+    expect(bikeSim.assist).toBe(2);
+  });
+
+  it("does not publish state read from a connection that dropped mid-update", async () => {
+    // Hold the confirmation read open so the bike can drop mid-sequence.
+    let releaseReadBack!: (state: Super73State) => void;
+    const readBackHeld = new Promise<Super73State>((resolve) => {
+      releaseReadBack = resolve;
+    });
+    readStateMock
+      .mockResolvedValueOnce({ ...baseState, light: false }) // initial connect read
+      .mockResolvedValueOnce({ ...baseState, light: false }) // read before the write
+      .mockImplementationOnce(() => readBackHeld); // confirmation read
+    writeStateMock.mockResolvedValue(undefined);
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    // The rider disconnects before the confirmation read comes back.
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releaseReadBack({ ...baseState, light: true });
+      await readBackHeld;
+    });
+
+    // A disconnect ends the session on its own: state read over a connection the
+    // rider has left must not be published, or the UI claims a live headlight on
+    // a bike it is no longer talking to.
+    expect(screen.getByText("trip-light:off")).toBeTruthy();
+  });
+
+  it("does not write to the bike when the session ends before the write", async () => {
+    // Hold the pre-write read open so the session can end between read and write.
+    let releasePreRead!: (state: Super73State) => void;
+    const preReadHeld = new Promise<Super73State>((resolve) => {
+      releasePreRead = resolve;
+    });
+    readStateMock
+      .mockResolvedValueOnce({ ...baseState, light: false }) // initial connect read
+      .mockImplementationOnce(() => preReadHeld); // read before the write
+    writeStateMock.mockResolvedValue(undefined);
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+    await waitFor(() => {
+      expect(readStateMock).toHaveBeenCalledTimes(2);
+    });
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releasePreRead({ ...baseState, light: false });
+      await preReadHeld;
+    });
+
+    // The session ended mid-sequence. Writing now sends a command built from a
+    // pre-disconnect read — and since reconnecting reuses the same `device.gatt`,
+    // it could land on the next session's bike.
+    expect(writeStateMock).not.toHaveBeenCalled();
+  });
+
+  it("hands writeState a session guard that goes false once the bike drops", async () => {
+    readStateMock.mockResolvedValue({ ...baseState, light: false });
+    writeStateMock.mockResolvedValue(undefined);
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    // super73-ble re-checks this from inside the GATT queue, right before the
+    // bytes go out. It has to track the live session, not just return true.
+    const guard = writeStateMock.mock.calls[0]![2] as () => boolean;
+    expect(guard()).toBe(true);
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    expect(guard()).toBe(false);
+  });
+
+  it("does not report connected when the bike drops while preferences are applied", async () => {
+    readStateMock.mockResolvedValue({ ...baseState, mode: "eco", assist: 1, light: false });
+
+    // Hold the preferences write open so the rider can disconnect mid-connect.
+    let releaseWrite!: () => void;
+    const writeHeld = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    writeStateMock.mockImplementation(() => writeHeld);
+
+    render(
+      <Super73Provider
+        enabled
+        preferences={{
+          autoModeEnabled: false,
+          defaultMode: "race",
+          defaultAssist: 4,
+          defaultLight: true,
+        }}
+      >
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releaseWrite();
+      await writeHeld;
+    });
+
+    // Finishing the connect sequence for a session that already ended would show
+    // a connected bike the app is not talking to — and every control with it.
+    expect(screen.getByText("trip:disconnected")).toBeTruthy();
+  });
+
+  it("reports disconnected, not error, when the bike drops mid-connect", async () => {
+    // A real drop makes the in-flight GATT operation reject, rather than
+    // resolving into a session check.
+    let failRead!: (e: Error) => void;
+    const readHeld = new Promise<Super73State>((_resolve, reject) => {
+      failRead = reject;
+    });
+    readStateMock.mockImplementationOnce(() => readHeld);
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(readStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      failRead(new Error("GATT Server is disconnected"));
+      await readHeld.catch(() => {});
+    });
+
+    // The drop is the explanation, not a failure to report: onDisconnected has
+    // already set the right status and surfacing "error" would overwrite it.
+    expect(screen.getByText("trip:disconnected")).toBeTruthy();
+  });
+
+  it("treats a real GATT drop during connect as a disconnect, not an error", async () => {
+    // Real ordering: the link dies, the in-flight operation rejects immediately,
+    // and `gattserverdisconnected` is only delivered later — so at the moment of
+    // the rejection the session counter has not moved yet.
+    const gatt = {
+      connected: true,
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn(),
+    };
+    const device = {
+      gatt,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as BluetoothDevice;
+    scanAndConnectMock.mockResolvedValue(device);
+    readStateMock.mockImplementationOnce(() => {
+      gatt.connected = false;
+      return Promise.reject(new Error("GATT Server is disconnected"));
+    });
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+
+    // Losing the bike is not a connection failure to report as such.
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+  });
+
+  it("still reports error when the link is alive and the connect read fails", async () => {
+    // Contrast to the test above: the bike is still there, so this really is a
+    // failure. Swallowing every rejection would hide genuine connection faults.
+    scanAndConnectMock.mockResolvedValue(buildDevice());
+    readStateMock.mockRejectedValueOnce(new Error("GATT operation failed"));
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+
+    await waitFor(() => {
+      expect(screen.getByText("trip:error")).toBeTruthy();
+    });
   });
 });

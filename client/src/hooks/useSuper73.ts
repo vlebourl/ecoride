@@ -235,6 +235,11 @@ function useSuper73Controller(
   // Serialises state updates end to end. applyPatch swallows its own errors, so
   // a failed update never wedges the queue for the ones behind it.
   const updateQueueRef = useRef<Promise<void>>(Promise.resolve());
+  // Bumped on every attach. A queued update carries the session it was issued
+  // for, so one waiting its turn is dropped rather than replayed onto a later
+  // connection — reconnecting reuses the same `device.gatt`, so comparing the
+  // server object would not catch it.
+  const bleSessionRef = useRef(0);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoReconnectAttemptedRef = useRef(false);
@@ -254,8 +259,12 @@ function useSuper73Controller(
     cacheState(state);
     if (shouldTriggerEpac(state) && serverRef.current?.connected) {
       const epacState: Super73State = { ...state, mode: "eco" };
-      void writeState(serverRef.current, epacState)
+      // Queued like any other write, and issued from the notifier — the path most
+      // likely to fire just as the link drops — so it carries the session too.
+      const session = bleSessionRef.current;
+      void writeState(serverRef.current, epacState, () => session === bleSessionRef.current)
         .then(() => {
+          if (session !== bleSessionRef.current) return;
           setBikeState(epacState);
           cacheState(epacState);
           // Reset the stale trip-mode intent (e.g. "race") ONLY after the bike has
@@ -292,10 +301,13 @@ function useSuper73Controller(
   );
 
   const applyConnectionPreferences = useCallback(
-    async (server: BluetoothRemoteGATTServer, state: Super73State) => {
+    async (server: BluetoothRemoteGATTServer, state: Super73State, session: number) => {
       const preferredState = buildStateFromPreferences(state, preferences);
       if (!preferredState) return state;
-      await writeState(server, preferredState);
+      await writeState(server, preferredState, () => session === bleSessionRef.current);
+      // The link can drop while that write waits in the queue. If it did, the
+      // preferences never reached the bike, so report the state we actually read.
+      if (session !== bleSessionRef.current) return state;
       return preferredState;
     },
     [preferences],
@@ -306,25 +318,56 @@ function useSuper73Controller(
     async (device: BluetoothDevice) => {
       deviceRef.current = device;
       serverRef.current = device.gatt!;
+      bleSessionRef.current += 1;
+      const session = bleSessionRef.current;
       reconnectAttemptsRef.current = 0;
       manualDisconnectRef.current = false;
       lastAutoModeZoneRef.current = null;
 
-      const currentState = await readState(device.gatt!, "connect");
-      const finalState = await applyConnectionPreferences(device.gatt!, currentState);
-      setBikeState(finalState);
-      cacheState(finalState);
-      // Try to subscribe to push notifications. Returns null if unsupported.
-      notifierCleanupRef.current = await startStateNotifications(
-        device.gatt!,
-        stableNotifierHandler,
-        setBikeSpeedKmh,
-        (ride) => {
-          setBatteryPercent(ride.batteryPercent);
-          setRangeKm(ride.rangeKm);
-        },
-      );
-      setStatus("connected");
+      // Connecting takes several awaits, and the bike can drop during any of
+      // them. Finishing the sequence for a session that already ended would
+      // report a connected bike the app is not talking to. A drop also *rejects*
+      // whatever operation was in flight, so the whole sequence is wrapped: by
+      // then onDisconnected has set the right status, and letting the rejection
+      // reach connect()'s catch would overwrite it with "error".
+      try {
+        const currentState = await readState(device.gatt!, "connect");
+        if (session !== bleSessionRef.current) return;
+        const finalState = await applyConnectionPreferences(device.gatt!, currentState, session);
+        if (session !== bleSessionRef.current) return;
+        setBikeState(finalState);
+        cacheState(finalState);
+        // Try to subscribe to push notifications. Returns null if unsupported.
+        const notifierCleanup = await startStateNotifications(
+          device.gatt!,
+          stableNotifierHandler,
+          setBikeSpeedKmh,
+          (ride) => {
+            setBatteryPercent(ride.batteryPercent);
+            setRangeKm(ride.rangeKm);
+          },
+        );
+        if (session !== bleSessionRef.current) {
+          // Tear down the subscription we just made rather than storing it: the
+          // teardown for this session has already run, so nothing else would.
+          notifierCleanup?.();
+          return;
+        }
+        notifierCleanupRef.current = notifierCleanup;
+        setStatus("connected");
+      } catch (e) {
+        if (session !== bleSessionRef.current) return;
+        // `gattserverdisconnected` is delivered asynchronously, so a real drop
+        // rejects the in-flight operation *before* onDisconnected runs and moves
+        // the session. Ask the link itself rather than trusting the counter.
+        if (!device.gatt?.connected) {
+          // Only downgrade our own "connecting": if onDisconnected has already
+          // scheduled a reconnect, that attempt owns the status from here.
+          setStatus((prev) => (prev === "connecting" ? "disconnected" : prev));
+          return;
+        }
+        throw e;
+      }
     },
     [applyConnectionPreferences, stableNotifierHandler],
   );
@@ -353,6 +396,9 @@ function useSuper73Controller(
     notifierCleanupRef.current?.();
     notifierCleanupRef.current = null;
     serverRef.current = null;
+    // Losing the bike ends the session on its own, reconnection or not: an
+    // update still in flight must not publish state it read over this link.
+    bleSessionRef.current += 1;
     lastAutoModeZoneRef.current = null;
     setBikeSpeedKmh(null);
     setBatteryPercent(null);
@@ -432,23 +478,36 @@ function useSuper73Controller(
       deviceRef.current = null;
       serverRef.current = null;
     }
+    // Same as onDisconnected: end the session so in-flight and queued updates
+    // stop, whether or not `gattserverdisconnected` fires for a manual hang-up.
+    bleSessionRef.current += 1;
     setStatus("disconnected");
   }, []);
 
-  const applyPatch = useCallback(async (patch: Partial<Super73State>) => {
+  const applyPatch = useCallback(async (patch: Partial<Super73State>, session: number) => {
     const server = serverRef.current;
-    // Re-checked here, not just at enqueue time: the bike may have dropped while
-    // this update waited its turn in the queue.
-    if (!server?.connected) return;
+    // Re-checked here, not just at enqueue time: while this update waited its
+    // turn the bike may have dropped, or dropped and come back — in which case
+    // it belongs to a session the rider has left and must not be replayed.
+    if (!server?.connected || session !== bleSessionRef.current) return;
     try {
       const current = await readState(server);
+      // The session can end at any await, so re-check before touching the bike:
+      // this write carries a pre-disconnect read, and since reconnecting reuses
+      // the same `device.gatt` it would otherwise land on the next session.
+      if (session !== bleSessionRef.current) return;
       const next: Super73State = { ...current, ...patch };
-      await writeState(server, next);
+      // The check above guards the call; this one guards the write itself, which
+      // runs a turn later from inside the GATT queue.
+      await writeState(server, next, () => session === bleSessionRef.current);
       // Commit what the bike reports back, not what we asked for: a write the
       // bike refuses would otherwise leave the UI on an optimistic value until
       // the next notifier packet — and the notifier is absent on some firmware
       // (startStateNotifications returns null), so there may never be one.
       const confirmed = await readBackState(server, next);
+      // The session can end mid-sequence too: don't publish state read from a
+      // connection the rider has already left.
+      if (session !== bleSessionRef.current) return;
       setBikeState(confirmed);
       cacheState(confirmed);
     } catch (e) {
@@ -464,7 +523,8 @@ function useSuper73Controller(
       // orders individual GATT operations, so two updates in flight would each
       // read the same state and the second write would drop the first one's
       // patch — e.g. auto-mode writing a mode while the rider taps the headlight.
-      const run = updateQueueRef.current.then(() => applyPatch(patch));
+      const session = bleSessionRef.current;
+      const run = updateQueueRef.current.then(() => applyPatch(patch, session));
       updateQueueRef.current = run;
       return run;
     },

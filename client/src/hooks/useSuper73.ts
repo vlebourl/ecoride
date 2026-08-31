@@ -363,7 +363,23 @@ function useSuper73Controller(
       if (!isCurrentSession()) return state;
 
       const finalState: Super73State = { ...litState, assist: CONNECT_ASSIST_TARGET };
-      await writeWithRetry(finalState);
+      try {
+        await writeWithRetry(finalState);
+      } catch (e) {
+        // The floor frame has already landed, so giving up here would strand the
+        // bike at a level this app picked rather than the one the rider had.
+        // Put it back, best effort, and let the original error stand: a restore
+        // that fails too has nothing left to try, and swallowing the error would
+        // report a healthy connection to a bike stuck mid-sequence. Written
+        // unconditionally even when the read said the floor — a reported level
+        // that disagrees with the hardware is the whole premise of this sequence.
+        if (isCurrentSession()) {
+          await writeState(server, { ...litState, assist: state.assist }, isCurrentSession).catch(
+            () => {},
+          );
+        }
+        throw e;
+      }
       if (!isCurrentSession()) return state;
       return finalState;
     },

@@ -443,12 +443,17 @@ describe("useSuper73 provider", () => {
     expect(screen.getByText("vehicle-assist:4")).toBeTruthy();
   });
 
-  it("surfaces an error when the final assist write fails twice", async () => {
+  it("puts the assist back and surfaces an error when the final write fails twice", async () => {
+    // A bike reporting a level other than the floor, so the restore is visible.
+    const reported: Super73State = { ...baseState, assist: 0 };
+    readStateMock.mockResolvedValue(reported);
     writeStateMock
       .mockResolvedValueOnce(undefined) // light OFF
       .mockResolvedValueOnce(undefined) // light ON
-      .mockResolvedValueOnce(undefined) // assist floor
-      .mockRejectedValue(new Error("GATT operation failed")); // target fails, retry fails
+      .mockResolvedValueOnce(undefined) // assist floor lands
+      .mockRejectedValueOnce(new Error("GATT operation failed")) // target fails
+      .mockRejectedValueOnce(new Error("GATT operation failed")) // retry fails
+      .mockResolvedValue(undefined); // restore lands
 
     render(
       <Super73Provider enabled>
@@ -458,7 +463,34 @@ describe("useSuper73 provider", () => {
 
     fireEvent.click(screen.getByText("vehicle connect"));
 
-    // Reporting a healthy connection would hide a bike left at assist 0.
+    // Reporting a healthy connection would hide a bike stuck mid-sequence.
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:error")).toBeTruthy();
+    });
+    expect(startStateNotificationsMock).not.toHaveBeenCalled();
+    // The floor frame landed, so giving up here would leave the bike at a level
+    // this app chose rather than the one the rider had. Put it back.
+    expect(writtenStates().at(-1)).toEqual({ ...reported, light: true });
+  });
+
+  it("still surfaces the error when the assist restore fails too", async () => {
+    readStateMock.mockResolvedValue({ ...baseState, assist: 0 });
+    writeStateMock
+      .mockResolvedValueOnce(undefined) // light OFF
+      .mockResolvedValueOnce(undefined) // light ON
+      .mockResolvedValueOnce(undefined) // assist floor lands
+      .mockRejectedValue(new Error("GATT operation failed")); // target, retry and restore fail
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+
+    // The restore is best effort: its own failure must not replace the error the
+    // rider needs to see, nor swallow it into a green connection.
     await waitFor(() => {
       expect(screen.getByText("vehicle:error")).toBeTruthy();
     });

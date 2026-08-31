@@ -326,31 +326,39 @@ function useSuper73Controller(
 
       // Connecting takes several awaits, and the bike can drop during any of
       // them. Finishing the sequence for a session that already ended would
-      // report a connected bike the app is not talking to.
-      const currentState = await readState(device.gatt!, "connect");
-      if (session !== bleSessionRef.current) return;
-      const finalState = await applyConnectionPreferences(device.gatt!, currentState, session);
-      if (session !== bleSessionRef.current) return;
-      setBikeState(finalState);
-      cacheState(finalState);
-      // Try to subscribe to push notifications. Returns null if unsupported.
-      const notifierCleanup = await startStateNotifications(
-        device.gatt!,
-        stableNotifierHandler,
-        setBikeSpeedKmh,
-        (ride) => {
-          setBatteryPercent(ride.batteryPercent);
-          setRangeKm(ride.rangeKm);
-        },
-      );
-      if (session !== bleSessionRef.current) {
-        // Tear down the subscription we just made rather than storing it: the
-        // teardown for this session has already run, so nothing else would.
-        notifierCleanup?.();
-        return;
+      // report a connected bike the app is not talking to. A drop also *rejects*
+      // whatever operation was in flight, so the whole sequence is wrapped: by
+      // then onDisconnected has set the right status, and letting the rejection
+      // reach connect()'s catch would overwrite it with "error".
+      try {
+        const currentState = await readState(device.gatt!, "connect");
+        if (session !== bleSessionRef.current) return;
+        const finalState = await applyConnectionPreferences(device.gatt!, currentState, session);
+        if (session !== bleSessionRef.current) return;
+        setBikeState(finalState);
+        cacheState(finalState);
+        // Try to subscribe to push notifications. Returns null if unsupported.
+        const notifierCleanup = await startStateNotifications(
+          device.gatt!,
+          stableNotifierHandler,
+          setBikeSpeedKmh,
+          (ride) => {
+            setBatteryPercent(ride.batteryPercent);
+            setRangeKm(ride.rangeKm);
+          },
+        );
+        if (session !== bleSessionRef.current) {
+          // Tear down the subscription we just made rather than storing it: the
+          // teardown for this session has already run, so nothing else would.
+          notifierCleanup?.();
+          return;
+        }
+        notifierCleanupRef.current = notifierCleanup;
+        setStatus("connected");
+      } catch (e) {
+        if (session !== bleSessionRef.current) return;
+        throw e;
       }
-      notifierCleanupRef.current = notifierCleanup;
-      setStatus("connected");
     },
     [applyConnectionPreferences, stableNotifierHandler],
   );

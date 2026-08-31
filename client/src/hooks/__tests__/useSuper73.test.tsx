@@ -839,4 +839,39 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // a connected bike the app is not talking to — and every control with it.
     expect(screen.getByText("trip:disconnected")).toBeTruthy();
   });
+
+  it("reports disconnected, not error, when the bike drops mid-connect", async () => {
+    // A real drop makes the in-flight GATT operation reject, rather than
+    // resolving into a session check.
+    let failRead!: (e: Error) => void;
+    const readHeld = new Promise<Super73State>((_resolve, reject) => {
+      failRead = reject;
+    });
+    readStateMock.mockImplementationOnce(() => readHeld);
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(readStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      failRead(new Error("GATT Server is disconnected"));
+      await readHeld.catch(() => {});
+    });
+
+    // The drop is the explanation, not a failure to report: onDisconnected has
+    // already set the right status and surfacing "error" would overwrite it.
+    expect(screen.getByText("trip:disconnected")).toBeTruthy();
+  });
 });

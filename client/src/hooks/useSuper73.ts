@@ -359,6 +359,9 @@ function useSuper73Controller(
     notifierCleanupRef.current?.();
     notifierCleanupRef.current = null;
     serverRef.current = null;
+    // Losing the bike ends the session on its own, reconnection or not: an
+    // update still in flight must not publish state it read over this link.
+    bleSessionRef.current += 1;
     lastAutoModeZoneRef.current = null;
     setBikeSpeedKmh(null);
     setBatteryPercent(null);
@@ -438,6 +441,9 @@ function useSuper73Controller(
       deviceRef.current = null;
       serverRef.current = null;
     }
+    // Same as onDisconnected: end the session so in-flight and queued updates
+    // stop, whether or not `gattserverdisconnected` fires for a manual hang-up.
+    bleSessionRef.current += 1;
     setStatus("disconnected");
   }, []);
 

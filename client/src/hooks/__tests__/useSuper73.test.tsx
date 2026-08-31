@@ -667,4 +667,39 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     expect(writeStateMock).toHaveBeenCalledTimes(1);
     expect(bikeSim.assist).toBe(2);
   });
+
+  it("does not publish state read from a connection that dropped mid-update", async () => {
+    // Hold the confirmation read open so the bike can drop mid-sequence.
+    let releaseReadBack!: (state: Super73State) => void;
+    const readBackHeld = new Promise<Super73State>((resolve) => {
+      releaseReadBack = resolve;
+    });
+    readStateMock
+      .mockResolvedValueOnce({ ...baseState, light: false }) // initial connect read
+      .mockResolvedValueOnce({ ...baseState, light: false }) // read before the write
+      .mockImplementationOnce(() => readBackHeld); // confirmation read
+    writeStateMock.mockResolvedValue(undefined);
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    // The rider disconnects before the confirmation read comes back.
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releaseReadBack({ ...baseState, light: true });
+      await readBackHeld;
+    });
+
+    // A disconnect ends the session on its own: state read over a connection the
+    // rider has left must not be published, or the UI claims a live headlight on
+    // a bike it is no longer talking to.
+    expect(screen.getByText("trip-light:off")).toBeTruthy();
+  });
 });

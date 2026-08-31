@@ -119,6 +119,23 @@ function cacheState(state: Super73State) {
   }
 }
 
+/**
+ * Re-reads the state the bike actually holds after a write, so the UI follows the
+ * bike rather than the value it was asked for. If only the read-back fails the
+ * write itself still landed, so the written state is kept: reporting a connection
+ * error there would hide the controls over a change that did apply.
+ */
+async function readBackState(
+  server: BluetoothRemoteGATTServer,
+  written: Super73State,
+): Promise<Super73State> {
+  try {
+    return await readState(server);
+  } catch {
+    return written;
+  }
+}
+
 export function buildStateFromPreferences(
   state: Super73State,
   preferences: Super73Preferences,
@@ -426,7 +443,7 @@ function useSuper73Controller(
         // bike refuses would otherwise leave the UI on an optimistic value until
         // the next notifier packet — and the notifier is absent on some firmware
         // (startStateNotifications returns null), so there may never be one.
-        const confirmed = await readState(serverRef.current);
+        const confirmed = await readBackState(serverRef.current, next);
         setBikeState(confirmed);
         cacheState(confirmed);
       } catch (e) {

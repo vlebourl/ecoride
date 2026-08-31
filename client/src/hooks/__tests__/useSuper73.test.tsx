@@ -566,4 +566,21 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // The UI must follow the bike, not the value that was requested.
     expect(screen.getByText("trip-light:off")).toBeTruthy();
   });
+
+  it("keeps the successful write when only the confirmation read fails", async () => {
+    readStateMock
+      .mockResolvedValueOnce({ ...baseState, light: false }) // initial connect read
+      .mockResolvedValueOnce({ ...baseState, light: false }) // read before the write
+      .mockRejectedValueOnce(new Error("GATT operation failed")); // read-back fails
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light-on"));
+
+    await waitFor(() => {
+      expect(screen.getByText("trip-light:on")).toBeTruthy();
+    });
+    // The write landed: a failed read-back must not be reported as a connection
+    // error, which would hide the controls over a change that actually applied.
+    expect(screen.getByText("trip:connected")).toBeTruthy();
+  });
 });

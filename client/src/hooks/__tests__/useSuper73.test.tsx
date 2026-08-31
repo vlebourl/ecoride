@@ -56,6 +56,7 @@ function Consumer({ label }: { label: string }) {
   return (
     <div>
       <button onClick={() => ble.connect()}>{label} connect</button>
+      <button onClick={() => ble.disconnect()}>{label} disconnect</button>
       <button onClick={() => void ble.toggleMode()}>{label} toggle</button>
       <button onClick={() => void ble.setLight(true)}>{label} light-on</button>
       <button
@@ -531,7 +532,10 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    // Both carry per-test implementations closing over that test's simulated
+    // bike — leaking one into the next test wires it to a stale bike.
     readStateMock.mockReset();
+    writeStateMock.mockReset();
   });
 
   async function connect() {
@@ -613,5 +617,54 @@ describe("useSuper73 provider — setLight commits the bike's reported state (is
     // pre-write state and the second write drops the first one's light change.
     expect(screen.getByText("trip-light:on")).toBeTruthy();
     expect(bikeSim).toMatchObject({ light: true, assist: 4 });
+  });
+
+  it("drops a queued update when the bike reconnects before its turn", async () => {
+    let bikeSim: Super73State = { ...baseState, light: false, assist: 2 };
+    readStateMock.mockImplementation(() => Promise.resolve(bikeSim));
+
+    // Hold the first write open so the second update is still queued behind it.
+    let releaseWrite!: () => void;
+    const firstWriteHeld = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    writeStateMock
+      .mockImplementationOnce(async (_server: unknown, next: Super73State) => {
+        await firstWriteHeld;
+        bikeSim = next;
+      })
+      .mockImplementation((_server: unknown, next: Super73State) => {
+        bikeSim = next;
+        return Promise.resolve(undefined);
+      });
+
+    await connect();
+    fireEvent.click(screen.getByText("trip light+assist"));
+    // Let the first update reach its (held) write, so the second is genuinely
+    // queued behind it rather than not started yet.
+    await waitFor(() => {
+      expect(writeStateMock).toHaveBeenCalledTimes(1);
+    });
+
+    // The rider loses the bike and reconnects while the second update waits.
+    fireEvent.click(screen.getByText("trip disconnect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:disconnected")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => {
+      expect(screen.getByText("trip:connected")).toBeTruthy();
+    });
+
+    await act(async () => {
+      releaseWrite();
+      await firstWriteHeld;
+    });
+
+    // The queued assist write belonged to the previous BLE session: replaying it
+    // onto the new one would apply a command the rider issued to a bike that has
+    // since dropped.
+    expect(writeStateMock).toHaveBeenCalledTimes(1);
+    expect(bikeSim.assist).toBe(2);
   });
 });

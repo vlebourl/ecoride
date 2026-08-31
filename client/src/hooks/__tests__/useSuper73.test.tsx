@@ -473,6 +473,35 @@ describe("useSuper73 provider", () => {
     expect(writtenStates().at(-1)).toEqual({ ...reported, light: true });
   });
 
+  it("retries the assist restore once before giving up", async () => {
+    const reported: Super73State = { ...baseState, assist: 0 };
+    readStateMock.mockResolvedValue(reported);
+    writeStateMock
+      .mockResolvedValueOnce(undefined) // light OFF
+      .mockResolvedValueOnce(undefined) // light ON
+      .mockResolvedValueOnce(undefined) // assist floor lands
+      .mockRejectedValueOnce(new Error("GATT operation failed")) // target fails
+      .mockRejectedValueOnce(new Error("GATT operation failed")) // retry fails
+      .mockRejectedValueOnce(new Error("GATT operation failed")) // restore fails
+      .mockResolvedValue(undefined); // restore retry lands
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:error")).toBeTruthy();
+    });
+
+    // The restore undoes damage this app did, so it gets the same second chance
+    // as every other write here whose failure leaves the bike worse off.
+    expect(writtenStates().at(-1)).toEqual({ ...reported, light: true });
+    expect(writeStateMock).toHaveBeenCalledTimes(7);
+  });
+
   it("still surfaces the error when the assist restore fails too", async () => {
     readStateMock.mockResolvedValue({ ...baseState, assist: 0 });
     writeStateMock

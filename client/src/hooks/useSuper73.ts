@@ -367,16 +367,19 @@ function useSuper73Controller(
         await writeWithRetry(finalState);
       } catch (e) {
         // The floor frame has already landed, so giving up here would strand the
-        // bike at a level this app picked rather than the one the rider had.
-        // Put it back, best effort, and let the original error stand: a restore
-        // that fails too has nothing left to try, and swallowing the error would
-        // report a healthy connection to a bike stuck mid-sequence. Written
-        // unconditionally even when the read said the floor — a reported level
-        // that disagrees with the hardware is the whole premise of this sequence.
+        // bike at a level this app picked rather than the one the rider had. Put
+        // it back, with the same one retry as every other write here whose
+        // failure leaves the bike worse off. Written unconditionally even when
+        // the read said the floor — a reported level that disagrees with the
+        // hardware is the whole premise of this sequence.
+        //
+        // This narrows the window rather than closing it: a link that has already
+        // refused three writes can refuse two more, and then the bike really is
+        // left at the floor. Nothing this code can do alone fixes a dead link, so
+        // the original error stands either way — swallowing it would report a
+        // healthy connection to a bike stuck mid-sequence.
         if (isCurrentSession()) {
-          await writeState(server, { ...litState, assist: state.assist }, isCurrentSession).catch(
-            () => {},
-          );
+          await writeWithRetry({ ...litState, assist: state.assist }).catch(() => {});
         }
         throw e;
       }

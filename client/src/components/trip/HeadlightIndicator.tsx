@@ -30,11 +30,14 @@ export function HeadlightIndicator() {
       aria-label={on ? t("super73.headlight.turnOff") : t("super73.headlight.turnOn")}
       disabled={!connected}
       onClick={() => void setLight(!on)}
-      className={`flex items-center rounded-md px-2 py-0.5 active:scale-95 disabled:opacity-50 ${
+      // min-h-11/min-w-11 = 44px, the WCAG 2.5.5 / Apple HIG floor. This is aimed
+      // one-handed while riding, on a screen that is moving, so it is sized as a
+      // real target rather than to match the passive indicator beside it (#357).
+      className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg active:scale-95 disabled:opacity-50 ${
         on ? "bg-warning/20 text-warning" : "bg-surface-low/80 text-text-dim"
       }`}
     >
-      {on ? <Lightbulb size={16} aria-hidden /> : <LightbulbOff size={16} aria-hidden />}
+      {on ? <Lightbulb size={24} aria-hidden /> : <LightbulbOff size={24} aria-hidden />}
     </button>
   );
 }

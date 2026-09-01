@@ -30,7 +30,11 @@ export function PageHeader({ title, subtitle, titleHidden, back, center, right }
         role="banner"
         className="sticky top-0 z-40 flex items-center justify-between gap-3 bg-bg/80 px-6 py-4 backdrop-blur-xl"
       >
-        <div className="flex items-center gap-3">
+        {/* min-w-0 makes this the row's pressure valve: with the Super73 connected
+            the centre slot and the GPS badge are what the rider needs, so the
+            brand truncates instead of pushing them out of an overflow-hidden
+            header on a narrow phone (#357). */}
+        <div className="flex min-w-0 items-center gap-3">
           {back && (
             <Link
               to={back.to}
@@ -40,12 +44,12 @@ export function PageHeader({ title, subtitle, titleHidden, back, center, right }
               <ArrowLeft size={20} />
             </Link>
           )}
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-bold tracking-tighter">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate text-xl font-bold tracking-tighter">
               <span className="text-text">eco</span>
               <span className="text-primary-light">Ride</span>
             </span>
-            <span className="text-xs text-text-dim">v{__APP_VERSION__}</span>
+            <span className="shrink-0 text-xs text-text-dim">v{__APP_VERSION__}</span>
           </div>
         </div>
         {center ? <div className="flex items-center">{center}</div> : null}

@@ -138,18 +138,30 @@ test.describe("Headlight toggle touch target (#357)", () => {
     expect(box!.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET_PX);
   });
 
-  test("does not push the header's GPS badge out of a 360px viewport", async ({ page }) => {
-    // The header is a single non-wrapping row and trip-page-root clips overflow,
-    // so a wider control pushes the GPS badge off-screen rather than scrolling.
-    // 360px is the common small-Android width, narrower than the 390px default.
-    await page.setViewportSize({ width: 360, height: 780 });
-    await stubConnectedSuper73(page);
-    await page.goto("/trip", { waitUntil: "networkidle" });
+  // The header is a single non-wrapping row inside an overflow-hidden root, so a
+  // wider control pushes the GPS badge off-screen rather than scrolling. The row
+  // was already marginal before this ticket — 4px of headroom on CI at 360px, and
+  // font metrics differ per platform, so this is measured at several widths
+  // rather than at the one that happened to fail first. 320px is the iPhone SE.
+  for (const width of [390, 360, 344, 320]) {
+    test(`keeps the header inside a ${width}px viewport`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 780 });
+      await stubConnectedSuper73(page);
+      await page.goto("/trip", { waitUntil: "networkidle" });
 
-    await expect(page.getByTestId("headlight-indicator")).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByTestId("headlight-indicator")).toBeVisible({ timeout: 10_000 });
 
-    const header = page.getByRole("banner");
-    const overflow = await header.evaluate((el) => el.scrollWidth - el.clientWidth);
-    expect(overflow).toBe(0);
-  });
+      const header = page.getByRole("banner");
+      const overflow = await header.evaluate((el) => el.scrollWidth - el.clientWidth);
+      expect(overflow).toBe(0);
+
+      // The GPS badge is the last child, so it is what an overflow would clip.
+      const badgeOverhang = await header.evaluate((el) =>
+        Math.round(
+          el.lastElementChild!.getBoundingClientRect().right - el.getBoundingClientRect().right,
+        ),
+      );
+      expect(badgeOverhang).toBeLessThanOrEqual(0);
+    });
+  }
 });

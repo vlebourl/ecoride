@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     # Skip if the commit is already a version bump (prevent infinite loop)
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+    outputs:
+      type: ${{ steps.bump.outputs.type }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -82,7 +84,7 @@ jobs:
   deploy:
     name: Deploy to Coolify
     needs: bump
-    if: needs.bump.result == 'success'
+    if: needs.bump.result == 'success' && needs.bump.outputs.type != 'none'
     runs-on: homelab-runner
     steps:
       - name: Trigger Coolify deploy

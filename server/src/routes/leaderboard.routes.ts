@@ -1,38 +1,19 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { eq, sql, sum, desc, asc, and, gte, count } from "drizzle-orm";
+import { eq, sql, sum, desc, asc, and, gte, count, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema/auth";
 import { trips } from "../db/schema";
 import { validationHook } from "../lib/validation";
+import { getPeriodStart } from "../lib/period-start";
 import type { AuthEnv } from "../types/context";
-import type { StatsPeriod } from "@ecoride/shared/api-contracts";
 
 const leaderboardQuery = z.object({
   period: z.enum(["day", "week", "month", "year", "all"]).default("all"),
   limit: z.coerce.number().int().positive().max(100).default(50),
   category: z.enum(["co2", "streak", "trips", "speed", "money", "distance"]).default("co2"),
 });
-
-function getPeriodStart(period: StatsPeriod): Date | null {
-  if (period === "all") return null;
-  const now = new Date();
-  switch (period) {
-    case "day":
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - d.getDay() + 1); // Monday
-      d.setHours(0, 0, 0, 0);
-      return d;
-    }
-    case "month":
-      return new Date(now.getFullYear(), now.getMonth(), 1);
-    case "year":
-      return new Date(now.getFullYear(), 0, 1);
-  }
-}
 
 /**
  * Format a Date as YYYY-MM-DD (UTC).
@@ -219,7 +200,13 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
       .leftJoin(trips, joinCondition)
       .where(and(...conditions))
       .groupBy(user.id, user.name, user.image)
-      .limit(limit * 2); // fetch extra since we filter
+      .orderBy(
+        desc(
+          sql`coalesce(${sum(trips.distanceKm)} * 3600.0 / nullif(${sum(trips.durationSec)}, 0), 0)`,
+        ),
+        asc(user.name),
+      )
+      .limit(limit);
 
     // Filter users with at least 1 trip, compute avg speed
     const withSpeed = entries
@@ -258,8 +245,8 @@ leaderboardRouter.get("/", zValidator("query", leaderboardQuery, validationHook)
   // Fetch all trip dates for opted-in users in a single query
   const userIds = optedInUsers.map((u) => u.userId);
   const tripDateConditions = periodStart
-    ? and(sql`${trips.userId} IN ${userIds}`, gte(trips.startedAt, periodStart))
-    : sql`${trips.userId} IN ${userIds}`;
+    ? and(inArray(trips.userId, userIds), gte(trips.startedAt, periodStart))
+    : inArray(trips.userId, userIds);
 
   const tripRows = await db
     .select({

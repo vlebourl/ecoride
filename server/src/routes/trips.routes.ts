@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { eq, and, desc, gte, lte, lt, gt, count } from "drizzle-orm";
+import { eq, and, desc, gte, lte, lt, gt, count, sql } from "drizzle-orm";
 import { db } from "../db";
 import { trips } from "../db/schema";
 import { user } from "../db/schema/auth";
@@ -36,36 +36,16 @@ tripsRouter.post(
     // Idempotency: if key provided and trip already exists, return it
     if (data.idempotencyKey) {
       const [existing] = await db
-        .select({ id: trips.id })
+        .select()
         .from(trips)
         .where(and(eq(trips.userId, currentUser.id), eq(trips.idempotencyKey, data.idempotencyKey)))
         .limit(1);
       if (existing) {
-        return c.json({ ok: true, data: { trip: existing } }, 200);
+        // A previous attempt may have committed the trip then failed before
+        // badge evaluation. Replaying that idempotent step repairs the gap.
+        const newBadges = await evaluateAndUnlockBadges(currentUser.id);
+        return c.json({ ok: true, data: { trip: existing, newBadges } }, 200);
       }
-    }
-
-    // Reject trips that overlap in time with an existing trip
-    const [overlap] = await db
-      .select({ id: trips.id })
-      .from(trips)
-      .where(
-        and(
-          eq(trips.userId, currentUser.id),
-          lt(trips.startedAt, new Date(data.endedAt)),
-          gt(trips.endedAt, new Date(data.startedAt)),
-        ),
-      )
-      .limit(1);
-
-    if (overlap) {
-      return c.json(
-        {
-          ok: false,
-          error: { code: "VALIDATION_ERROR", message: "Ce trajet chevauche un trajet existant." },
-        },
-        409,
-      );
     }
 
     // Get user's vehicle profile for savings calculation
@@ -101,26 +81,66 @@ tripsRouter.post(
       fuelPriceEur,
     });
 
-    const [trip] = await db
-      .insert(trips)
-      .values({
-        userId: currentUser.id,
-        distanceKm: data.distanceKm,
-        durationSec: data.durationSec,
-        co2SavedKg: savings.co2SavedKg,
-        moneySavedEur: savings.moneySavedEur,
-        fuelSavedL: savings.fuelSavedL,
-        fuelPriceEur,
-        startedAt: new Date(data.startedAt),
-        endedAt: new Date(data.endedAt),
-        gpsPoints: data.gpsPoints ?? null,
-        idempotencyKey: data.idempotencyKey ?? null,
-      })
-      .returning();
+    // Serialize each user's creations. The key lookup, overlap check and insert
+    // must share one transaction so concurrent requests cannot both pass them.
+    const creation = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(7381, hashtext(${currentUser.id}))`);
+      if (data.idempotencyKey) {
+        const [existing] = await tx
+          .select()
+          .from(trips)
+          .where(
+            and(eq(trips.userId, currentUser.id), eq(trips.idempotencyKey, data.idempotencyKey)),
+          )
+          .limit(1);
+        if (existing) return { kind: "existing" as const, trip: existing };
+      }
+      const [overlap] = await tx
+        .select({ id: trips.id })
+        .from(trips)
+        .where(
+          and(
+            eq(trips.userId, currentUser.id),
+            lt(trips.startedAt, new Date(data.endedAt)),
+            gt(trips.endedAt, new Date(data.startedAt)),
+          ),
+        )
+        .limit(1);
+      if (overlap) return { kind: "overlap" as const };
 
-    if (!trip) {
-      throw new Error("Trip creation failed: insert returned no row");
+      const [trip] = await tx
+        .insert(trips)
+        .values({
+          userId: currentUser.id,
+          distanceKm: data.distanceKm,
+          durationSec: data.durationSec,
+          co2SavedKg: savings.co2SavedKg,
+          moneySavedEur: savings.moneySavedEur,
+          fuelSavedL: savings.fuelSavedL,
+          fuelPriceEur,
+          startedAt: new Date(data.startedAt),
+          endedAt: new Date(data.endedAt),
+          gpsPoints: data.gpsPoints ?? null,
+          idempotencyKey: data.idempotencyKey ?? null,
+        })
+        .returning();
+      if (!trip) throw new Error("Trip creation failed: insert returned no row");
+      return { kind: "created" as const, trip };
+    });
+    if (creation.kind === "overlap") {
+      return c.json(
+        {
+          ok: false,
+          error: { code: "VALIDATION_ERROR", message: "Ce trajet chevauche un trajet existant." },
+        },
+        409,
+      );
     }
+    if (creation.kind === "existing") {
+      const newBadges = await evaluateAndUnlockBadges(currentUser.id);
+      return c.json({ ok: true, data: { trip: creation.trip, newBadges } }, 200);
+    }
+    const { trip } = creation;
 
     // Evaluate badge thresholds and unlock any newly earned achievements
     const newBadges = await evaluateAndUnlockBadges(currentUser.id);

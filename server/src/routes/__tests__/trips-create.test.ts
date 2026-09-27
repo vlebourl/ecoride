@@ -15,6 +15,13 @@ const mocks = vi.hoisted(() => {
   const mockCalculateSavings = vi.fn();
   const mockLoggerError = vi.fn();
   const mockWithContext = vi.fn(() => ({ error: mockLoggerError, info: vi.fn(), warn: vi.fn() }));
+  const mockTransaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+    callback({
+      select: mockSelect,
+      insert: mockInsert,
+      execute: vi.fn(),
+    }),
+  );
 
   return {
     mockSelect,
@@ -29,6 +36,7 @@ const mocks = vi.hoisted(() => {
     mockCalculateSavings,
     mockLoggerError,
     mockWithContext,
+    mockTransaction,
   };
 });
 
@@ -36,6 +44,7 @@ vi.mock("../../db", () => ({
   db: {
     select: mocks.mockSelect,
     insert: mocks.mockInsert,
+    transaction: mocks.mockTransaction,
   },
 }));
 
@@ -126,8 +135,8 @@ describe("POST /trips", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.mockSelect
-      .mockReturnValueOnce(buildLimitChain([]))
-      .mockReturnValueOnce(buildProfileChain([{ consumptionL100: 6.5, fuelType: "sp95" }]));
+      .mockReturnValueOnce(buildProfileChain([{ consumptionL100: 6.5, fuelType: "sp95" }]))
+      .mockReturnValueOnce(buildLimitChain([]));
 
     mocks.mockGetFuelPrice.mockResolvedValue({ priceEur: 1.82 });
     mocks.mockCalculateSavings.mockReturnValue({
@@ -168,6 +177,7 @@ describe("POST /trips", () => {
     expect(res.status).toBe(201);
     expect(body.ok).toBe(true);
     expect(body.data.trip.id).toBe("trip-1");
+    expect(mocks.mockTransaction).toHaveBeenCalledTimes(1);
 
     await Promise.resolve();
     await Promise.resolve();

@@ -1,12 +1,97 @@
 import { describe, it, expect, vi } from "vitest";
+import { Hono } from "hono";
+import type { AuthEnv } from "../../types/context";
 
-// Mock db and schema to prevent real Postgres connection on module load
-vi.mock("../../db", () => ({ db: {} }));
-vi.mock("../../db/schema", () => ({ trips: {} }));
-vi.mock("../../db/schema/auth", () => ({ user: {} }));
+const fixtures = vi.hoisted(() => ({
+  rows: [] as {
+    userId: string;
+    name: string;
+    image: null;
+    totalCo2SavedKg: number;
+    totalDistanceKm: number;
+    totalDurationSec: number;
+    tripCount: number;
+  }[],
+}));
+vi.mock("../../db", () => ({
+  db: {
+    select: () => {
+      let ordered = false;
+      return {
+        from() {
+          return this;
+        },
+        leftJoin() {
+          return this;
+        },
+        where() {
+          return this;
+        },
+        groupBy() {
+          return this;
+        },
+        orderBy() {
+          ordered = true;
+          return this;
+        },
+        limit(n: number) {
+          const rows = ordered
+            ? [...fixtures.rows].sort(
+                (a, b) =>
+                  b.totalDistanceKm / b.totalDurationSec - a.totalDistanceKm / a.totalDurationSec,
+              )
+            : fixtures.rows;
+          return Promise.resolve(rows.slice(0, n));
+        },
+      };
+    },
+  },
+}));
 vi.mock("../../lib/validation", () => ({ validationHook: vi.fn() }));
 
-import { denseRank } from "../leaderboard.routes";
+import { denseRank, leaderboardRouter } from "../leaderboard.routes";
+
+it("selects the fastest rider before applying the SQL limit", async () => {
+  fixtures.rows = [
+    {
+      userId: "slow",
+      name: "Slow",
+      image: null,
+      totalCo2SavedKg: 0,
+      totalDistanceKm: 1,
+      totalDurationSec: 3600,
+      tripCount: 1,
+    },
+    {
+      userId: "mid",
+      name: "Mid",
+      image: null,
+      totalCo2SavedKg: 0,
+      totalDistanceKm: 2,
+      totalDurationSec: 3600,
+      tripCount: 1,
+    },
+    {
+      userId: "fast",
+      name: "Fast",
+      image: null,
+      totalCo2SavedKg: 0,
+      totalDistanceKm: 10,
+      totalDurationSec: 3600,
+      tripCount: 1,
+    },
+  ];
+  const app = new Hono<AuthEnv>();
+  app.use("*", async (c, next) => {
+    c.set("user", { id: "fast" } as AuthEnv["Variables"]["user"]);
+    await next();
+  });
+  app.route("/leaderboard", leaderboardRouter);
+  const response = await app.request("/leaderboard?category=speed&limit=1");
+  expect(response.status).toBe(200);
+  const body = (await response.json()) as { data: { entries: { userId: string }[] } };
+  expect(body.data.entries.map((entry) => entry.userId)).toEqual(["fast"]);
+});
 
 describe("denseRank", () => {
   it("assigns rank 1 to all tied entries", () => {

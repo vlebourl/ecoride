@@ -5,6 +5,7 @@ import { eq, sum, count, gte, and, sql } from "drizzle-orm";
 import { db } from "../db";
 import { trips } from "../db/schema";
 import { validationHook } from "../lib/validation";
+import { getPeriodStart } from "../lib/period-start";
 import { computeStreak } from "../lib/streaks";
 import { computeDerivedStats, type DailyRow } from "../lib/derived-stats";
 import { fetchDailyRows } from "../lib/daily-rollup";
@@ -29,25 +30,6 @@ const communityStatsQuery = z.object({
 const COMMUNITY_CACHE_TTL_MS = 5 * 60 * 1000;
 type CacheEntry = { data: CommunityStatsResponse; cachedAt: number };
 const communityCache = new Map<StatsPeriod, CacheEntry>();
-
-function getPeriodStart(period: StatsPeriod): Date | null {
-  if (period === "all") return null;
-
-  const now = new Date();
-  switch (period) {
-    case "day":
-      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    case "week": {
-      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
-      return start;
-    }
-    case "month":
-      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    case "year":
-      return new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-  }
-}
 
 const statsRouter = new Hono<AuthEnv>();
 

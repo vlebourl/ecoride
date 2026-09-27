@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, apiFetch } from "@/lib/api";
 import {
@@ -20,41 +20,47 @@ function getTerminalReason(error: ApiError): string {
 
 export function useOfflineSync() {
   const queryClient = useQueryClient();
+  const syncingRef = useRef(false);
+  const retryRequestedRef = useRef(false);
 
   const syncPending = useCallback(async () => {
-    const pending = getPendingTrips();
-    if (pending.length === 0) return;
-
-    let queueChanged = false;
-
-    // Process from last to first so that removing by index stays valid
-    for (let i = pending.length - 1; i >= 0; i--) {
-      const trip = pending[i]!;
-
-      try {
-        await apiFetch<{ ok: boolean; data: { trip: Trip } }>("/trips", {
-          method: "POST",
-          body: JSON.stringify(trip),
-        });
-        removePendingTrip(i);
-        queueChanged = true;
-      } catch (error) {
-        if (isTerminalTripSyncError(error)) {
-          recordRejectedTrip(trip, {
-            status: error.status,
-            reason: getTerminalReason(error),
-          });
-          removePendingTrip(i);
-          queueChanged = true;
+    retryRequestedRef.current = true;
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    try {
+      while (retryRequestedRef.current) {
+        retryRequestedRef.current = false;
+        const pending = getPendingTrips();
+        let queueChanged = false;
+        for (const trip of pending) {
+          if (!trip.idempotencyKey) continue;
+          try {
+            await apiFetch<{ ok: boolean; data: { trip: Trip } }>("/trips", {
+              method: "POST",
+              body: JSON.stringify(trip),
+            });
+            removePendingTrip(trip.idempotencyKey);
+            queueChanged = true;
+          } catch (error) {
+            if (isTerminalTripSyncError(error)) {
+              recordRejectedTrip(trip, {
+                status: error.status,
+                reason: getTerminalReason(error),
+              });
+              removePendingTrip(trip.idempotencyKey);
+              queueChanged = true;
+            }
+          }
+        }
+        if (queueChanged) {
+          queryClient.invalidateQueries({ queryKey: ["trips"] });
+          queryClient.invalidateQueries({ queryKey: ["stats"] });
+          queryClient.invalidateQueries({ queryKey: ["achievements"] });
+          queryClient.invalidateQueries({ queryKey: ["profile"] });
         }
       }
-    }
-
-    if (queueChanged) {
-      queryClient.invalidateQueries({ queryKey: ["trips"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      queryClient.invalidateQueries({ queryKey: ["achievements"] });
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    } finally {
+      syncingRef.current = false;
     }
   }, [queryClient]);
 

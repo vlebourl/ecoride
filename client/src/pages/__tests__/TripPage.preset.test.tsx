@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { TripPage } from "../TripPage";
 import { I18nProvider } from "@/i18n/provider";
 import { ApiError } from "@/lib/api";
@@ -16,8 +16,10 @@ const mocks = vi.hoisted(() => ({
   queueTripMock: vi.fn(),
   startMock: vi.fn(),
   resetMock: vi.fn(),
+  stopMock: vi.fn(),
+  persistMock: vi.fn(),
 }));
-const { mutateMock, queueTripMock, startMock, resetMock } = mocks;
+const { mutateMock, queueTripMock, startMock, resetMock, stopMock, persistMock } = mocks;
 vi.mock("react-map-gl/maplibre", () => ({
   __esModule: true,
   default: () => null,
@@ -57,11 +59,12 @@ vi.mock("@/hooks/queries", () => ({
 }));
 
 vi.mock("@/hooks/useGpsTracking", () => ({
+  limitGpsPoints: (points: unknown[]) => points,
   useAppGpsTracking: () => ({
     state: {
       isTracking: false,
       isPaused: false,
-      distanceKm: 0,
+      distanceKm: 1,
       durationSec: 0,
       gpsPoints: [],
       error: null,
@@ -70,7 +73,7 @@ vi.mock("@/hooks/useGpsTracking", () => ({
       heading: null,
     },
     start: mocks.startMock,
-    stop: vi.fn(),
+    stop: mocks.stopMock,
     reset: mocks.resetMock,
     restore: vi.fn(),
     pause: vi.fn(),
@@ -83,7 +86,7 @@ vi.mock("@/hooks/useGpsTracking", () => ({
 
 vi.mock("@/lib/stopped-session", () => ({
   getStoppedSession: () => null,
-  setStoppedSession: vi.fn(),
+  setStoppedSession: mocks.persistMock,
   clearStoppedSession: vi.fn(),
   hasStoppedSession: () => false,
 }));
@@ -99,6 +102,16 @@ describe("TripPage trip preset selection", () => {
     startMock.mockReset();
     resetMock.mockReset();
     queueTripMock.mockReset();
+    stopMock
+      .mockReset()
+      .mockReturnValue({
+        distanceKm: 1,
+        durationSec: 60,
+        gpsPoints: [],
+        startedAt: "2026-04-09T10:00:00.000Z",
+        endedAt: "2026-04-09T10:01:00.000Z",
+      });
+    persistMock.mockReset().mockReturnValue(true);
   });
 
   it("creates a manual trip from the manual dropdown preset selection", () => {
@@ -206,5 +219,64 @@ describe("TripPage trip preset selection", () => {
 
     expect((screen.getByLabelText("Distance (km)") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Durée (minutes)") as HTMLInputElement).value).toBe("");
+  });
+
+  it("keeps a stopped trip visible and persisted after a rejected save", () => {
+    renderTripPage();
+    fireEvent.click(screen.getByRole("button", { name: "Démarrer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Interrompre le trajet" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Enregistrer" }),
+    );
+    expect(persistMock).toHaveBeenCalledOnce();
+    const [, options] = mutateMock.mock.calls[0] as [
+      unknown,
+      { onError: (error: unknown) => void },
+    ];
+    act(() =>
+      options.onError(new ApiError(409, JSON.stringify({ error: { message: "Chevauchement" } }))),
+    );
+    expect(screen.getByText("Chevauchement")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+    expect(queueTripMock).not.toHaveBeenCalled();
+  });
+
+  it("queues a stopped trip on 503 with its original key", () => {
+    renderTripPage();
+    fireEvent.click(screen.getByRole("button", { name: "Démarrer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Interrompre le trajet" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Enregistrer" }),
+    );
+    const [trip, options] = mutateMock.mock.calls[0] as [
+      { idempotencyKey: string },
+      { onError: (error: unknown) => void },
+    ];
+    act(() => options.onError(new ApiError(503, "Unavailable")));
+    expect(queueTripMock).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: trip.idempotencyKey }),
+    );
+  });
+
+  it("keeps the stopped trip when local queue persistence fails", () => {
+    queueTripMock.mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    renderTripPage();
+    fireEvent.click(screen.getByRole("button", { name: "Démarrer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Interrompre le trajet" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Enregistrer" }),
+    );
+    const [, options] = mutateMock.mock.calls[0] as [
+      unknown,
+      { onError: (error: unknown) => void },
+    ];
+    act(() => options.onError(new ApiError(503, "Unavailable")));
+    expect(
+      screen.getByText("Enregistrement local impossible. Gardez cette page ouverte et réessayez."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+    expect(resetMock).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,9 @@ export default defineConfig({
   retries: 0,
   use: {
     baseURL: "http://localhost:4173",
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : undefined,
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
     // Force French so e2e assertions on FR strings keep working regardless
@@ -16,7 +19,7 @@ export default defineConfig({
     // Build first: `vite preview` sert `dist/` tel quel. Sans ce build, la suite
     // teste une version antérieure de l'app et affiche un vert trompeur — ça a
     // déjà coûté une tâche entière. Le timeout couvre build + démarrage.
-    command: "bun run build && bun run preview --port 4173",
+    command: "bunx vite build && bunx vite preview --port 4173",
     port: 4173,
     timeout: 120_000,
     reuseExistingServer: false,

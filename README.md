@@ -119,6 +119,8 @@ docker compose up --build
 | `GOOGLE_CLIENT_ID`     | Client ID Google OAuth                                    |
 | `GOOGLE_CLIENT_SECRET` | Client Secret Google OAuth                                |
 | `FRONTEND_URL`         | URL publique de l'app (même valeur que `BETTER_AUTH_URL`) |
+| `COOLIFY_WEBHOOK_URL`  | URL du webhook Coolify, requise avant les migrations      |
+| `COOLIFY_API_TOKEN`    | Jeton API Coolify, requis avant les migrations            |
 | `VAPID_PUBLIC_KEY`     | Clé publique push (`bunx web-push generate-vapid-keys`)   |
 | `VAPID_PRIVATE_KEY`    | Clé privée push                                           |
 | `VAPID_SUBJECT`        | `mailto:votre-email@exemple.com`                          |

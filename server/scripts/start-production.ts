@@ -32,6 +32,7 @@ async function main() {
     databaseUrl,
     coolifyWebhookUrl: process.env.COOLIFY_WEBHOOK_URL,
     coolifyApiToken: process.env.COOLIFY_API_TOKEN,
+    requireConfig: true,
   });
   const repoRoot = path.resolve(import.meta.dirname, "../..");
 

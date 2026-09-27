@@ -49,22 +49,31 @@ export const auth = betterAuth({
     },
   },
   user: {
+    // Every field below is owned by our own routes (PATCH /api/user/profile and
+    // its zod validator, the admin routes). `input: false` keeps Better Auth's
+    // sign-up/email and update-user endpoints from writing them, so they can
+    // only change through those validated, authorized routes.
     additionalFields: {
-      vehicleModel: { type: "string", required: false },
-      fuelType: { type: "string", required: false },
-      consumptionL100: { type: "number", required: false },
-      mileage: { type: "number", required: false },
-      timezone: { type: "string", required: false },
-      leaderboardOptOut: { type: "boolean", required: false, defaultValue: false },
-      reminderEnabled: { type: "boolean", required: false, defaultValue: false },
-      reminderTime: { type: "string", required: false },
-      reminderDays: { type: "string[]", required: false },
-      isAdmin: { type: "boolean", required: false, defaultValue: false },
-      super73Enabled: { type: "boolean", required: false, defaultValue: false },
-      super73AutoModeEnabled: { type: "boolean", required: false, defaultValue: false },
-      super73DefaultMode: { type: "string", required: false },
-      super73AutoModeLowSpeedKmh: { type: "number", required: false },
-      super73AutoModeHighSpeedKmh: { type: "number", required: false },
+      vehicleModel: { type: "string", required: false, input: false },
+      fuelType: { type: "string", required: false, input: false },
+      consumptionL100: { type: "number", required: false, input: false },
+      mileage: { type: "number", required: false, input: false },
+      timezone: { type: "string", required: false, input: false },
+      leaderboardOptOut: { type: "boolean", required: false, defaultValue: false, input: false },
+      reminderEnabled: { type: "boolean", required: false, defaultValue: false, input: false },
+      reminderTime: { type: "string", required: false, input: false },
+      reminderDays: { type: "string[]", required: false, input: false },
+      isAdmin: { type: "boolean", required: false, defaultValue: false, input: false },
+      super73Enabled: { type: "boolean", required: false, defaultValue: false, input: false },
+      super73AutoModeEnabled: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
+      super73DefaultMode: { type: "string", required: false, input: false },
+      super73AutoModeLowSpeedKmh: { type: "number", required: false, input: false },
+      super73AutoModeHighSpeedKmh: { type: "number", required: false, input: false },
     },
   },
 });

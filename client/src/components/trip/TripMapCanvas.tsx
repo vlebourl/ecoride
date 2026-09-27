@@ -1,4 +1,5 @@
 import "maplibre-gl/dist/maplibre-gl.css";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import Map, { Layer, Marker, Source } from "react-map-gl/maplibre";
 import type { LayerProps, MapRef } from "react-map-gl/maplibre";
 import { MapPin } from "lucide-react";
@@ -41,7 +42,7 @@ interface TripMapCanvasProps {
   showTrace: boolean;
   traceSourceId: string;
   destination: DestinationMarker | null;
-  onLoad: (event: { target: maplibregl.Map }) => void;
+  onLoad: (event: { target: MapLibreMap }) => void;
   onError: () => void;
   onMoveStart?: (evt?: { originalEvent?: unknown }) => void;
 }

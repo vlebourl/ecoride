@@ -14,6 +14,10 @@ export type PushStatus =
   | "subscribed" // active subscription
   | "unsubscribed"; // no subscription, can enable
 
+export function formatLocalReminderTime(now: Date): string {
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
 export function usePushNotifications() {
   const [status, setStatus] = useState<PushStatus>("loading");
   const [busy, setBusy] = useState(false);
@@ -58,7 +62,10 @@ export function usePushNotifications() {
         // Subscribe
         const subscription = await subscribeToPush();
         if (subscription) {
-          updateProfile.mutate({ reminderEnabled: true });
+          updateProfile.mutate({
+            reminderEnabled: true,
+            reminderTime: formatLocalReminderTime(new Date()),
+          });
           setStatus("subscribed");
         } else {
           // Permission denied

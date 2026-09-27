@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHmac } from "node:crypto";
 import { Hono } from "hono";
 
 const mocks = vi.hoisted(() => {
@@ -28,6 +29,25 @@ function buildApp() {
   const app = new Hono();
   app.route("/sentry-webhook", sentryWebhookRouter);
   return app;
+}
+
+const TEST_SECRET = "test-secret";
+
+function sign(body: string, secret = TEST_SECRET) {
+  return createHmac("sha256", secret).update(body).digest("hex");
+}
+
+function send(body: string, headers: Record<string, string>) {
+  return buildApp().request("/sentry-webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body,
+  });
+}
+
+function sendSigned(resource: string, payload: unknown) {
+  const body = JSON.stringify(payload);
+  return send(body, { "sentry-hook-resource": resource, "sentry-hook-signature": sign(body) });
 }
 
 const sentryIssuePayload = {
@@ -73,17 +93,63 @@ describe("POST /sentry-webhook", () => {
     expect(mocks.mockLoggerError).toHaveBeenCalledWith("sentry_webhook_no_secret", {});
   });
 
-  it("responds OK to installation verification events", async () => {
-    process.env.SENTRY_WEBHOOK_SECRET = "test-secret";
+  // Regression: a request without the sentry-hook-signature header used to skip
+  // verification entirely and reach the GitHub issue creation path.
+  it("rejects requests without a signature", async () => {
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
+    process.env.GITHUB_TOKEN = "ghp_test";
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
 
-    const res = await buildApp().request("/sentry-webhook", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "sentry-hook-resource": "installation",
-      },
-      body: JSON.stringify({ action: "created" }),
+    const res = await send(JSON.stringify(sentryIssuePayload), { "sentry-hook-resource": "issue" });
+
+    expect(res.status).toBe(401);
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mocks.mockLoggerError).toHaveBeenCalledWith("sentry_webhook_missing_signature", {});
+  });
+
+  it("rejects requests signed with the wrong secret", async () => {
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
+    const body = JSON.stringify(sentryIssuePayload);
+
+    const res = await send(body, {
+      "sentry-hook-resource": "issue",
+      "sentry-hook-signature": sign(body, "not-the-secret"),
     });
+
+    expect(res.status).toBe(401);
+    expect(mocks.mockLoggerError).toHaveBeenCalledWith("sentry_webhook_invalid_signature", {});
+  });
+
+  it("rejects a signature of the wrong length without throwing", async () => {
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
+    const body = JSON.stringify(sentryIssuePayload);
+
+    const res = await send(body, {
+      "sentry-hook-resource": "issue",
+      "sentry-hook-signature": sign(body).slice(0, 10),
+    });
+
+    expect(res.status).toBe(401);
+    expect(mocks.mockLoggerError).toHaveBeenCalledWith("sentry_webhook_invalid_signature", {});
+  });
+
+  it("rejects a signature computed over a different body", async () => {
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
+    const body = JSON.stringify(sentryIssuePayload);
+
+    const res = await send(body, {
+      "sentry-hook-resource": "issue",
+      "sentry-hook-signature": sign(JSON.stringify({ ...sentryIssuePayload, action: "resolved" })),
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("responds OK to installation verification events", async () => {
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
+
+    const res = await sendSigned("installation", { action: "created" });
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean };
@@ -91,16 +157,9 @@ describe("POST /sentry-webhook", () => {
   });
 
   it("ignores non-issue resources", async () => {
-    process.env.SENTRY_WEBHOOK_SECRET = "test-secret";
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
 
-    const res = await buildApp().request("/sentry-webhook", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "sentry-hook-resource": "metric_alert",
-      },
-      body: JSON.stringify({ action: "created" }),
-    });
+    const res = await sendSigned("metric_alert", { action: "created" });
 
     expect(res.status).toBe(200);
     expect(mocks.mockLoggerInfo).toHaveBeenCalledWith("sentry_webhook_ignored_resource", {
@@ -109,16 +168,9 @@ describe("POST /sentry-webhook", () => {
   });
 
   it("ignores non-created issue actions", async () => {
-    process.env.SENTRY_WEBHOOK_SECRET = "test-secret";
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
 
-    const res = await buildApp().request("/sentry-webhook", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "sentry-hook-resource": "issue",
-      },
-      body: JSON.stringify({ ...sentryIssuePayload, action: "resolved" }),
-    });
+    const res = await sendSigned("issue", { ...sentryIssuePayload, action: "resolved" });
 
     expect(res.status).toBe(200);
     expect(mocks.mockLoggerInfo).toHaveBeenCalledWith("sentry_webhook_ignored_action", {
@@ -127,23 +179,16 @@ describe("POST /sentry-webhook", () => {
   });
 
   it("returns 500 when GITHUB_TOKEN is not set", async () => {
-    process.env.SENTRY_WEBHOOK_SECRET = "test-secret";
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
 
-    const res = await buildApp().request("/sentry-webhook", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "sentry-hook-resource": "issue",
-      },
-      body: JSON.stringify(sentryIssuePayload),
-    });
+    const res = await sendSigned("issue", sentryIssuePayload);
 
     expect(res.status).toBe(500);
     expect(mocks.mockLoggerError).toHaveBeenCalledWith("sentry_webhook_no_github_token", {});
   });
 
   it("creates a GitHub issue when a new Sentry issue is received", async () => {
-    process.env.SENTRY_WEBHOOK_SECRET = "test-secret";
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
     process.env.GITHUB_TOKEN = "ghp_test";
 
     vi.stubGlobal(
@@ -158,14 +203,7 @@ describe("POST /sentry-webhook", () => {
       }),
     );
 
-    const res = await buildApp().request("/sentry-webhook", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "sentry-hook-resource": "issue",
-      },
-      body: JSON.stringify(sentryIssuePayload),
-    });
+    const res = await sendSigned("issue", sentryIssuePayload);
 
     const body = (await res.json()) as { ok: boolean; data: { githubIssue: number } };
     expect(res.status).toBe(200);
@@ -193,7 +231,7 @@ describe("POST /sentry-webhook", () => {
   });
 
   it("returns 502 when GitHub API fails", async () => {
-    process.env.SENTRY_WEBHOOK_SECRET = "test-secret";
+    process.env.SENTRY_WEBHOOK_SECRET = TEST_SECRET;
     process.env.GITHUB_TOKEN = "ghp_test";
 
     vi.stubGlobal(
@@ -205,14 +243,7 @@ describe("POST /sentry-webhook", () => {
       }),
     );
 
-    const res = await buildApp().request("/sentry-webhook", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "sentry-hook-resource": "issue",
-      },
-      body: JSON.stringify(sentryIssuePayload),
-    });
+    const res = await sendSigned("issue", sentryIssuePayload);
 
     expect(res.status).toBe(502);
     expect(mocks.mockLoggerError).toHaveBeenCalledWith(

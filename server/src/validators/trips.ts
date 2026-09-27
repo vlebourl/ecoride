@@ -19,6 +19,7 @@ const gpsPointSchema = z.object({
 
 // Tolerance for clock drift between client and server.
 const FUTURE_TIMESTAMP_TOLERANCE_MS = 60_000;
+const idempotencyKeySchema = z.string().max(36).uuid();
 
 export const createTripSchema = z
   .object({
@@ -27,7 +28,7 @@ export const createTripSchema = z
     startedAt: z.string().datetime(),
     endedAt: z.string().datetime(),
     gpsPoints: z.array(gpsPointSchema).max(10000).nullable().optional(),
-    idempotencyKey: z.string().uuid().optional(),
+    idempotencyKey: idempotencyKeySchema.optional(),
   })
   .refine((data) => new Date(data.startedAt) < new Date(data.endedAt), {
     message: "startedAt must be before endedAt",
@@ -53,7 +54,7 @@ const importTripSchema = z
     startedAt: z.string().datetime(),
     endedAt: z.string().datetime(),
     gpsPoints: z.array(gpsPointSchema).max(10000).nullable().optional(),
-    idempotencyKey: z.string().nullable().optional(),
+    idempotencyKey: idempotencyKeySchema.nullable().optional(),
   })
   .refine((data) => new Date(data.startedAt) < new Date(data.endedAt), {
     message: "startedAt must be before endedAt",

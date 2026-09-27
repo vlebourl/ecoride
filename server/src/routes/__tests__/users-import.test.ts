@@ -10,7 +10,9 @@ const mocks = vi.hoisted(() => {
   const insert = vi.fn(() => ({ values: insertValues }));
   const evaluateAndUnlockBadges = vi.fn().mockResolvedValue([]);
   const logAudit = vi.fn();
-  const withContext = vi.fn(() => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() }));
+  const warn = vi.fn();
+  const error = vi.fn();
+  const withContext = vi.fn(() => ({ error, info: vi.fn(), warn }));
   const getFuelPrice = vi.fn().mockResolvedValue({ priceEur: 1.75 });
 
   return {
@@ -22,6 +24,8 @@ const mocks = vi.hoisted(() => {
     evaluateAndUnlockBadges,
     logAudit,
     withContext,
+    warn,
+    error,
     getFuelPrice,
   };
 });
@@ -211,6 +215,13 @@ describe("POST /user/import", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ data: { imported: 0, skipped: 1 } });
     expect(mocks.insertValues).not.toHaveBeenCalled();
+    expect(mocks.warn).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "import",
+      outcome: "import_skipped",
+      category: "expected",
+      count: 1,
+    });
+    expect(JSON.stringify(mocks.warn.mock.calls)).not.toContain("550e8400");
   });
 
   it("rejects invalid payloads (missing required field)", async () => {
@@ -224,6 +235,12 @@ describe("POST /user/import", () => {
 
     expect(res.status).toBe(400);
     expect(mocks.insertValues).not.toHaveBeenCalled();
+    expect(mocks.warn).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "import",
+      outcome: "validation_rejected",
+      category: "expected",
+      count: 1,
+    });
   });
 
   it("handles an empty trips array without hitting the DB", async () => {

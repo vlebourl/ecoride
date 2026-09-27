@@ -34,6 +34,7 @@ export function useOfflineSync() {
       try {
         await apiFetch<{ ok: boolean; data: { trip: Trip } }>("/trips", {
           method: "POST",
+          headers: { "Content-Type": "application/json", "X-Trip-Source": "offline-sync" },
           body: JSON.stringify(trip),
         });
         removePendingTrip(i);

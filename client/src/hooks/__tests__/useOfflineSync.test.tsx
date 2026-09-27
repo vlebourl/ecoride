@@ -68,6 +68,12 @@ describe("useOfflineSync", () => {
       status: 409,
       reason: "Trajet rejeté : chevauchement avec un trajet déjà enregistré.",
     });
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/trips",
+      expect.objectContaining({
+        headers: { "Content-Type": "application/json", "X-Trip-Source": "offline-sync" },
+      }),
+    );
     expect(invalidateQueriesSpy).toHaveBeenCalledTimes(4);
   });
 

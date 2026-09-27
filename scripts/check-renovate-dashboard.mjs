@@ -1,5 +1,8 @@
+import console from "node:console";
+import process from "node:process";
+
 const repository = process.env.GITHUB_REPOSITORY || "vlebourl/ecoride";
-const response = await fetch(`https://api.github.com/repos/${repository}/issues/344`, {
+const response = await globalThis.fetch(`https://api.github.com/repos/${repository}/issues/344`, {
   headers: {
     Accept: "application/vnd.github+json",
     ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),

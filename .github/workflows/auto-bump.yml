@@ -4,17 +4,25 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
+permissions: {}
+
+# Serialize the version push, CI gate and deployment as one unit.
+concurrency:
+  group: ecoride-production-deploy
+  cancel-in-progress: false
 
 jobs:
   bump:
     name: Bump version
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
     # Skip if the commit is already a version bump (prevent infinite loop)
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # PAT with repo scope (owner token) — GITHUB_TOKEN cannot push directly
           # to a protected branch. Owner token bypasses branch protection when
@@ -79,12 +87,47 @@ jobs:
           git commit -m "chore: bump version to $NEW"
           git push
 
+      - name: Record the main commit to deploy
+        id: target
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  ci-gate:
+    name: Wait for main CI
+    needs: bump
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require successful CI for the deployment SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.bump.outputs.target_sha }}
+        run: node scripts/wait-for-main-ci.mjs
+
   deploy:
     name: Deploy to Coolify
-    needs: bump
-    if: needs.bump.result == 'success'
+    needs: [bump, ci-gate]
     runs-on: homelab-runner
+    permissions:
+      contents: read
     steps:
+      - name: Verify main still points to the tested SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.bump.outputs.target_sha }}
+        run: |
+          set -euo pipefail
+          MAIN_SHA=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $GITHUB_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/git/ref/heads/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["object"]["sha"])')
+          if [ "$MAIN_SHA" != "$TARGET_SHA" ]; then
+            echo "main moved from tested SHA $TARGET_SHA to $MAIN_SHA; refusing deployment" >&2
+            exit 1
+          fi
       - name: Trigger Coolify deploy
         run: |
           RESPONSE=$(curl -s -f -X GET \

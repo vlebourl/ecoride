@@ -21,8 +21,38 @@ import { checkLeaderboardChanges } from "../lib/leaderboard-notifications";
 import { BADGES } from "@ecoride/shared/types";
 import type { BadgeId } from "@ecoride/shared/types";
 import type { AuthEnv } from "../types/context";
+import type { z } from "zod";
 
 const tripsRouter = new Hono<AuthEnv>();
+
+function matchesExistingTrip(
+  existing: typeof trips.$inferSelect,
+  data: z.infer<typeof createTripSchema>,
+): boolean {
+  const savedPoints = existing.gpsPoints as { lat: number; lng: number; ts: number }[] | null;
+  const requestedPoints = data.gpsPoints ?? null;
+  const samePoints =
+    savedPoints === null
+      ? requestedPoints === null
+      : requestedPoints !== null &&
+        Array.isArray(savedPoints) &&
+        savedPoints.length === requestedPoints.length &&
+        savedPoints.every(
+          (point, index) =>
+            point.lat === requestedPoints[index]?.lat &&
+            point.lng === requestedPoints[index]?.lng &&
+            point.ts === requestedPoints[index]?.ts,
+        );
+
+  return (
+    // distance_km is stored at three decimal places in PostgreSQL.
+    Math.abs(existing.distanceKm - data.distanceKm) <= 0.0005 &&
+    existing.durationSec === data.durationSec &&
+    existing.startedAt.getTime() === new Date(data.startedAt).getTime() &&
+    existing.endedAt.getTime() === new Date(data.endedAt).getTime() &&
+    samePoints
+  );
+}
 
 // POST /api/trips — Create trip (strict: 10 req/min)
 tripsRouter.post(
@@ -41,6 +71,18 @@ tripsRouter.post(
         .where(and(eq(trips.userId, currentUser.id), eq(trips.idempotencyKey, data.idempotencyKey)))
         .limit(1);
       if (existing) {
+        if (!matchesExistingTrip(existing, data)) {
+          return c.json(
+            {
+              ok: false,
+              error: {
+                code: "VALIDATION_ERROR",
+                message: "Cette clé correspond à un autre trajet.",
+              },
+            },
+            409,
+          );
+        }
         // A previous attempt may have committed the trip then failed before
         // badge evaluation. Replaying that idempotent step repairs the gap.
         const newBadges = await evaluateAndUnlockBadges(currentUser.id);
@@ -137,6 +179,15 @@ tripsRouter.post(
       );
     }
     if (creation.kind === "existing") {
+      if (!matchesExistingTrip(creation.trip, data)) {
+        return c.json(
+          {
+            ok: false,
+            error: { code: "VALIDATION_ERROR", message: "Cette clé correspond à un autre trajet." },
+          },
+          409,
+        );
+      }
       const newBadges = await evaluateAndUnlockBadges(currentUser.id);
       return c.json({ ok: true, data: { trip: creation.trip, newBadges } }, 200);
     }

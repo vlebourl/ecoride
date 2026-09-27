@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
   const evaluateAndUnlockBadges = vi.fn().mockResolvedValue([]);
   const logAudit = vi.fn();
   const withContext = vi.fn(() => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() }));
+  const getFuelPrice = vi.fn().mockResolvedValue({ priceEur: 1.75 });
 
   return {
     select,
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => {
     evaluateAndUnlockBadges,
     logAudit,
     withContext,
+    getFuelPrice,
   };
 });
 
@@ -43,10 +45,14 @@ vi.mock("../../db/schema", () => ({
     fuelSavedL: {},
   },
   achievements: { userId: {} },
+  tripPresets: { userId: {} },
+  pushSubscriptions: { userId: {} },
+  auditLogs: { userId: {} },
 }));
 
 vi.mock("../../db/schema/auth", () => ({
   user: { id: {}, updatedAt: {} },
+  session: { userId: {} },
 }));
 
 vi.mock("../../lib/badges", () => ({
@@ -56,6 +62,8 @@ vi.mock("../../lib/badges", () => ({
 vi.mock("../../lib/audit", () => ({
   logAudit: (...args: unknown[]) => mocks.logAudit(...args),
 }));
+
+vi.mock("../../lib/fuel-price", () => ({ getFuelPrice: mocks.getFuelPrice }));
 
 vi.mock("../../lib/logger", () => ({
   logger: {
@@ -100,7 +108,7 @@ describe("POST /user/import", () => {
     mocks.selectWhere.mockResolvedValue([]);
   });
 
-  it("preserves historical co2/money/fuel values as-is (no recalculation)", async () => {
+  it("recalculates historical savings from server-side values", async () => {
     const res = await buildApp().request("/user/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,13 +125,44 @@ describe("POST /user/import", () => {
       userId: "user-1",
       distanceKm: 12.345,
       durationSec: 1800,
-      co2SavedKg: 1.617,
-      moneySavedEur: 2.34,
-      fuelSavedL: 0.7,
-      fuelPriceEur: 1.82,
+      co2SavedKg: 1.996,
+      moneySavedEur: 1.51,
+      fuelSavedL: 0.864,
+      fuelPriceEur: 1.75,
     });
     expect(inserted.startedAt).toBeInstanceOf(Date);
     expect(inserted.startedAt.toISOString()).toBe("2026-01-01T10:00:00.000Z");
+  });
+
+  it("does not trust imported savings or fuel price", async () => {
+    const res = await buildApp().request("/user/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trips: [
+          sampleTrip({
+            co2SavedKg: 1_000_000,
+            moneySavedEur: 1_000_000,
+            fuelSavedL: 1_000_000,
+            fuelPriceEur: 1_000_000,
+          }),
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.insertValues).toHaveBeenCalledWith([
+      expect.objectContaining({
+        co2SavedKg: expect.any(Number),
+        moneySavedEur: expect.any(Number),
+        fuelSavedL: expect.any(Number),
+        fuelPriceEur: 1.75,
+      }),
+    ]);
+    const inserted = mocks.insertValues.mock.calls[0]![0][0];
+    expect(inserted.co2SavedKg).toBeLessThan(10);
+    expect(inserted.moneySavedEur).toBeLessThan(10);
+    expect(inserted.fuelSavedL).toBeLessThan(10);
   });
 
   it("skips trips whose startedAt already exists for this user", async () => {
@@ -151,6 +190,29 @@ describe("POST /user/import", () => {
     expect(inserted[0].startedAt.toISOString()).toBe("2026-01-02T10:00:00.000Z");
   });
 
+  it("skips an imported key already attached to another trip", async () => {
+    mocks.selectWhere.mockResolvedValueOnce([
+      {
+        startedAt: new Date("2026-01-01T09:00:00.000Z"),
+        idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
+      },
+    ]);
+    const res = await buildApp().request("/user/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trips: [
+          sampleTrip({
+            idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
+          }),
+        ],
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ data: { imported: 0, skipped: 1 } });
+    expect(mocks.insertValues).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid payloads (missing required field)", async () => {
     const res = await buildApp().request("/user/import", {
       method: "POST",
@@ -176,5 +238,20 @@ describe("POST /user/import", () => {
     expect(body.data).toEqual({ imported: 0, skipped: 0 });
     expect(mocks.insertValues).not.toHaveBeenCalled();
     expect(mocks.evaluateAndUnlockBadges).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /user/export", () => {
+  it("includes presets, push subscriptions, audit logs and sessions", async () => {
+    mocks.selectWhere.mockResolvedValue([]);
+    const res = await buildApp().request("/user/export");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      tripPresets: [],
+      pushSubscriptions: [],
+      auditLogs: [],
+      sessions: [],
+    });
   });
 });

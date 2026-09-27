@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createTripSchema } from "../trips";
+import { createTripSchema, importDataSchema } from "../trips";
 
 function validTrip(overrides: Record<string, unknown> = {}) {
   return {
@@ -229,5 +229,47 @@ describe("createTripSchema", () => {
       );
       expect(result.success).toBe(true);
     });
+  });
+});
+
+describe("importDataSchema", () => {
+  const validImport = {
+    trips: [
+      {
+        ...validTrip(),
+        co2SavedKg: 1,
+        moneySavedEur: 1,
+        fuelSavedL: 1,
+        fuelPriceEur: 1.8,
+      },
+    ],
+  };
+
+  it("rejects an implausible distance for the elapsed duration", () => {
+    expect(
+      importDataSchema.safeParse({
+        trips: [{ ...validImport.trips[0], distanceKm: 200 }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a duration inconsistent with the two dates", () => {
+    expect(
+      importDataSchema.safeParse({
+        trips: [{ ...validImport.trips[0], durationSec: 3600 }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects future imported trips", () => {
+    const start = new Date(Date.now() + 3_600_000);
+    const end = new Date(start.getTime() + 1_800_000);
+    expect(
+      importDataSchema.safeParse({
+        trips: [
+          { ...validImport.trips[0], startedAt: start.toISOString(), endedAt: end.toISOString() },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });

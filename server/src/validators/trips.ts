@@ -45,9 +45,10 @@ const importTripSchema = z
   .object({
     distanceKm: z.number().positive().max(500),
     durationSec: z.number().int().min(1).max(86400),
-    co2SavedKg: z.number().nonnegative(),
-    moneySavedEur: z.number().nonnegative(),
-    fuelSavedL: z.number().nonnegative(),
+    // Legacy exports include these values, but the import route recalculates them.
+    co2SavedKg: z.number().nonnegative().optional(),
+    moneySavedEur: z.number().nonnegative().optional(),
+    fuelSavedL: z.number().nonnegative().optional(),
     fuelPriceEur: z.number().positive().nullable().optional(),
     startedAt: z.string().datetime(),
     endedAt: z.string().datetime(),
@@ -57,6 +58,26 @@ const importTripSchema = z
   .refine((data) => new Date(data.startedAt) < new Date(data.endedAt), {
     message: "startedAt must be before endedAt",
     path: ["startedAt"],
+  })
+  .refine(
+    (data) => new Date(data.endedAt).getTime() <= Date.now() + FUTURE_TIMESTAMP_TOLERANCE_MS,
+    {
+      message: "endedAt cannot be in the future",
+      path: ["endedAt"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.durationSec * 1000 <=
+      new Date(data.endedAt).getTime() - new Date(data.startedAt).getTime() + 60_000,
+    {
+      message: "durationSec exceeds elapsed time",
+      path: ["durationSec"],
+    },
+  )
+  .refine((data) => data.distanceKm <= data.durationSec / 36, {
+    message: "distanceKm exceeds 100 km/h",
+    path: ["distanceKm"],
   });
 
 export const importDataSchema = z.object({

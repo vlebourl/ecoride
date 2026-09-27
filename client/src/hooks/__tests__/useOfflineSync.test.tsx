@@ -21,7 +21,7 @@ vi.mock("@/lib/api", async () => {
 vi.mock("@/lib/offline-queue", () => ({
   QUEUE_CHANGED_EVENT: "ecoride:queue-changed",
   getPendingTrips: () => getPendingTripsMock(),
-  removePendingTrip: (index: number) => removePendingTripMock(index),
+  removePendingTrip: (key: string) => removePendingTripMock(key),
   recordRejectedTrip: (trip: unknown, meta: unknown) => recordRejectedTripMock(trip, meta),
 }));
 
@@ -61,7 +61,7 @@ describe("useOfflineSync", () => {
     const { invalidateQueriesSpy } = renderOfflineSync();
 
     await waitFor(() => {
-      expect(removePendingTripMock).toHaveBeenCalledWith(0);
+      expect(removePendingTripMock).toHaveBeenCalledWith(pendingTrip.idempotencyKey);
     });
 
     expect(recordRejectedTripMock).toHaveBeenCalledWith(pendingTrip, {
@@ -111,7 +111,7 @@ describe("useOfflineSync", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
-    expect(removePendingTripMock).toHaveBeenCalledWith(0);
+    expect(removePendingTripMock).toHaveBeenCalledWith(pendingTrip.idempotencyKey);
   });
 
   it("keeps retryable sync failures in the pending queue", async () => {
@@ -135,5 +135,34 @@ describe("useOfflineSync", () => {
     expect(removePendingTripMock).not.toHaveBeenCalled();
     expect(recordRejectedTripMock).not.toHaveBeenCalled();
     expect(invalidateQueriesSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch a second POST while the first one is unresolved", async () => {
+    const pendingTrip = {
+      distanceKm: 3.2,
+      durationSec: 600,
+      startedAt: "2026-04-09T10:00:00.000Z",
+      endedAt: "2026-04-09T10:10:00.000Z",
+      gpsPoints: null,
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    };
+    let resolve!: (value: unknown) => void;
+    mockApiFetch.mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    getPendingTripsMock.mockReturnValue([pendingTrip]);
+    renderOfflineSync();
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledOnce());
+    window.dispatchEvent(new Event("online"));
+    window.dispatchEvent(new Event("ecoride:queue-changed"));
+    expect(mockApiFetch).toHaveBeenCalledOnce();
+    getPendingTripsMock.mockReturnValue([]);
+    resolve({ ok: true, data: { trip: { id: "trip-1" } } });
+    await waitFor(() =>
+      expect(removePendingTripMock).toHaveBeenCalledWith(pendingTrip.idempotencyKey),
+    );
   });
 });

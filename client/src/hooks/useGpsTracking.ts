@@ -22,6 +22,21 @@ const SESSION_KEY = "ecoride-trip-session";
 const BACKUP_INTERVAL_MS = 30_000;
 const MAX_TIMEOUT_RETRIES = 3;
 const TIMEOUT_RETRY_DELAY_MS = 3_000;
+const MAX_GPS_POINTS = 10_000;
+
+/** Keep endpoints and thin the older trace when the server limit is reached. */
+export function appendGpsPoint(points: GpsPoint[], point: GpsPoint): GpsPoint[] {
+  if (points.length < MAX_GPS_POINTS) return [...points, point];
+  return [...points.filter((_, index) => index % 2 === 0), point];
+}
+
+export function limitGpsPoints(points: GpsPoint[]): GpsPoint[] {
+  let limited = points;
+  while (limited.length > MAX_GPS_POINTS) {
+    limited = limited.filter((_, index) => index % 2 === 0 || index === limited.length - 1);
+  }
+  return limited;
+}
 
 interface TrackingState {
   isTracking: boolean;
@@ -34,6 +49,8 @@ interface TrackingState {
   speedKmh: number | null;
   heading: number | null;
   distanceAnchor: GpsPoint | null;
+  activeSinceMs: number | null;
+  activeBaseSec: number;
 }
 
 export interface TrackingSession {
@@ -42,6 +59,7 @@ export interface TrackingSession {
   gpsPoints: GpsPoint[];
   startedAt: string;
   endedAt: string;
+  idempotencyKey?: string;
 }
 
 export interface TrackingBackup {
@@ -63,10 +81,10 @@ export interface UseGpsTrackingResult {
 }
 
 type Action =
-  | { type: "START" }
-  | { type: "STOP" }
-  | { type: "PAUSE" }
-  | { type: "RESUME" }
+  | { type: "START"; now: number }
+  | { type: "STOP"; now: number }
+  | { type: "PAUSE"; now: number }
+  | { type: "RESUME"; now: number }
   | {
       type: "GPS_POINT";
       point: GpsPoint;
@@ -74,9 +92,9 @@ type Action =
       speed: number | null;
       heading: number | null;
     }
-  | { type: "TICK" }
+  | { type: "TICK"; now: number }
   | { type: "ERROR"; message: string }
-  | { type: "RESTORE"; backup: TrackingBackup };
+  | { type: "RESTORE"; backup: TrackingBackup; now: number };
 
 const initial: TrackingState = {
   isTracking: false,
@@ -89,7 +107,14 @@ const initial: TrackingState = {
   speedKmh: null,
   heading: null,
   distanceAnchor: null,
+  activeSinceMs: null,
+  activeBaseSec: 0,
 };
+
+function elapsedSeconds(state: TrackingState, now: number): number {
+  if (state.activeSinceMs === null) return state.durationSec;
+  return state.activeBaseSec + Math.max(0, Math.floor((now - state.activeSinceMs) / 1000));
+}
 
 function getSegmentDistanceKm(from: GpsPoint, to: GpsPoint): number {
   return haversineDistance(from.lat, from.lng, to.lat, to.lng);
@@ -128,17 +153,36 @@ function reducer(state: TrackingState, action: Action): TrackingState {
         lastAccuracy: null,
         speedKmh: null,
         heading: null,
+        activeSinceMs: action.now,
       };
     case "STOP":
-      return { ...state, isTracking: false, isPaused: false };
+      return {
+        ...state,
+        isTracking: false,
+        isPaused: false,
+        durationSec: elapsedSeconds(state, action.now),
+        activeSinceMs: null,
+      };
     case "PAUSE":
       // Preserve all accumulated data; GPS watch and timer stop via the effect.
-      return { ...state, isPaused: true, error: null };
+      return {
+        ...state,
+        isPaused: true,
+        error: null,
+        durationSec: elapsedSeconds(state, action.now),
+        activeSinceMs: null,
+      };
     case "RESUME":
       // GPS watch and timer restart via the effect when isPaused flips to false.
-      return { ...state, isPaused: false, error: null };
+      return {
+        ...state,
+        isPaused: false,
+        error: null,
+        activeSinceMs: action.now,
+        activeBaseSec: state.durationSec,
+      };
     case "GPS_POINT": {
-      const points = [...state.gpsPoints, action.point];
+      const points = appendGpsPoint(state.gpsPoints, action.point);
       const anchor = state.distanceAnchor ?? state.gpsPoints[state.gpsPoints.length - 1] ?? null;
       let added = 0;
       let distanceAnchor = state.distanceAnchor ?? action.point;
@@ -169,7 +213,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
       };
     }
     case "TICK":
-      return { ...state, durationSec: state.durationSec + 1 };
+      return { ...state, durationSec: elapsedSeconds(state, action.now) };
     case "ERROR":
       // Clear heading on GPS loss so the map reverts to north-up
       // instead of staying rotated to a stale direction.
@@ -178,7 +222,7 @@ function reducer(state: TrackingState, action: Action): TrackingState {
       return {
         isTracking: true,
         isPaused: false,
-        gpsPoints: action.backup.gpsPoints,
+        gpsPoints: limitGpsPoints(action.backup.gpsPoints),
         distanceKm: action.backup.distanceKm,
         durationSec: action.backup.durationSec,
         error: null,
@@ -189,6 +233,8 @@ function reducer(state: TrackingState, action: Action): TrackingState {
           action.backup.distanceAnchor ??
           action.backup.gpsPoints[action.backup.gpsPoints.length - 1] ??
           null,
+        activeSinceMs: action.now,
+        activeBaseSec: action.backup.durationSec,
       };
   }
 }
@@ -269,9 +315,9 @@ export function useGpsTracking() {
     if (!s.isTracking || !startRef.current || s.gpsPoints.length === 0) return;
     try {
       const backup: TrackingBackup = {
-        gpsPoints: s.gpsPoints,
+        gpsPoints: limitGpsPoints(s.gpsPoints),
         distanceKm: s.distanceKm,
-        durationSec: s.durationSec,
+        durationSec: elapsedSeconds(s, Date.now()),
         startedAt: startRef.current,
         distanceAnchor: s.distanceAnchor,
       };
@@ -342,7 +388,7 @@ export function useGpsTracking() {
     // next backup interval fires (fixes ECO-19 / GitHub #146).
     clearTrackingBackup();
 
-    dispatch({ type: "START" });
+    dispatch({ type: "START", now: Date.now() });
     const startedAt = new Date().toISOString();
     startRef.current = startedAt;
     retryCountRef.current = 0;
@@ -422,7 +468,7 @@ export function useGpsTracking() {
     );
 
     // Timer — only ticks when active (not paused), so durationSec reflects active time only.
-    const timer = setInterval(() => dispatch({ type: "TICK" }), 1000);
+    const timer = setInterval(() => dispatch({ type: "TICK", now: Date.now() }), 1000);
 
     // Backup
     const backupTimer = setInterval(saveBackup, BACKUP_INTERVAL_MS);
@@ -459,7 +505,7 @@ export function useGpsTracking() {
     // Dispatch RESTORE first so isTracking becomes true, then the isTracking
     // useEffect below handles GPS watch + timer setup (single source of truth).
     // Previously restore() started its own GPS/timers which caused double-tick.
-    dispatch({ type: "RESTORE", backup });
+    dispatch({ type: "RESTORE", backup, now: Date.now() });
     clearTrackingBackup();
   }, []);
 
@@ -467,19 +513,21 @@ export function useGpsTracking() {
   const pause = useCallback(() => {
     // Flush backup immediately so data isn't lost if the browser kills the tab while paused.
     saveBackup();
-    dispatch({ type: "PAUSE" });
+    dispatch({ type: "PAUSE", now: Date.now() });
   }, [saveBackup]);
 
   /** Resume after a pause — GPS watch and timer restart via the effect. */
   const resume = useCallback(() => {
-    dispatch({ type: "RESUME" });
+    dispatch({ type: "RESUME", now: Date.now() });
   }, []);
 
   const stop = useCallback((): TrackingSession => {
+    // Keep a recovery copy until TripPage has persisted the stopped session.
+    saveBackup();
     cleanup();
-    dispatch({ type: "STOP" });
+    const now = Date.now();
+    dispatch({ type: "STOP", now });
     wakeLock.release();
-    clearTrackingBackup(); // Fix 1.3: Clear backup on normal stop
     try {
       sessionStorage.removeItem(SESSION_KEY);
     } catch {
@@ -488,18 +536,19 @@ export function useGpsTracking() {
 
     return {
       distanceKm: state.distanceKm,
-      durationSec: state.durationSec,
-      gpsPoints: state.gpsPoints,
+      durationSec: elapsedSeconds(state, now),
+      gpsPoints: limitGpsPoints(state.gpsPoints),
       startedAt: startRef.current ?? new Date().toISOString(),
       endedAt: new Date().toISOString(),
     };
-  }, [cleanup, state, wakeLock]);
+  }, [cleanup, saveBackup, state, wakeLock]);
 
   const reset = useCallback(() => {
     cleanup();
     wakeLock.release();
-    dispatch({ type: "START" });
-    dispatch({ type: "STOP" });
+    const now = Date.now();
+    dispatch({ type: "START", now });
+    dispatch({ type: "STOP", now });
     startRef.current = null;
     clearTrackingBackup();
     try {

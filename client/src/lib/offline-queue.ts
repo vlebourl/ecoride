@@ -49,19 +49,36 @@ function sameTripIdentity(a: CreateTripRequest, b: CreateTripRequest): boolean {
 export function queueTrip(data: CreateTripRequest): void {
   const pending = getPendingTrips();
   const key = data.idempotencyKey ?? crypto.randomUUID();
+  if (pending.some((trip) => trip.idempotencyKey === key)) return;
   pending.push({ ...data, idempotencyKey: key });
   writeQueue(STORAGE_KEY, pending);
   notifyQueueChanged();
 }
 
 export function getPendingTrips(): CreateTripRequest[] {
-  return readQueue<CreateTripRequest>(STORAGE_KEY);
+  const pending = readQueue<CreateTripRequest>(STORAGE_KEY);
+  if (pending.some((trip) => !trip.idempotencyKey)) {
+    const migrated = pending.map((trip) => ({
+      ...trip,
+      idempotencyKey: trip.idempotencyKey ?? crypto.randomUUID(),
+    }));
+    try {
+      writeQueue(STORAGE_KEY, migrated);
+      return migrated;
+    } catch {
+      // Do not dispatch a legacy entry without a durable idempotency key.
+      return pending;
+    }
+  }
+  return pending;
 }
 
-export function removePendingTrip(index: number): void {
+export function removePendingTrip(idempotencyKey: string): void {
   const pending = getPendingTrips();
-  pending.splice(index, 1);
-  writeQueue(STORAGE_KEY, pending);
+  writeQueue(
+    STORAGE_KEY,
+    pending.filter((trip) => trip.idempotencyKey !== idempotencyKey),
+  );
 }
 
 export function recordRejectedTrip(

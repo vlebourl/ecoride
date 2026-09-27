@@ -1,4 +1,13 @@
-import { pgTable, text, integer, timestamp, jsonb, index, uuid } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  integer,
+  timestamp,
+  jsonb,
+  index,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { numericNumber } from "./numeric";
 
@@ -27,5 +36,6 @@ export const trips = pgTable(
   (table) => [
     index("trips_user_id_idx").on(table.userId),
     index("trips_started_at_idx").on(table.startedAt),
+    uniqueIndex("trips_user_id_idempotency_key_unique").on(table.userId, table.idempotencyKey),
   ],
 );

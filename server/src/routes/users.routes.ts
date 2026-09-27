@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, sum, count, inArray } from "drizzle-orm";
+import { and, eq, sum, count, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db";
-import { user } from "../db/schema/auth";
-import { trips, achievements } from "../db/schema";
+import { user, session } from "../db/schema/auth";
+import { trips, achievements, tripPresets, pushSubscriptions, auditLogs } from "../db/schema";
 import { updateUserSchema } from "../validators/users";
 import { importDataSchema } from "../validators/trips";
 import { validationHook } from "../lib/validation";
@@ -12,6 +12,8 @@ import { logAudit } from "../lib/audit";
 import { evaluateAndUnlockBadges } from "../lib/badges";
 import { reportBackgroundError } from "../lib/background";
 import { logger } from "../lib/logger";
+import { calculateSavings } from "../lib/calculations";
+import { getFuelPrice } from "../lib/fuel-price";
 import type { AuthEnv } from "../types/context";
 
 const usersRouter = new Hono<AuthEnv>();
@@ -85,10 +87,40 @@ usersRouter.get("/export", async (c) => {
     .from(achievements)
     .where(eq(achievements.userId, currentUser.id));
 
+  const [userTripPresets, userPushSubscriptions, userAuditLogs, userSessions] = await Promise.all([
+    db.select().from(tripPresets).where(eq(tripPresets.userId, currentUser.id)),
+    db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, currentUser.id)),
+    db.select().from(auditLogs).where(eq(auditLogs.userId, currentUser.id)),
+    db
+      .select({
+        id: session.id,
+        userId: session.userId,
+        ipAddress: session.ipAddress,
+        userAgent: session.userAgent,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        expiresAt: session.expiresAt,
+      })
+      .from(session)
+      .where(eq(session.userId, currentUser.id)),
+  ]);
+
   const exportData = {
     profile: currentUser,
     trips: userTrips,
     achievements: userAchievements,
+    tripPresets: userTripPresets,
+    pushSubscriptions: userPushSubscriptions,
+    auditLogs: userAuditLogs,
+    sessions: userSessions.map((s) => ({
+      id: s.id,
+      userId: s.userId,
+      ipAddress: s.ipAddress,
+      userAgent: s.userAgent,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+      expiresAt: s.expiresAt,
+    })),
     exportedAt: new Date().toISOString(),
   };
 
@@ -100,7 +132,7 @@ usersRouter.get("/export", async (c) => {
   return c.json(exportData);
 });
 
-// POST /api/user/import — Restore exported trips (preserves historical values)
+// POST /api/user/import — Restore exported trips using server-calculated savings
 usersRouter.post("/import", zValidator("json", importDataSchema, validationHook), async (c) => {
   const currentUser = c.get("user");
   const { trips: incoming } = c.req.valid("json");
@@ -109,34 +141,67 @@ usersRouter.post("/import", zValidator("json", importDataSchema, validationHook)
     return c.json({ ok: true, data: { imported: 0, skipped: 0 } });
   }
 
-  // Dedupe against existing trips by startedAt timestamp for this user.
+  // Dedupe by timestamp and key inside the same per-user transaction as POST /trips.
   const incomingStarts = incoming.map((t) => new Date(t.startedAt));
-  const existing = await db
-    .select({ startedAt: trips.startedAt })
-    .from(trips)
-    .where(and(eq(trips.userId, currentUser.id), inArray(trips.startedAt, incomingStarts)));
+  const incomingKeys = incoming.flatMap((t) => (t.idempotencyKey ? [t.idempotencyKey] : []));
 
-  const existingSet = new Set(existing.map((r) => r.startedAt.getTime()));
-
-  const toInsert = incoming
-    .filter((t) => !existingSet.has(new Date(t.startedAt).getTime()))
-    .map((t) => ({
-      userId: currentUser.id,
-      distanceKm: t.distanceKm,
-      durationSec: t.durationSec,
-      co2SavedKg: t.co2SavedKg,
-      moneySavedEur: t.moneySavedEur,
-      fuelSavedL: t.fuelSavedL,
-      fuelPriceEur: t.fuelPriceEur ?? null,
-      startedAt: new Date(t.startedAt),
-      endedAt: new Date(t.endedAt),
-      gpsPoints: t.gpsPoints ?? null,
-      idempotencyKey: t.idempotencyKey ?? null,
-    }));
-
-  if (toInsert.length > 0) {
-    await db.insert(trips).values(toInsert);
+  const consumptionL100 =
+    currentUser.consumptionL100 && currentUser.consumptionL100 <= 50
+      ? currentUser.consumptionL100
+      : 7;
+  const fuelType = (currentUser.fuelType ?? "sp95") as "sp95" | "sp98" | "diesel" | "e85" | "gpl";
+  const fallbackPrices = { sp95: 1.75, sp98: 1.85, diesel: 1.65, e85: 0.85, gpl: 0.95 };
+  let fuelPriceEur = fallbackPrices[fuelType];
+  try {
+    const currentPrice = await getFuelPrice(fuelType);
+    if (currentPrice.priceEur > 0 && currentPrice.priceEur <= 5)
+      fuelPriceEur = currentPrice.priceEur;
+  } catch {
+    // The market feed is optional; keep the import bounded during an outage.
   }
+
+  const imported = await db.transaction(async (tx) => {
+    // Match POST /trips' lock, so its key lookup and our import insert cannot race.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(7381, hashtext(${currentUser.id}))`);
+    const existing = await tx
+      .select({ startedAt: trips.startedAt, idempotencyKey: trips.idempotencyKey })
+      .from(trips)
+      .where(
+        and(
+          eq(trips.userId, currentUser.id),
+          or(
+            inArray(trips.startedAt, incomingStarts),
+            incomingKeys.length ? inArray(trips.idempotencyKey, incomingKeys) : undefined,
+          ),
+        ),
+      );
+
+    const seenStarts = new Set(existing.map((r) => r.startedAt.getTime()));
+    const seenKeys = new Set(existing.flatMap((r) => (r.idempotencyKey ? [r.idempotencyKey] : [])));
+    const toInsert = incoming
+      .filter((t) => {
+        const start = new Date(t.startedAt).getTime();
+        if (seenStarts.has(start) || (t.idempotencyKey && seenKeys.has(t.idempotencyKey)))
+          return false;
+        seenStarts.add(start);
+        if (t.idempotencyKey) seenKeys.add(t.idempotencyKey);
+        return true;
+      })
+      .map((t) => ({
+        userId: currentUser.id,
+        distanceKm: t.distanceKm,
+        durationSec: t.durationSec,
+        ...calculateSavings({ distanceKm: t.distanceKm, consumptionL100, fuelPriceEur }),
+        fuelPriceEur,
+        startedAt: new Date(t.startedAt),
+        endedAt: new Date(t.endedAt),
+        gpsPoints: t.gpsPoints ?? null,
+        idempotencyKey: t.idempotencyKey ?? null,
+      }));
+
+    if (toInsert.length > 0) await tx.insert(trips).values(toInsert);
+    return toInsert.length;
+  });
 
   // Re-evaluate badges since trip aggregates changed. Fire-and-forget so the
   // import response is fast; badge engine is idempotent.
@@ -148,17 +213,17 @@ usersRouter.post("/import", zValidator("json", importDataSchema, validationHook)
     evaluateAndUnlockBadges(currentUser.id),
     requestLogger,
     "import_badges_failed",
-    { imported: toInsert.length },
+    { imported },
   );
 
   logAudit(currentUser.id, "data_import", undefined, {
-    imported: toInsert.length,
-    skipped: incoming.length - toInsert.length,
+    imported,
+    skipped: incoming.length - imported,
   });
 
   return c.json({
     ok: true,
-    data: { imported: toInsert.length, skipped: incoming.length - toInsert.length },
+    data: { imported, skipped: incoming.length - imported },
   });
 });
 

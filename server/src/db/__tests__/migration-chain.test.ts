@@ -23,6 +23,10 @@ const sqlFiles = fs
   .sort();
 
 describe("drizzle migration chain", () => {
+  it("ships a database-enforced user/key uniqueness migration", () => {
+    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, "0006_trip_idempotency.sql"), "utf8");
+    expect(sql).toMatch(/CREATE UNIQUE INDEX[^;]*ON "trips"[^;]*"user_id"[^;]*"idempotency_key"/i);
+  });
   it("journals every SQL file, and ships a SQL file for every journal entry", () => {
     // A .sql file with no journal entry is never applied — silently, which is how
     // the three indexes in 0005 went missing for five months. The reverse makes

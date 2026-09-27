@@ -15,6 +15,13 @@ const mocks = vi.hoisted(() => {
   const mockCalculateSavings = vi.fn();
   const mockLoggerError = vi.fn();
   const mockWithContext = vi.fn(() => ({ error: mockLoggerError, info: vi.fn(), warn: vi.fn() }));
+  const mockTransaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+    callback({
+      select: mockSelect,
+      insert: mockInsert,
+      execute: vi.fn(),
+    }),
+  );
 
   return {
     mockSelect,
@@ -29,6 +36,7 @@ const mocks = vi.hoisted(() => {
     mockCalculateSavings,
     mockLoggerError,
     mockWithContext,
+    mockTransaction,
   };
 });
 
@@ -36,6 +44,7 @@ vi.mock("../../db", () => ({
   db: {
     select: mocks.mockSelect,
     insert: mocks.mockInsert,
+    transaction: mocks.mockTransaction,
   },
 }));
 
@@ -126,8 +135,8 @@ describe("POST /trips", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.mockSelect
-      .mockReturnValueOnce(buildLimitChain([]))
-      .mockReturnValueOnce(buildProfileChain([{ consumptionL100: 6.5, fuelType: "sp95" }]));
+      .mockReturnValueOnce(buildProfileChain([{ consumptionL100: 6.5, fuelType: "sp95" }]))
+      .mockReturnValueOnce(buildLimitChain([]));
 
     mocks.mockGetFuelPrice.mockResolvedValue({ priceEur: 1.82 });
     mocks.mockCalculateSavings.mockReturnValue({
@@ -168,6 +177,7 @@ describe("POST /trips", () => {
     expect(res.status).toBe(201);
     expect(body.ok).toBe(true);
     expect(body.data.trip.id).toBe("trip-1");
+    expect(mocks.mockTransaction).toHaveBeenCalledTimes(1);
 
     await Promise.resolve();
     await Promise.resolve();
@@ -209,6 +219,73 @@ describe("POST /trips", () => {
         ],
       }),
     );
+  });
+
+  it("rejects a reused idempotency key when the trip details differ", async () => {
+    mocks.mockSelect.mockReset().mockReturnValueOnce(
+      buildLimitChain([
+        {
+          id: "trip-1",
+          userId: "user-1",
+          idempotencyKey: "f0cffc30-f3f8-4eb1-84e1-a94d18618994",
+          distanceKm: 10,
+          durationSec: 600,
+          startedAt: new Date("2026-04-07T10:00:00.000Z"),
+          endedAt: new Date("2026-04-07T10:10:00.000Z"),
+          gpsPoints: null,
+        },
+      ]),
+    );
+
+    const res = await buildApp().request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 12,
+        durationSec: 600,
+        startedAt: "2026-04-07T10:00:00.000Z",
+        endedAt: "2026-04-07T10:10:00.000Z",
+        idempotencyKey: "f0cffc30-f3f8-4eb1-84e1-a94d18618994",
+      }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(mocks.mockEvaluateAndUnlockBadges).not.toHaveBeenCalled();
+    expect(mocks.mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("also rejects a key collision found after entering the creation transaction", async () => {
+    const existing = {
+      id: "trip-1",
+      userId: "user-1",
+      distanceKm: 10,
+      durationSec: 600,
+      startedAt: new Date("2026-04-07T10:00:00.000Z"),
+      endedAt: new Date("2026-04-07T10:10:00.000Z"),
+      gpsPoints: null,
+    };
+    mocks.mockSelect
+      .mockReset()
+      .mockReturnValueOnce(buildLimitChain([]))
+      .mockReturnValueOnce(buildProfileChain([{ consumptionL100: 6.5, fuelType: "sp95" }]))
+      .mockReturnValueOnce(buildLimitChain([existing]));
+
+    const res = await buildApp().request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 12,
+        durationSec: 600,
+        startedAt: "2026-04-07T10:00:00.000Z",
+        endedAt: "2026-04-07T10:10:00.000Z",
+        idempotencyKey: "f0cffc30-f3f8-4eb1-84e1-a94d18618994",
+      }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(mocks.mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.mockEvaluateAndUnlockBadges).not.toHaveBeenCalled();
+    expect(mocks.mockInsert).not.toHaveBeenCalled();
   });
 
   it("skips the leaderboard overtake check for backdated trips", async () => {

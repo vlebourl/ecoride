@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { logger } from "../lib/logger";
 
@@ -29,13 +30,11 @@ interface SentryIssueEvent {
 }
 
 function verifySentrySignature(body: string, signature: string, secret: string): boolean {
-  // Sentry uses HMAC-SHA256
-  const encoder = new TextEncoder();
-  // Use Bun's sync crypto for simplicity
-  const hmac = new Bun.CryptoHasher("sha256", encoder.encode(secret));
-  hmac.update(encoder.encode(body));
-  const expected = hmac.digest("hex");
-  return expected === signature;
+  // Sentry signs the raw body with HMAC-SHA256 (hex digest)
+  const expected = Buffer.from(createHmac("sha256", secret).update(body).digest("hex"));
+  const received = Buffer.from(signature);
+  // timingSafeEqual throws on length mismatch; a wrong length is simply invalid
+  return received.length === expected.length && timingSafeEqual(received, expected);
 }
 
 // POST /api/sentry-webhook — Receive Sentry issue events and create GitHub issues
@@ -64,11 +63,13 @@ sentryWebhookRouter.post("/", async (c) => {
     return c.json({ ok: false, error: "Payload too large" }, 413);
   }
 
-  if (signature) {
-    if (!verifySentrySignature(rawBody, signature, sentrySecret)) {
-      webhookLogger.error("sentry_webhook_invalid_signature", {});
-      return c.json({ ok: false, error: "Invalid signature" }, 401);
-    }
+  if (!signature) {
+    webhookLogger.error("sentry_webhook_missing_signature", {});
+    return c.json({ ok: false, error: "Missing signature" }, 401);
+  }
+  if (!verifySentrySignature(rawBody, signature, sentrySecret)) {
+    webhookLogger.error("sentry_webhook_invalid_signature", {});
+    return c.json({ ok: false, error: "Invalid signature" }, 401);
   }
 
   // Sentry sends a verification request on setup

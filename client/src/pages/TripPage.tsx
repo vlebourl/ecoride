@@ -3,11 +3,11 @@ import { AlertTriangle, LocateFixed } from "lucide-react";
 import type { MapRef } from "react-map-gl/maplibre";
 import { useCreateTrip, useProfile, useTripPresets } from "@/hooks/queries";
 import { CO2_KG_PER_LITER } from "@ecoride/shared/types";
-import { useAppGpsTracking } from "@/hooks/useGpsTracking";
+import { clearTrackingBackup, limitGpsPoints, useAppGpsTracking } from "@/hooks/useGpsTracking";
 import type { TrackingSession } from "@/hooks/useGpsTracking";
 import { queueTrip } from "@/lib/offline-queue";
 import { ApiError } from "@/lib/api";
-import { clearStoppedSession } from "@/lib/stopped-session";
+import { clearStoppedSession, setStoppedSession } from "@/lib/stopped-session";
 import { isWebGLSupported } from "@/lib/webgl";
 import { formatTime } from "@/lib/format-utils";
 import { buildTraceGeoJSON } from "@/lib/speedGeoJSON";
@@ -243,9 +243,14 @@ export function TripPage() {
         durationSec,
         startedAt,
         endedAt,
-        gpsPoints: session?.gpsPoints?.length ? session.gpsPoints : null,
-        idempotencyKey: crypto.randomUUID(),
+        gpsPoints: session?.gpsPoints?.length ? limitGpsPoints(session.gpsPoints) : null,
+        idempotencyKey: session?.idempotencyKey ?? crypto.randomUUID(),
       };
+      if (session && !session.idempotencyKey) {
+        session.idempotencyKey = tripData.idempotencyKey;
+        recovery.setSession(session);
+        recovery.setSessionPersistFailed(!setStoppedSession(session));
+      }
       createTrip.mutate(tripData, {
         onSuccess: () => {
           setSaveError("");
@@ -257,22 +262,23 @@ export function TripPage() {
           gps.reset();
         },
         onError: (error) => {
-          if (error instanceof ApiError) {
+          if (error instanceof ApiError && error.status < 500) {
             setSaveError(extractApiErrorMessage(error) ?? t("trip.errors.saveRejected"));
             return;
           }
 
-          queueTrip(tripData);
-          setSaveError(t("trip.offline.savedLocally"));
-          setTimeout(() => {
+          try {
+            queueTrip(tripData);
+            setSaveError(t("trip.offline.savedLocally"));
             recovery.setPendingBackup(null);
             setUiState("idle");
             clearStoppedSession();
             manual.resetManualForm();
             recovery.clearSession();
             gps.reset();
-            setSaveError("");
-          }, 3000);
+          } catch {
+            setSaveError(t("trip.errors.queueFailed"));
+          }
         },
       });
     },
@@ -280,6 +286,7 @@ export function TripPage() {
   );
 
   const startTracking = useCallback(() => {
+    setSaveError("");
     resetMapState();
     setIsTrackingMapFollowing(true);
     recovery.setSessionPersistFailed(false);
@@ -301,15 +308,16 @@ export function TripPage() {
   }, [gps]);
 
   const handleStopFromInterrupt = useCallback(() => {
-    const session = gps.stop();
+    const session = { ...gps.stop(), idempotencyKey: crypto.randomUUID() };
     recovery.setSession(session);
+    const persisted = setStoppedSession(session);
+    recovery.setSessionPersistFailed(!persisted);
+    if (persisted) clearTrackingBackup();
     resetMapState();
     setIsTrackingMapFollowing(true);
     setInterruptMenuOpen(false);
-    recovery.setPendingBackup(null);
-    recovery.setSessionPersistFailed(false);
-    clearStoppedSession();
-    setUiState("idle");
+    if (persisted) recovery.setPendingBackup(null);
+    setUiState("stopped");
     navigation.clearRoute();
     handleSaveTrip(session.distanceKm, session.durationSec, session);
   }, [gps, recovery, resetMapState, handleSaveTrip, navigation]);
@@ -391,6 +399,12 @@ export function TripPage() {
         <div className="z-50 flex items-center gap-3 bg-danger/20 px-6 py-3">
           <AlertTriangle size={16} className="shrink-0 text-danger" />
           <span className="text-sm font-medium text-danger">{gps.state.error}</span>
+        </div>
+      )}
+
+      {uiState === "idle" && saveError && (
+        <div role="status" className="bg-primary/10 px-6 py-3 text-sm text-primary-light">
+          {saveError}
         </div>
       )}
 

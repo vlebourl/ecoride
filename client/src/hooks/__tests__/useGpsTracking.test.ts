@@ -5,9 +5,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createElement } from "react";
 import { render, renderHook, act, screen } from "@testing-library/react";
-import { GpsTrackingProvider, useAppGpsTracking, useGpsTracking } from "../useGpsTracking";
+import {
+  appendGpsPoint,
+  limitGpsPoints,
+  GpsTrackingProvider,
+  useAppGpsTracking,
+  useGpsTracking,
+} from "../useGpsTracking";
 
 const BACKUP_KEY = "ecoride-tracking-backup";
+
+describe("GPS point limit", () => {
+  it("keeps long rides within the server limit and retains both endpoints", () => {
+    const points = Array.from({ length: 10_000 }, (_, ts) => ({ lat: 48, lng: 2, ts }));
+    const next = { lat: 49, lng: 3, ts: 10_000 };
+    const sampled = appendGpsPoint(points, next);
+    expect(sampled.length).toBeLessThanOrEqual(10_000);
+    expect(sampled[0]).toBe(points[0]);
+    expect(sampled.at(-1)).toBe(next);
+    const legacy = limitGpsPoints([...points, ...points, next]);
+    expect(legacy.length).toBeLessThanOrEqual(10_000);
+    expect(legacy[0]).toBe(points[0]);
+    expect(legacy.at(-1)).toBe(next);
+  });
+});
 
 // Minimal localStorage stub — replaces the jsdom opaque-origin unavailable impl.
 function makeLocalStorageStub() {
@@ -320,6 +341,17 @@ describe("useGpsTracking — pause/resume (#166)", () => {
     });
 
     expect(result.current.state.durationSec).toBe(durationAfterActive);
+  });
+
+  it("uses wall time when timer callbacks are delayed", async () => {
+    const { result } = renderHook(() => useGpsTracking());
+    await act(async () => result.current.start());
+    vi.setSystemTime(Date.now() + 125_000);
+    let session!: ReturnType<typeof result.current.stop>;
+    await act(async () => {
+      session = result.current.stop();
+    });
+    expect(session.durationSec).toBe(125);
   });
 
   it("timer resumes ticking after resume()", async () => {

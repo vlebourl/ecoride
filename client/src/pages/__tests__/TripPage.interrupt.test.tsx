@@ -44,6 +44,7 @@ vi.mock("@/hooks/queries", () => ({
 }));
 
 vi.mock("@/hooks/useGpsTracking", () => ({
+  limitGpsPoints: (points: unknown[]) => points,
   useAppGpsTracking: () => ({
     state: {
       isTracking: true,

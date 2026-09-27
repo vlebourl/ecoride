@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getPendingTrips, queueTrip } from "../offline-queue";
+import { getPendingTrips, queueTrip, removePendingTrip } from "../offline-queue";
 
 const store = new Map<string, string>();
 
@@ -62,6 +62,24 @@ describe("offline trip queue", () => {
         distanceKm: 4.2,
         idempotencyKey: "99999999-9999-4999-9999-999999999999",
       }),
+    ]);
+  });
+
+  it("removes by key after another trip has been queued", () => {
+    const trip = {
+      distanceKm: 3.2,
+      durationSec: 720,
+      startedAt: "2026-04-23T09:00:00.000Z",
+      endedAt: "2026-04-23T09:12:00.000Z",
+      gpsPoints: null,
+    };
+    queueTrip({ ...trip, idempotencyKey: "11111111-1111-4111-8111-111111111111" });
+    queueTrip({ ...trip, idempotencyKey: "22222222-2222-4222-8222-222222222222" });
+    queueTrip({ ...trip, idempotencyKey: "33333333-3333-4333-8333-333333333333" });
+    removePendingTrip("22222222-2222-4222-8222-222222222222");
+    expect(getPendingTrips().map((entry) => entry.idempotencyKey)).toEqual([
+      "11111111-1111-4111-8111-111111111111",
+      "33333333-3333-4333-8333-333333333333",
     ]);
   });
 });

@@ -11,7 +11,9 @@ GPS tracking, badges, leaderboard (5 catégories + périodes), push notification
 offline queue, privacy policy, RGPD, accessibilité, rate limiting, lazy loading,
 pull-to-refresh, auto-bump CI/CD, Playwright smoke tests, palette Luminous Carbon.
 
-Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
+Voir `docs/archive/AUDIT-v1.2.md` pour le détail des 31/35 findings corrigés à l'époque
+(frozen, 2026-03-22 — ne pas prendre son décompte pour un statut actuel, voir
+`docs/archive/README.md` pour l'audit plus récent).
 
 ---
 
@@ -79,7 +81,11 @@ Voir AUDIT-v1.2.md pour le détail des 31/35 findings corrigés.
 
 - ~~better-auth < 1.6.11 et drizzle-kit 0.30 traînent des CVE critiques~~ — corrigé :
   better-auth ^1.7.2, drizzle-kit ^0.31.10, drizzle-orm ^0.45.2. Le job `audit` de la CI
-  n'a plus aucun `--ignore`, `bun audit --audit-level=critical` est vert.
+  n'a plus aucun `--ignore` codé en dur.
+- **`bun audit --audit-level=critical` est actuellement rouge** : vulnérabilité critique sur
+  `maplibre-gl` ≤ 6.4.0 (GHSA-jrc7-96c5-q579). Bloque la CI sur toute PR (dont #359) depuis
+  plusieurs semaines. Renovate n'a ouvert aucune PR de mise à jour depuis fin juillet
+  (23 updates en attente) — à investiguer avant de pouvoir remonter maplibre.
 - Migration `0004_account_issuer` : better-auth ≥ 1.6 exige une colonne `account.issuer`
   (`local:credential` / `https://accounts.google.com`). Le backfill est obligatoire — une
   valeur absente ou fausse verrouille le compte, vérifié sur une base réelle.

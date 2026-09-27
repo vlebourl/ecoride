@@ -110,8 +110,8 @@ it is not a guaranteed pre-migration backup.
 - `useMemo` MUST be called before any conditional `return` in React components (Rules of Hooks)
 - The `PullToRefresh` wrapper breaks `flex-1` height chain — use explicit heights for maps
 - GPS `useEffect` dependency array is `[state.isTracking, state.isPaused]` — both are required. Adding a callback/function dependency will cause infinite cleanup/restart
-- CI and Docker use `bun install --frozen-lockfile`; update `bun.lock` whenever package manifests change.
-- Docker runtime installs only server production dependencies. `drizzle-kit` is a server dependency because migrations run at startup.
+- CI and the Dockerfile currently run plain `bun install`, not `--frozen-lockfile` (tracked for #369); update `bun.lock` whenever package manifests change regardless.
+- The Docker runtime stage currently copies the full `node_modules` from the build stage rather than installing server-only production dependencies (also tracked for #369). `drizzle-kit` is a server dependency because migrations run at startup, so it must stay reachable however this evolves.
 - VAPID keys must be configured in Coolify env vars — empty keys crash push subscription
 - `user.super73DefaultAssist` / `super73DefaultLight` are retired preferences (#348/#349). The columns are kept on purpose — deleting them from the Drizzle schema would generate a destructive migration that auto-applies on deploy. Nothing reads or writes them; they still appear in the profile and GDPR export because those return a full row.
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { BadgeGrid } from "../BadgeGrid";
 import { I18nProvider } from "@/i18n/provider";
 
@@ -55,5 +55,24 @@ describe("BadgeGrid", () => {
   it("affiche les 46 badges", () => {
     renderGrid();
     expect(screen.getAllByRole("listitem")).toHaveLength(46);
+  });
+
+  it("explique le critère d'un badge verrouillé au clic et se ferme avec Échap", () => {
+    renderGrid();
+    fireEvent.click(screen.getByRole("button", { name: "Lève-tôt" }));
+    expect(screen.getByRole("dialog", { name: "Lève-tôt" })).toBeTruthy();
+    expect(screen.getByText("Démarrer 10 trajets avant 7 h, heure locale.")).toBeTruthy();
+    expect(screen.getByText("À débloquer")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("explique aussi un badge déjà débloqué", () => {
+    renderGrid([{ badgeId: "first_trip" }]);
+    fireEvent.click(screen.getByRole("button", { name: "Premier trajet" }));
+    expect(screen.getByText("Effectuer votre premier trajet à vélo.")).toBeTruthy();
+    expect(screen.getByText("Débloqué")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

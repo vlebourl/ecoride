@@ -123,7 +123,7 @@ async function stubApiRoutes(page: Page): Promise<void> {
 
 test("trip page loads without crash (no destination)", async ({ page }) => {
   await stubApiRoutes(page);
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   await expect(page.getByText("Une erreur est survenue")).not.toBeVisible({ timeout: 3000 });
   await expect(page.getByTestId("trip-page-root")).toBeVisible();
@@ -131,7 +131,7 @@ test("trip page loads without crash (no destination)", async ({ page }) => {
 
 test("destination search flow: search → select → route displayed", async ({ page }) => {
   await stubApiRoutes(page);
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   // Click "Ajouter une destination"
   await page.getByText("Ajouter une destination").click();
@@ -165,7 +165,7 @@ test("destination search flow: search → select → route displayed", async ({ 
 
 test("clearing destination removes badge", async ({ page }) => {
   await stubApiRoutes(page);
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   await page.getByText("Ajouter une destination").click();
   await page.getByPlaceholder("Où allez-vous ?").fill("Tour Eiffel");

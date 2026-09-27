@@ -12,7 +12,7 @@ test("interrupt button pauses the trip and opens the interrupt menu", async ({ p
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });

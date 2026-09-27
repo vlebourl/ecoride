@@ -65,7 +65,7 @@ test.describe("safe area insets (#131)", () => {
 
   test("AppShell pages do not overflow viewport at mobile size", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.goto("/trip", { waitUntil: "load" });
 
     const overflow = await page.evaluate(() => ({
       scrollHeight: document.documentElement.scrollHeight,

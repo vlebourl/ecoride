@@ -15,7 +15,7 @@ test("Trip idle screen does not vertically scroll before tracking starts", async
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   await expect(page.getByRole("button", { name: "Démarrer" })).toBeVisible();
 

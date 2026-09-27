@@ -126,7 +126,7 @@ async function stubConnectedSuper73(page: Page) {
 test.describe("Headlight toggle touch target (#357)", () => {
   test("is at least 44x44 once the bike is connected", async ({ page }) => {
     await stubConnectedSuper73(page);
-    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.goto("/trip", { waitUntil: "load" });
 
     const toggle = page.getByTestId("headlight-indicator");
     await expect(toggle).toBeVisible({ timeout: 10_000 });
@@ -147,7 +147,7 @@ test.describe("Headlight toggle touch target (#357)", () => {
     test(`keeps the header inside a ${width}px viewport`, async ({ page }) => {
       await page.setViewportSize({ width, height: 780 });
       await stubConnectedSuper73(page);
-      await page.goto("/trip", { waitUntil: "networkidle" });
+      await page.goto("/trip", { waitUntil: "load" });
 
       await expect(page.getByTestId("headlight-indicator")).toBeVisible({ timeout: 10_000 });
 

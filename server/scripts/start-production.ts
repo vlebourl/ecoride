@@ -2,6 +2,7 @@ import path from "node:path";
 import { ensureLegacyDrizzleBaseline } from "../src/lib/drizzle-baseline";
 import { ensureCoolifyBackupBeforeMigration } from "../src/lib/coolify-backup";
 import { logger } from "../src/lib/logger";
+import { forwardTerminationSignals } from "./process-signals";
 
 async function run(command: string[], label: string, cwd?: string): Promise<void> {
   const child = Bun.spawn(command, {
@@ -12,7 +13,9 @@ async function run(command: string[], label: string, cwd?: string): Promise<void
     env: process.env,
   });
 
+  const stopForwarding = forwardTerminationSignals(child);
   const exitCode = await child.exited;
+  stopForwarding();
   if (exitCode !== 0) {
     throw new Error(`${label} failed with exit code ${exitCode}`);
   }
@@ -37,7 +40,7 @@ async function main() {
 
   await ensureLegacyDrizzleBaseline(databaseUrl, path.resolve(import.meta.dirname, "../drizzle"));
   await run(
-    ["bunx", "drizzle-kit", "migrate", "--config", "drizzle.config.ts"],
+    ["bun", "server/node_modules/drizzle-kit/bin.cjs", "migrate", "--config", "drizzle.config.ts"],
     "Database migration",
     repoRoot,
   );
@@ -51,7 +54,10 @@ async function main() {
     env: process.env,
   });
 
-  process.exit(await server.exited);
+  const stopForwarding = forwardTerminationSignals(server);
+  const exitCode = await server.exited;
+  stopForwarding();
+  process.exit(exitCode);
 }
 
 await main();

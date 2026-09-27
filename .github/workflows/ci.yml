@@ -43,6 +43,13 @@ jobs:
       # drizzle-kit 0.31 / better-auth 1.7 upgrades.
       - run: bun audit --audit-level=critical
 
+  docker-build:
+    name: Production image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag ecoride:ci .
+
   typecheck:
     name: TypeScript check
     runs-on: ubuntu-latest

@@ -102,15 +102,13 @@ describe("TripPage trip preset selection", () => {
     startMock.mockReset();
     resetMock.mockReset();
     queueTripMock.mockReset();
-    stopMock
-      .mockReset()
-      .mockReturnValue({
-        distanceKm: 1,
-        durationSec: 60,
-        gpsPoints: [],
-        startedAt: "2026-04-09T10:00:00.000Z",
-        endedAt: "2026-04-09T10:01:00.000Z",
-      });
+    stopMock.mockReset().mockReturnValue({
+      distanceKm: 1,
+      durationSec: 60,
+      gpsPoints: [],
+      startedAt: "2026-04-09T10:00:00.000Z",
+      endedAt: "2026-04-09T10:01:00.000Z",
+    });
     persistMock.mockReset().mockReturnValue(true);
   });
 

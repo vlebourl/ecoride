@@ -69,7 +69,7 @@ app.use(
   "/api/*",
   cors({
     origin: [env.FRONTEND_URL],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Trip-Source"],
     credentials: true,
   }),
 );

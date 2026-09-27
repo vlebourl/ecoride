@@ -12,6 +12,7 @@ import { logAudit } from "../lib/audit";
 import { evaluateAndUnlockBadges } from "../lib/badges";
 import { reportBackgroundError } from "../lib/background";
 import { logger } from "../lib/logger";
+import { logTripWriteOutcome, observeTripPersistence } from "../lib/trip-write-observability";
 import {
   calculateSavings,
   plausibleStoredSavings,
@@ -162,94 +163,115 @@ async function currentMarket(currentUser: AuthEnv["Variables"]["user"]) {
 // values are missing or impossible (forged to inflate leaderboards) is not rejected; its
 // savings are recalculated from the current profile and market price. The profile and
 // market price are only read when such a trip exists.
-usersRouter.post("/import", zValidator("json", importDataSchema, validationHook), async (c) => {
-  const currentUser = c.get("user");
-  const { trips: incoming } = c.req.valid("json");
-
-  if (incoming.length === 0) {
-    return c.json({ ok: true, data: { imported: 0, skipped: 0 } });
-  }
-
-  // Dedupe by timestamp and key inside the same per-user transaction as POST /trips.
-  const incomingStarts = incoming.map((t) => new Date(t.startedAt));
-  const incomingKeys = incoming.flatMap((t) => (t.idempotencyKey ? [t.idempotencyKey] : []));
-
-  let market: ReturnType<typeof currentMarket> | undefined;
-  const prepared = await Promise.all(
-    incoming.map(async (t) => {
-      const kept = plausibleStoredSavings(t);
-      if (kept) return { t, savings: kept };
-      const { consumptionL100, fuelPriceEur } = await (market ??= currentMarket(currentUser));
-      const savings = calculateSavings({ distanceKm: t.distanceKm, consumptionL100, fuelPriceEur });
-      return { t, savings: { ...savings, fuelPriceEur } };
-    }),
-  );
-
-  const imported = await db.transaction(async (tx) => {
-    // Match POST /trips' lock, so its key lookup and our import insert cannot race.
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(7381, hashtext(${currentUser.id}))`);
-    const existing = await tx
-      .select({ startedAt: trips.startedAt, idempotencyKey: trips.idempotencyKey })
-      .from(trips)
-      .where(
-        and(
-          eq(trips.userId, currentUser.id),
-          or(
-            inArray(trips.startedAt, incomingStarts),
-            incomingKeys.length ? inArray(trips.idempotencyKey, incomingKeys) : undefined,
-          ),
-        ),
+usersRouter.post(
+  "/import",
+  zValidator("json", importDataSchema, (result, c) => {
+    if (!result.success) {
+      logTripWriteOutcome(
+        c.get("requestId") as string | undefined,
+        "import",
+        "validation_rejected",
       );
+    }
+    return validationHook(result, c);
+  }),
+  async (c) => {
+    const currentUser = c.get("user");
+    const { trips: incoming } = c.req.valid("json");
+    const requestId = c.get("requestId") as string | undefined;
 
-    const seenStarts = new Set(existing.map((r) => r.startedAt.getTime()));
-    const seenKeys = new Set(existing.flatMap((r) => (r.idempotencyKey ? [r.idempotencyKey] : [])));
-    const toInsert = prepared
-      .filter(({ t }) => {
-        const start = new Date(t.startedAt).getTime();
-        if (seenStarts.has(start) || (t.idempotencyKey && seenKeys.has(t.idempotencyKey)))
-          return false;
-        seenStarts.add(start);
-        if (t.idempotencyKey) seenKeys.add(t.idempotencyKey);
-        return true;
-      })
-      .map(({ t, savings }) => ({
-        userId: currentUser.id,
-        distanceKm: t.distanceKm,
-        durationSec: t.durationSec,
-        ...savings,
-        startedAt: new Date(t.startedAt),
-        endedAt: new Date(t.endedAt),
-        gpsPoints: t.gpsPoints ?? null,
-        idempotencyKey: t.idempotencyKey ?? null,
-      }));
+    if (incoming.length === 0) {
+      return c.json({ ok: true, data: { imported: 0, skipped: 0 } });
+    }
 
-    if (toInsert.length > 0) await tx.insert(trips).values(toInsert);
-    return toInsert.length;
-  });
+    // Dedupe by timestamp and key inside the same per-user transaction as POST /trips.
+    const incomingStarts = incoming.map((t) => new Date(t.startedAt));
+    const incomingKeys = incoming.flatMap((t) => (t.idempotencyKey ? [t.idempotencyKey] : []));
 
-  // Re-evaluate badges since trip aggregates changed. Fire-and-forget so the
-  // import response is fast; badge engine is idempotent.
-  const requestLogger = logger.withContext(
-    c.get("requestId") as string | undefined,
-    currentUser.id,
-  );
-  reportBackgroundError(
-    evaluateAndUnlockBadges(currentUser.id),
-    requestLogger,
-    "import_badges_failed",
-    { imported },
-  );
+    let market: ReturnType<typeof currentMarket> | undefined;
+    const prepared = await Promise.all(
+      incoming.map(async (t) => {
+        const kept = plausibleStoredSavings(t);
+        if (kept) return { t, savings: kept };
+        const { consumptionL100, fuelPriceEur } = await (market ??= currentMarket(currentUser));
+        const savings = calculateSavings({
+          distanceKm: t.distanceKm,
+          consumptionL100,
+          fuelPriceEur,
+        });
+        return { t, savings: { ...savings, fuelPriceEur } };
+      }),
+    );
 
-  logAudit(currentUser.id, "data_import", undefined, {
-    imported,
-    skipped: incoming.length - imported,
-  });
+    // One wrapper for the lock, the dedupe read and the insert: any database failure is
+    // logged as a persistence_error and rethrown without the driver's message.
+    const imported = await observeTripPersistence(requestId, "import", () =>
+      db.transaction(async (tx) => {
+        // Match POST /trips' lock, so its key lookup and our import insert cannot race.
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(7381, hashtext(${currentUser.id}))`);
+        const existing = await tx
+          .select({ startedAt: trips.startedAt, idempotencyKey: trips.idempotencyKey })
+          .from(trips)
+          .where(
+            and(
+              eq(trips.userId, currentUser.id),
+              or(
+                inArray(trips.startedAt, incomingStarts),
+                incomingKeys.length ? inArray(trips.idempotencyKey, incomingKeys) : undefined,
+              ),
+            ),
+          );
 
-  return c.json({
-    ok: true,
-    data: { imported, skipped: incoming.length - imported },
-  });
-});
+        const seenStarts = new Set(existing.map((r) => r.startedAt.getTime()));
+        const seenKeys = new Set(
+          existing.flatMap((r) => (r.idempotencyKey ? [r.idempotencyKey] : [])),
+        );
+        const toInsert = prepared
+          .filter(({ t }) => {
+            const start = new Date(t.startedAt).getTime();
+            if (seenStarts.has(start) || (t.idempotencyKey && seenKeys.has(t.idempotencyKey)))
+              return false;
+            seenStarts.add(start);
+            if (t.idempotencyKey) seenKeys.add(t.idempotencyKey);
+            return true;
+          })
+          .map(({ t, savings }) => ({
+            userId: currentUser.id,
+            distanceKm: t.distanceKm,
+            durationSec: t.durationSec,
+            ...savings,
+            startedAt: new Date(t.startedAt),
+            endedAt: new Date(t.endedAt),
+            gpsPoints: t.gpsPoints ?? null,
+            idempotencyKey: t.idempotencyKey ?? null,
+          }));
+
+        if (toInsert.length > 0) await tx.insert(trips).values(toInsert);
+        return toInsert.length;
+      }),
+    );
+
+    const skipped = incoming.length - imported;
+    if (skipped > 0) logTripWriteOutcome(requestId, "import", "import_skipped", skipped);
+
+    // Re-evaluate badges since trip aggregates changed. Fire-and-forget so the
+    // import response is fast; badge engine is idempotent.
+    const requestLogger = logger.withContext(requestId, currentUser.id);
+    reportBackgroundError(
+      evaluateAndUnlockBadges(currentUser.id),
+      requestLogger,
+      "import_badges_failed",
+      { imported },
+    );
+
+    logAudit(currentUser.id, "data_import", undefined, { imported, skipped });
+
+    return c.json({
+      ok: true,
+      data: { imported, skipped },
+    });
+  },
+);
 
 // DELETE /api/user/profile — Delete account (GDPR right to erasure)
 usersRouter.delete("/profile", async (c) => {

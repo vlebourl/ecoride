@@ -11,7 +11,7 @@ COPY shared/package.json shared/
 COPY client/package.json client/
 COPY server/package.json server/
 
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # Copier le code source
 COPY shared/ shared/
@@ -23,8 +23,6 @@ COPY tsconfig.json drizzle.config.ts ./
 ENV GIT_HASH=$GIT_HASH
 RUN cd client && bun run build
 
-# Keep full node_modules (drizzle-kit needed at runtime for migrations)
-
 # ---- Stage 2: Runtime ----
 FROM oven/bun:1-alpine AS runtime
 
@@ -34,12 +32,19 @@ WORKDIR /app
 # Without this, BuildKit caches the runtime stage even when the build stage changed
 ARG CACHEBUST=1
 
-# Copier tout depuis le build stage (node_modules inclus, avec drizzle-kit)
-COPY --from=build /app/node_modules node_modules/
+# Install only the server's production dependency graph. Its drizzle-kit
+# dependency runs the migrations at startup.
+COPY package.json bun.lock ./
+COPY shared/package.json shared/
+COPY client/package.json client/
+COPY server/package.json server/
+RUN bun install --filter server --production --frozen-lockfile --ignore-scripts
+
 COPY --from=build /app/shared shared/
-COPY --from=build /app/server server/
+COPY --from=build /app/server/src server/src/
+COPY --from=build /app/server/scripts server/scripts/
+COPY --from=build /app/server/drizzle server/drizzle/
 COPY --from=build /app/client/dist client/dist
-COPY --from=build /app/package.json ./
 COPY --from=build /app/tsconfig.json ./
 COPY --from=build /app/drizzle.config.ts ./
 
@@ -47,4 +52,9 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "bun --cwd server scripts/start-production.ts"]
+USER bun
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+  CMD ["bun", "-e", "fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/health`).then(async r => { const h = await r.json(); process.exit(r.ok && h.db === true ? 0 : 1) }).catch(() => process.exit(1))"]
+
+CMD ["bun", "--cwd", "server", "scripts/start-production.ts"]

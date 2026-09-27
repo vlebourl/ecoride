@@ -20,25 +20,27 @@ the coverage/hotspot policies are documented in
 ## Key Technical Decisions
 
 - **Auth**: Better Auth with Google OAuth + email/password. Sessions in DB, cookies with sameSite lax (required for OAuth callback).
-- **DB**: PostgreSQL via Drizzle ORM with **versioned migrations** in `server/drizzle/`. Production runs `drizzle-kit migrate` on every boot (`server/scripts/start-production.ts`), after a Coolify backup — so a committed migration auto-applies on the next deploy. `drizzle-kit push` is local-dev only (`db:push:local`). Columns use `real` type (audit item: should migrate to `numeric`).
+- **DB**: PostgreSQL via Drizzle ORM with **versioned migrations** in `server/drizzle/`. Production runs `drizzle-kit migrate` on every boot (`server/scripts/start-production.ts`), after an attempted Coolify backup — see [Database Migrations](#database-migrations) for what happens when the backup is unconfigured. `drizzle-kit push` is local-dev only (`db:push:local`). Money/CO₂/fuel columns use `numeric` (migrated off `real`; see `server/src/db/schema/numeric.ts`).
 - **PWA**: vite-plugin-pwa with autoUpdate. Custom version polling every 5 min via `/api/health`. Cache purge on version change. Skip auto-update during active GPS tracking.
-- **GPS**: `navigator.geolocation.watchPosition` in a `useEffect` keyed on `state.isTracking`. All side effects (timer, GPS watch, wake lock, backup) inline in one effect to avoid React StrictMode cleanup issues.
+- **GPS**: `navigator.geolocation.watchPosition` in a `useEffect` keyed on `[state.isTracking, state.isPaused]` (both deps are intentional — see Known Issues/Gotchas). All side effects (timer, GPS watch, wake lock, backup) inline in one effect to avoid React StrictMode cleanup issues.
 - **Calculations**: ADEME factor 2.31 kg CO₂/L. Fuel price from data.economie.gouv.fr API (1.5s timeout, fallback to hardcoded prices). Calculated server-side at trip creation, stored immutably.
 - **Leaderboard**: LEFT JOIN (shows users with 0 trips), dense ranking, 5 categories (co2/streak/trips/speed/money), period filtering.
-- **Badges**: 12 badges evaluated after each trip creation. Revoked on trip deletion. ON CONFLICT DO NOTHING for idempotency.
+- **Badges**: 46 badges (6 categories: volume, impact, régularité, records, habitudes, performance) evaluated after each trip creation. Revoked on trip deletion. ON CONFLICT DO NOTHING for idempotency.
 - **Offline**: localStorage queue with idempotency keys. Auto-sync on `navigator.onLine` event.
 - **Push**: VAPID keys in Coolify env. Fire-and-forget notifications for badges and leaderboard overtakes.
 
 ## CI/CD Pipeline
 
 ```
-PR → CI (typecheck + vitest + Playwright smoke tests)
+PR → CI (commitlint, lint/format, dependency audit, typecheck, vitest, bundle-size,
+         coverage ≥70%, Playwright smoke, Lighthouse a11y — see .github/workflows/ci.yml)
 Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Coolify
 ```
 
 - Auto-bump is in `.github/workflows/auto-bump.yml` — reads conventional commit, bumps package.json, pushes, then deploys
 - Deploy and bump are in the SAME workflow (GITHUB_TOKEN can't trigger other workflows)
-- `chore:` and `docs:` commits don't bump or deploy
+- `chore:` and `docs:` commits skip the version bump only. The `deploy` job still runs — it only depends on the `bump` job succeeding, not on a version actually being bumped
+- `auto-bump.yml` triggers on push to `main` and does not itself wait on the `ci.yml` results — CI passing is enforced by branch protection on the PR, not by the deploy workflow
 - Smoke tests in `client/e2e/` stub ALL `/api/**` calls and verify no React crash on every page
 
 ## Development Rules
@@ -65,7 +67,7 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 
 - `feat:` for new features (triggers minor bump)
 - `fix:` for bug fixes (triggers patch bump)
-- `chore:` / `docs:` for non-functional changes (no bump, no deploy)
+- `chore:` / `docs:` for non-functional changes (no version bump; the deploy step still runs — see CI/CD Pipeline)
 - Multi-line commit messages are OK (the auto-bump uses env var, not direct interpolation)
 
 ### Agents
@@ -78,8 +80,14 @@ Merge to main → Auto-bump (feat: → minor, fix: → patch) → Deploy to Cool
 ## Database Migrations
 
 Versioned Drizzle migrations in `server/drizzle/`, applied by `drizzle-kit migrate`
-on every production boot (`server/scripts/start-production.ts`), after an automatic
-Coolify backup. **A committed migration auto-applies on the next deploy.**
+on every production boot (`server/scripts/start-production.ts`). **A committed
+migration auto-applies on the next deploy.**
+
+Before migrating, `ensureCoolifyBackupBeforeMigration` (`server/src/lib/coolify-backup.ts`)
+triggers a Coolify backup and blocks on it — but only if `COOLIFY_WEBHOOK_URL` and
+`COOLIFY_API_TOKEN` are both set. If either is missing, the backup check is **silently
+skipped** (a `coolify_backup_check_skipped` warning log, then straight to migration) —
+it is not a guaranteed pre-migration backup.
 
 - `drizzle-kit push` is local-dev only (`db:push:local`). Never against production.
 - Adding an index or column to `server/src/db/schema/` does **nothing** on its own.
@@ -101,42 +109,34 @@ Coolify backup. **A committed migration auto-applies on the next deploy.**
 - `useBlocker` does NOT exist in react-router v7.13+ — don't use it
 - `useMemo` MUST be called before any conditional `return` in React components (Rules of Hooks)
 - The `PullToRefresh` wrapper breaks `flex-1` height chain — use explicit heights for maps
-- GPS `useEffect` must have ONLY `state.isTracking` as dependency — if you add callbacks, they'll cause infinite cleanup/restart
-- Bun lockfile format differs between versions — CI uses `bun install` (not `--frozen-lockfile`)
-- Dockerfile needs full node_modules (drizzle-kit is a devDep but needed at runtime for migrations)
+- GPS `useEffect` dependency array is `[state.isTracking, state.isPaused]` — both are required. Adding a callback/function dependency will cause infinite cleanup/restart
+- CI and Docker use `bun install --frozen-lockfile`; update `bun.lock` whenever package manifests change.
+- Docker runtime installs only server production dependencies. `drizzle-kit` is a server dependency because migrations run at startup.
 - VAPID keys must be configured in Coolify env vars — empty keys crash push subscription
-- Migrations 0001+ were hand-written with hand-picked `when` values, so a new one needs both the `.sql` file and its `_journal.json` entry. `drizzle-kit generate` is only trustworthy once #356 lands — before it, `server/drizzle/meta/` is gitignored and generate has no snapshot to diff against, so it re-emits already-applied DDL.
 - `user.super73DefaultAssist` / `super73DefaultLight` are retired preferences (#348/#349). The columns are kept on purpose — deleting them from the Drizzle schema would generate a destructive migration that auto-applies on deploy. Nothing reads or writes them; they still appear in the profile and GDPR export because those return a full row.
 
 ## Infrastructure
 
-- **Server**: 192.168.1.48 (SSH as lyra@coolify)
-- **Coolify**: Admin account admin@tiarkaerell.com
-- **Coolify App UUID**: cr92jivsr4aypchftn3y2t74
-- **Coolify API token**: ID 17 in personal_access_tokens table
-- **GitHub runner**: Self-hosted `homelab-runner` at ~/ecoride-runner/ (systemd service)
-- **DB container**: y12rxn4gjzsw1c3933wbe1wb (PostgreSQL, user: ecoride)
+Server access, Coolify credentials, and container identifiers are **not documented in
+this public repo**. They're kept in internal team memory — ask Lyra/Mnemosyne if an
+agent session needs them.
 
-## Current State (v1.6+)
-
-### What works
+## Current State
 
 - Full GPS tracking with speed display, accuracy indicator, backup/recovery
-- 12 badges with auto-unlock and revocation
+- 46 badges (6 categories) with auto-unlock and revocation
 - Leaderboard with 5 categories and 3 period filters
 - Push notifications (badges, leaderboard overtakes, daily reminders)
 - Offline trip queue with auto-sync
 - Pull-to-refresh, auto-update, version display
 - Account deletion, data export, privacy policy
 - Rate limiting, security headers, input validation
-- Playwright smoke tests (9 pages) + tracking test + leaderboard test + notifications test
+- Vitest unit tests (server + client) and Playwright smoke/tracking/leaderboard/notifications e2e tests
+- See `ROADMAP.md` for what's shipped vs. planned — this file doesn't duplicate that list because it goes stale otherwise
 
-### What's in progress (v2.0)
+### Audit history
 
-- Server-side unit tests (vitest)
-- ESLint + Prettier + husky pre-commit
-- See ROADMAP.md for full v2.0 plan
-
-### Audit
-
-- See AUDIT-v1.2.md for the comprehensive audit (31/35 items fixed)
+- `docs/archive/AUDIT-v1.2.md` — 2026-03-22 audit, frozen snapshot (31/35 items fixed
+  at the time). Some items it lists as unfixed (e.g. the `real`→`numeric` migration)
+  have since been resolved — don't treat it as current status, see `docs/archive/README.md`
+  for a pointer to the newer audit.

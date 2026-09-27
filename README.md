@@ -18,7 +18,7 @@ PWA mobile-first de suivi de trajets vélo avec calcul d'économies CO₂, argen
 - **Saisie manuelle** : distance + durée optionnelle pour les trajets sans GPS
 - **Calculs** : CO₂ économisé (facteur ADEME 2.31 kg/L), argent, carburant
 - **Prix carburant** : API officielle data.economie.gouv.fr, géolocalisé si GPS disponible
-- **Gamification** : 12 badges avec unlock/revocation automatique, streaks
+- **Gamification** : 46 badges (6 catégories) avec unlock/revocation automatique, streaks
 - **Classement** : leaderboard multi-utilisateur avec dense ranking et opt-out
 - **Notifications push** : badges débloqués, dépassements au classement, rappels quotidiens
 - **Offline** : file d'attente localStorage avec sync automatique au retour réseau
@@ -31,7 +31,7 @@ PWA mobile-first de suivi de trajets vélo avec calcul d'économies CO₂, argen
 - **Backend** : Bun + Hono + Drizzle ORM
 - **Auth** : Better Auth (Google OAuth + email/password)
 - **DB** : PostgreSQL
-- **CI** : GitHub Actions (typecheck + vitest + Playwright smoke tests)
+- **CI** : GitHub Actions (commitlint, lint/format, audit dépendances, typecheck, vitest, bundle-size, coverage ≥70%, smoke tests Playwright, Lighthouse a11y)
 - **Deploy** : Docker + auto-bump + Coolify
 
 ## Setup
@@ -85,16 +85,38 @@ client/     React PWA + Tailwind + Playwright e2e
 
 ### Pipeline CI (sur chaque PR)
 
-1. **TypeScript check** : `bun run typecheck`
-2. **Tests unitaires** : `bunx vitest run` (badges, calculs, haversine, streaks, fuel price, push)
-3. **Smoke tests Playwright** : build client + test chaque page sans crash
+Jobs définis dans `.github/workflows/ci.yml` :
+
+1. **commitlint** : conventional commits sur la PR
+2. **Lint & format** : `bun run lint`, `bun run format:check`
+3. **Audit dépendances** : `bun audit --audit-level=critical`
+4. **TypeScript check** : `bun run typecheck`
+5. **Tests unitaires** : `bunx vitest run` (badges, calculs, haversine, streaks, fuel price, push)
+6. **Bundle size** : diff gzip vs base, budget +50 Ko, commentaire PR
+7. **Coverage** : seuil combiné 70 %, commentaire PR
+8. **Smoke tests Playwright** : build client + test chaque page sans crash
+9. **Lighthouse CI** : seuil accessibilité
+
+Seuls lint/tests/typecheck/smoke sont des checks requis pour merger ; l'audit,
+la coverage, le bundle-size et Lighthouse remontent un statut mais ne bloquent
+pas la PR aujourd'hui.
 
 ### Pipeline CD (sur merge dans main)
 
-1. **Auto-bump** : lit le conventional commit (`feat:` → minor, `fix:` → patch)
-2. **Deploy** : trigger Coolify après le bump
-3. **Pré-backup obligatoire** : avant toute migration prod, le conteneur déclenche un backup Coolify et attend un statut `success`
-4. **Schéma DB** : après backup réussi, le conteneur applique uniquement les migrations SQL versionnées (`drizzle-kit migrate`) — jamais `push --force`
+Workflow séparé (`.github/workflows/auto-bump.yml`), déclenché sur chaque push
+sur `main` — il n'attend **pas** le résultat de `ci.yml` :
+
+1. **Auto-bump** : lit le conventional commit (`feat:` → minor, `fix:` → patch). Les
+   commits `chore:`/`docs:` sautent uniquement le bump — le déploiement qui suit
+   se déclenche quand même
+2. **Deploy** : trigger Coolify après le job `bump` (bump réel ou sauté)
+3. **Pré-backup best-effort** : si `COOLIFY_WEBHOOK_URL` et `COOLIFY_API_TOKEN` sont
+   configurés, le conteneur déclenche un backup Coolify et attend un statut `success`
+   avant de migrer. **Si ces variables sont absentes, le backup est ignoré silencieusement**
+   (log d'avertissement) et la migration se lance sans backup préalable — voir
+   `server/src/lib/coolify-backup.ts`
+4. **Schéma DB** : après l'étape de backup (réussie ou sautée), le conteneur applique
+   uniquement les migrations SQL versionnées (`drizzle-kit migrate`) — jamais `push --force`
 5. **Backups DB** : sauvegardes planifiées via Coolify pour la base PostgreSQL de production
 6. **Auto-update PWA** : l'app poll `/api/health` toutes les 5 min, purge le cache si version changée
 
@@ -128,4 +150,7 @@ docker compose up --build
 - Les déploiements production ne doivent jamais utiliser `drizzle-kit push` ou `--force`.
 - Toute évolution de schéma passe par `bun run db:generate`, revue du SQL généré, puis application via `bun run db:migrate`.
 - La base PostgreSQL de production est sauvegardée automatiquement par Coolify sur un planning dédié.
-- En production Coolify, l'absence de backup configuré ou l'échec du backup bloque la migration et empêche le démarrage de la nouvelle révision.
+- En production Coolify, un **échec** du backup (une fois déclenché) bloque la migration et empêche
+  le démarrage de la nouvelle révision. En revanche, si `COOLIFY_WEBHOOK_URL` / `COOLIFY_API_TOKEN`
+  ne sont pas configurées, la vérification de backup est **ignorée silencieusement** et la migration
+  se lance quand même — ce n'est pas un garde-fou garanti (`server/src/lib/coolify-backup.ts`).

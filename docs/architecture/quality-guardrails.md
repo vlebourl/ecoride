@@ -7,8 +7,8 @@ number is likely to move (coverage thresholds, complexity scores), this doc
 points at the config that owns it instead of duplicating the value.
 
 See also: [`CLAUDE.md`](../../CLAUDE.md) (project overview, dev rules),
-[`DECISIONS.md`](../../DECISIONS.md) (one-off technical decisions),
-[`docs/quality/complexity-baseline.md`](../quality/complexity-baseline.md)
+[`docs/archive/DECISIONS.md`](../archive/DECISIONS.md) (frozen, one-off technical
+decisions up to 2026-03), [`docs/quality/complexity-baseline.md`](../quality/complexity-baseline.md)
 (current hotspot scores).
 
 ## Package layout

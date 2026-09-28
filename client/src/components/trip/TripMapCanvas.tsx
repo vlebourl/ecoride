@@ -1,15 +1,11 @@
 import "maplibre-gl/dist/maplibre-gl.css";
-import { setWorkerUrl, type Map as MapLibreMap } from "maplibre-gl";
-import mapLibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import type { Map as MapLibreMap } from "maplibre-gl";
+import "@/lib/maplibreWorker";
 import Map, { Layer, Marker, Source } from "react-map-gl/maplibre";
 import type { LayerProps, MapRef } from "react-map-gl/maplibre";
 import { MapPin } from "lucide-react";
 import { MapNoWebGL } from "@/components/MapNoWebGL";
 import { solidTraceLayer, speedTraceLayer, type TraceGeoJSON } from "@/lib/speedGeoJSON";
-
-// MapLibre v6 ships its worker separately. Vite must emit it and provide the
-// resulting URL; the default sibling URL does not exist in the built app.
-setWorkerUrl(mapLibreWorkerUrl);
 
 type RouteFeature = {
   type: "Feature";

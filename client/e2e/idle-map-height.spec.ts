@@ -17,7 +17,7 @@ test("#122 regression: idle map fills available space with no gap below buttons"
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   // Wait for idle UI (start button visible)
   const startBtn = page.getByText("Démarrer");

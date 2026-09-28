@@ -45,7 +45,7 @@ test("tracking map bearing matches rider heading when tracking (heading=90)", as
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   // Start tracking
   await page.getByText("Démarrer").click();
@@ -105,7 +105,7 @@ test("tracking map bearing is 0 when heading is null (stationary start)", async 
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });

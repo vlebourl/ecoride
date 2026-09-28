@@ -14,7 +14,7 @@ test("clicking Démarrer starts tracking with counters", async ({ page, context 
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   // Click Démarrer
   const startBtn = page.getByText("Démarrer");

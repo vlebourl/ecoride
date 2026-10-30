@@ -139,7 +139,7 @@ jobs:
           fi
       - name: Trigger Coolify deploy
         run: |
-          RESPONSE=$(curl -s -f -X GET \
+          RESPONSE=$(curl -s -f -X POST \
             "http://localhost:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_APP_UUID }}" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
           echo "$RESPONSE"

@@ -93,6 +93,7 @@ export function BadgeGrid({ achievements }: BadgeGridProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="badge-detail-title"
+            data-no-swipe
             className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={closeBadge}
             onKeyDown={(event) => {

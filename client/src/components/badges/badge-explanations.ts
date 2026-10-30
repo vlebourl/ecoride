@@ -107,7 +107,7 @@ export const BADGE_EXPLANATIONS: Record<BadgeId, Record<Locale, string>> = {
   },
   all_week: {
     fr: "Effectuer au moins un trajet chaque jour de la semaine, même sur des semaines différentes (jours UTC).",
-    en: "Complete at least one trip on every weekday, even across different weeks (UTC days).",
+    en: "Complete at least one trip on every day of the week, Saturday and Sunday included, even across different weeks (UTC days).",
   },
   speed_20: {
     fr: "Atteindre 20 km/h de moyenne sur un trajet d'au moins 5 km.",

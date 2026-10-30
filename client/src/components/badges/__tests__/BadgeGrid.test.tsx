@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { BadgeGrid } from "../BadgeGrid";
+import { BADGE_EXPLANATIONS } from "../badge-explanations";
 import { I18nProvider } from "@/i18n/provider";
 
 // Install a Storage-like mock so tests do not rely on the host localStorage
@@ -74,5 +75,16 @@ describe("BadgeGrid", () => {
     expect(screen.getByText("Débloqué")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("ne déclenche pas la navigation par balayage depuis la modale", () => {
+    renderGrid();
+    fireEvent.click(screen.getByRole("button", { name: "Lève-tôt" }));
+    expect(screen.getByRole("dialog").closest("[data-no-swipe]")).toBeTruthy();
+  });
+
+  it("exige les sept jours pour all_week, y compris en anglais", () => {
+    expect(BADGE_EXPLANATIONS.all_week.en).not.toMatch(/weekday/i);
+    expect(BADGE_EXPLANATIONS.all_week.en).toMatch(/every day of the week/);
   });
 });

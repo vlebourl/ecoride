@@ -21,6 +21,7 @@ export interface EnsureCoolifyBackupParams {
   databaseUrl: string;
   coolifyWebhookUrl?: string;
   coolifyApiToken?: string;
+  requireConfig?: boolean;
   fetchImpl?: typeof fetch;
   pollIntervalMs?: number;
   timeoutMs?: number;
@@ -81,6 +82,7 @@ export async function ensureCoolifyBackupBeforeMigration({
   databaseUrl,
   coolifyWebhookUrl,
   coolifyApiToken,
+  requireConfig = false,
   fetchImpl = fetch,
   pollIntervalMs = 2_000,
   timeoutMs = 120_000,
@@ -89,6 +91,9 @@ export async function ensureCoolifyBackupBeforeMigration({
   const hasApiToken = Boolean(coolifyApiToken);
 
   if (!hasWebhookUrl && !hasApiToken) {
+    if (requireConfig) {
+      throw new Error("COOLIFY_WEBHOOK_URL and COOLIFY_API_TOKEN are required in production");
+    }
     logger.warn("coolify_backup_check_skipped", {
       reason: "missing_config",
     });

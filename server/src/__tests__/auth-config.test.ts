@@ -34,8 +34,7 @@ describe("better-auth account linking config", () => {
     // reading an absent key needs a wider view. If someone adds
     // `requireLocalEmailVerified: false`, this assertion catches it.
     const linking = auth.options.account?.accountLinking as
-      | { requireLocalEmailVerified?: boolean }
-      | undefined;
+      { requireLocalEmailVerified?: boolean } | undefined;
     expect(linking?.requireLocalEmailVerified).not.toBe(false);
   });
 });

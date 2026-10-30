@@ -1,6 +1,6 @@
 # ecoRide — Roadmap
 
-> Dernière vérification contre le code : 2026-07-28 (v2.50.1).
+> Dernière vérification contre le code : 2026-10-30 (v2.53.2).
 > Les sections « Livré » ont été recochées en lisant le code, pas la mémoire.
 
 ---
@@ -37,17 +37,20 @@ Voir `docs/archive/AUDIT-v1.2.md` pour le détail des 31/35 findings corrigés �
 - [x] Webhook Sentry → notifications (`sentry-webhook.routes.ts`)
 - [x] Logger structuré JSON avec requestId + userId (`server/src/lib/logger.ts`)
 - [x] Table `audit_logs` + consultation dans la page admin (`GET /admin/audit-logs`)
-- [ ] Rotation / rétention des logs — aujourd'hui stdout capturé par Coolify, pas de politique explicite
+- [x] Observabilité des écritures de trajets : log `trip_write_outcome` (rejets, rejeux, imports ignorés, erreurs de persistance), requêtes et seuils dans `docs/operations/trip-write-observability.md` (#375)
+- [ ] Rotation / rétention des logs — les logs JSON sont écrits sur stdout, aucune politique de rotation/rétention n'est définie dans le dépôt
 
 ---
 
 ## v2.2 — CI avancée — livré, sauf preview deploys
 
-- [x] Coverage vitest client + server, commentaire PR, seuil bloquant
-- [x] Bundle size check (budget +50 KB gzip, commentaire PR)
-- [x] Lighthouse CI avec seuil a11y bloquant
+- [x] Coverage vitest client + server, commentaire PR, seuil qui fait échouer le job (non requis par la protection de branche)
+- [x] Bundle size check (budget +50 KB gzip, commentaire PR ; fait échouer le job, non requis)
+- [x] Lighthouse CI avec seuil a11y (fait échouer le job, non requis)
 - [x] Analyse dead code : Knip + dependency-cruiser (scripts `knip`, `depcruise`)
-- [x] Renovate (`renovate.json`, auto-merge des patches)
+- [x] Renovate (`renovate.json`) : auto-merge des patchs/pins/digests et des mineures de devDependencies une fois la CI verte ; `better-auth`, `drizzle-orm` et `drizzle-kit` restent revus à la main. Plus de planning : un watchdog quotidien (`.github/workflows/renovate-watchdog.yml`, #371) échoue si des mises à jour restent bloquées en « Awaiting Schedule » dans le Dependency Dashboard
+- [x] Installs gelées (`bun install --frozen-lockfile` en CI et dans le Dockerfile), runtime Docker réduit aux dépendances de production du serveur, job CI `Production image build` (#369)
+- [x] Déploiement conditionné : pas de déploiement sans bump (#359), `ci-gate` sur la CI du SHA exact et refus si `main` a bougé (#376) — limites restantes en « Dette connue »
 - [ ] Preview deployments par PR (URL temporaire + auto-cleanup) — infra Coolify, gros chantier
 - [ ] Seed script `bun run db:seed` (users fictifs + ~50 trips réalistes) pour démo et dev local
 
@@ -59,7 +62,7 @@ Voir `docs/archive/AUDIT-v1.2.md` pour le détail des 31/35 findings corrigés �
 
 - [x] Headers HSTS / X-Frame-Options / nosniff / Referrer-Policy
 - [x] Content-Security-Policy strict (`server/src/lib/security-headers.ts`)
-- [x] `bun audit` dans la CI (bloquant sur `critical`)
+- [x] `bun audit` dans la CI (le job échoue sur `critical` ; non requis par la protection de branche)
 - [ ] Documenter la procédure de rotation des secrets (VAPID, auth secret, DB password)
 - [ ] Pen test checklist automatisée (OWASP top 10)
 
@@ -80,16 +83,17 @@ Voir `docs/archive/AUDIT-v1.2.md` pour le détail des 31/35 findings corrigés �
 ## Dette connue
 
 - ~~better-auth < 1.6.11 et drizzle-kit 0.30 traînent des CVE critiques~~ — corrigé :
-  better-auth ^1.7.2, drizzle-kit ^0.31.10, drizzle-orm ^0.45.2. Le job `audit` de la CI
-  n'a plus aucun `--ignore`, `bun audit --audit-level=critical` est vert.
-- Migration `0004_account_issuer` : better-auth ≥ 1.6 exige une colonne `account.issuer`
-  (`local:credential` / `https://accounts.google.com`). Le backfill est obligatoire — une
-  valeur absente ou fausse verrouille le compte, vérifié sur une base réelle.
-- Fenêtre de déploiement sur `account.issuer` : la migration tourne avant le démarrage du
-  nouveau conteneur, donc si Coolify laisse l'ancien servir jusqu'au health check, une
-  inscription pendant ces quelques secondes échoue en 500 (`issuer` NOT NULL sans défaut).
-  Un `DEFAULT 'local:credential'` fermerait la fenêtre mais écrirait un issuer faux sur une
-  ligne Google — un 500 visible et rejouable vaut mieux qu'une ligne silencieusement corrompue.
+  better-auth ^1.7.14, drizzle-kit ^0.31.11, drizzle-orm ^0.45.3. Le job `audit` de la CI
+  n'a plus aucun `--ignore`.
+- `account.issuer` : `0004_account_issuer` a ajouté et rempli la colonne pour better-auth 1.6 / 1.7.2.
+  Depuis better-auth 1.7.3 la bibliothèque n'écrit plus cette colonne ; `0006_account_issuer_nullable`
+  retire donc le `NOT NULL` (colonne et valeurs conservées), ce qui supprime aussi la fenêtre de
+  déploiement où une inscription échouait en 500. `server/src/db/__tests__/auth-schema.test.ts`
+  échoue si une colonne `NOT NULL` n'est pas écrite par Better Auth.
+- Déploiement (`auto-bump.yml`) : Coolify déploie la tête de `main` sans lien avec le SHA testé, et
+  des merges en rafale peuvent annuler un run en attente (un seul run en attente par groupe de
+  concurrence) — un `fix:`/`feat:` ainsi perdu n'est pas déployé avant le prochain `fix:`/`feat:`.
+  Voir `CLAUDE.md`, section CI/CD.
 - Pas de vérification d'email : tous les comptes email/mot de passe ont `emailVerified = false`,
   donc better-auth ≥ 1.6 refuse de les lier à une connexion Google sur la même adresse
   (garde-fou GHSA-g38m-r43w-p2q7). Un flux de vérification d'email lèverait la limite.

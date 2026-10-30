@@ -26,6 +26,15 @@ user, Coolify admin email, app/DB container UUIDs) on a **public** repo —
 that section has been removed from `CLAUDE.md` and moved to internal team
 memory.
 
+That report is a snapshot too. Some of its findings have since been fixed in
+`main` — for example the Coolify backup is now mandatory in production (#367),
+installs are frozen and the runtime image slimmed (#369), imports and
+leaderboards were hardened (#372), a trip is kept after a failed save (#373),
+and the deploy waits for CI on the exact SHA (#376). The CI, deploy and backup
+wording in `CLAUDE.md`/`README.md` was realigned with those changes afterwards.
+This list is not exhaustive: check the code, not this paragraph, for the status
+of any other finding.
+
 The findings were split into seven follow-up work items tracked internally
 (TIA-70 through TIA-76); this archive pass and the doc corrections in
 `CLAUDE.md`/`README.md`/`ROADMAP.md` are the output of one of them (doc

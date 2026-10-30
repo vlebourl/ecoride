@@ -1,0 +1,19 @@
+name: Renovate watchdog
+
+on:
+  schedule:
+    - cron: "15 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  dashboard:
+    name: Dependency Dashboard schedule check
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for updates stuck awaiting schedule
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-renovate-dashboard.mjs

@@ -52,5 +52,24 @@ describe("drizzle schema covers the Better Auth model", () => {
 
       expect(missing, `missing columns on "${table.modelName}"`).toEqual([]);
     });
+
+    // The reverse failure: Better Auth 1.7.3 stopped writing `account.issuer`,
+    // so a NOT NULL column it doesn't know about rejects every sign-up and link.
+    it(`requires no column Better Auth doesn't write on "${table.modelName}"`, () => {
+      const drizzleTable = ((schema as Record<string, unknown>)[key] ??
+        (schema as Record<string, unknown>)[table.modelName]) as Table;
+      const written = new Set(
+        Object.entries(table.fields).flatMap(([name, field]) => {
+          const column = field.fieldName ?? name;
+          return [column, toSnakeCase(column)];
+        }),
+      );
+      const unwritable = Object.values(getTableColumns(drizzleTable))
+        .filter((column) => column.notNull && !column.hasDefault && !column.primary)
+        .map((column) => column.name)
+        .filter((name) => !written.has(name));
+
+      expect(unwritable, `NOT NULL columns unknown to Better Auth`).toEqual([]);
+    });
   }
 });

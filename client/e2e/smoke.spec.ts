@@ -130,7 +130,9 @@ for (const { path, name } of PAGES) {
       });
     });
 
-    await page.goto(path, { waitUntil: "networkidle" });
+    // MapLibre's worker request remains active in Playwright after load.
+    // Check rendered UI below instead of waiting for networkidle.
+    await page.goto(path, { waitUntil: "load" });
 
     // Page should NOT show the error boundary
     const errorBoundary = page.getByText("Une erreur est survenue");

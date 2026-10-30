@@ -17,7 +17,7 @@ test("#82 regression: interrupt button anchored at bottom and map visible during
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   // Start tracking
   const startBtn = page.getByText("Démarrer");

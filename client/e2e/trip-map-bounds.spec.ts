@@ -157,10 +157,23 @@ test.describe("Trip map bounds in bottom sheet (#103)", () => {
       });
     });
 
-    await page.goto("/stats", { waitUntil: "networkidle" });
+    const workerErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error" && message.text().includes("Worker failed to load")) {
+        workerErrors.push(message.text());
+      }
+    });
 
-    // Click the trip to open the bottom sheet
+    await page.goto("/stats", { waitUntil: "load" });
+
+    // Opening stats directly must load the emitted worker, even if /trip was never visited.
+    const workerResponse = page.waitForResponse((response) =>
+      /\/assets\/maplibre-gl-worker-[^/]+\.js(?:\?|$)/.test(response.url()),
+    );
     await page.getByText("+5.2 KM").click();
+    const response = await workerResponse;
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("javascript");
 
     // Wait for the bottom sheet dialog
     const sheet = page.getByRole("dialog", { name: "Détail du trajet" });
@@ -175,5 +188,6 @@ test.describe("Trip map bounds in bottom sheet (#103)", () => {
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThan(100);
     expect(box!.height).toBeGreaterThan(100);
+    expect(workerErrors).toEqual([]);
   });
 });

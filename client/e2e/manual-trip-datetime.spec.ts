@@ -81,7 +81,7 @@ test("manual entry sends user-chosen startedAt to the API", async ({ page }) => 
     });
   });
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
 
   await page.getByRole("button", { name: "Saisie manuelle" }).click();
 
@@ -186,7 +186,7 @@ test("manual entry without a date defaults to now", async ({ page }) => {
   });
 
   const submitTime = Date.now();
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
   await page.getByRole("button", { name: "Saisie manuelle" }).click();
   await page.getByLabel("Distance (km)").fill("5");
   await page.getByLabel("Durée (minutes)").fill("20");

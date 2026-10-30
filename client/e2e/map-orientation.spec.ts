@@ -47,7 +47,7 @@ test("map orientation toggles between POV and north-up and persists across reloa
     }),
   );
 
-  await page.goto("/trip", { waitUntil: "networkidle" });
+  await page.goto("/trip", { waitUntil: "load" });
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 
@@ -71,7 +71,7 @@ test("map orientation toggles between POV and north-up and persists across reloa
   await page.getByRole("button", { name: "Abandonner" }).click();
   await expect(page.getByText("Démarrer")).toBeVisible({ timeout: 5000 });
 
-  await page.reload({ waitUntil: "networkidle" });
+  await page.reload({ waitUntil: "load" });
   await page.getByText("Démarrer").click();
   await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 

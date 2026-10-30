@@ -25,7 +25,7 @@ test.describe("trip navigation state persistence", () => {
   });
 
   test("trip auto-restores after navigating away and returning (fix #147)", async ({ page }) => {
-    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.goto("/trip", { waitUntil: "load" });
 
     // Start tracking
     await page.getByText("Démarrer").click();
@@ -51,7 +51,7 @@ test.describe("trip navigation state persistence", () => {
     await page.goto("/stats", { waitUntil: "networkidle" });
 
     // Navigate back to the trip page
-    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.goto("/trip", { waitUntil: "load" });
 
     // Trip must be auto-restored — interrupt button visible without user action
     await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
@@ -68,7 +68,7 @@ test.describe("trip navigation state persistence", () => {
   test("starting a new trip clears stale backup (fix #146)", async ({ page }) => {
     // Pre-seed a stale backup from a previous session
     const staleStartedAt = new Date(Date.now() - 3_600_000).toISOString(); // 1h ago
-    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.goto("/trip", { waitUntil: "load" });
 
     await page.evaluate(({ key, backup }) => localStorage.setItem(key, JSON.stringify(backup)), {
       key: BACKUP_KEY,
@@ -103,7 +103,7 @@ test.describe("trip navigation state persistence", () => {
     await page.goto("/stats", { waitUntil: "networkidle" });
 
     // Return to trip — no stale backup exists, so no recovery for old trip
-    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.goto("/trip", { waitUntil: "load" });
 
     // The stale backup's data (3.2 km) must NOT appear anywhere
     const bodyText = await page.locator("body").textContent();

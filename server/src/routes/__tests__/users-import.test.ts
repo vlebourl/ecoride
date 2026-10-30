@@ -260,6 +260,62 @@ describe("POST /user/import", () => {
     expect(inserted[0].startedAt.toISOString()).toBe("2026-01-02T10:00:00.000Z");
   });
 
+  it("counts skipped trips while still recalculating the forged ones it inserts", async () => {
+    mocks.selectWhere.mockResolvedValueOnce([{ startedAt: new Date("2026-01-01T10:00:00.000Z") }]);
+
+    const res = await buildApp().request("/user/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trips: [
+          sampleTrip(),
+          sampleTrip({
+            startedAt: "2026-01-02T10:00:00.000Z",
+            endedAt: "2026-01-02T10:30:00.000Z",
+            co2SavedKg: 10_000,
+          }),
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ data: { imported: 1, skipped: 1 } });
+    expect(mocks.insertValues.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ co2SavedKg: 1.996, fuelPriceEur: 1.75 }),
+    ]);
+    expect(mocks.warn).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "import",
+      outcome: "import_skipped",
+      category: "expected",
+      count: 1,
+    });
+  });
+
+  it("logs a persistence error from the import transaction without leaking the driver message", async () => {
+    mocks.insertValues.mockRejectedValueOnce(
+      new Error('duplicate key "550e8400-e29b-41d4-a716-446655440000" at 48.8566'),
+    );
+
+    const res = await buildApp().request("/user/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trips: [sampleTrip({ idempotencyKey: "550e8400-e29b-41d4-a716-446655440000" })],
+      }),
+    });
+
+    expect(res.status).toBe(500);
+    expect(mocks.error).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "import",
+      outcome: "persistence_error",
+      category: "persistence_error",
+      count: 1,
+    });
+    expect(JSON.stringify(mocks.error.mock.calls)).not.toMatch(/550e8400|48\.8566/);
+    expect(mocks.logAudit).not.toHaveBeenCalled();
+    expect(mocks.evaluateAndUnlockBadges).not.toHaveBeenCalled();
+  });
+
   it("skips an imported key already attached to another trip", async () => {
     mocks.selectWhere.mockResolvedValueOnce([
       {

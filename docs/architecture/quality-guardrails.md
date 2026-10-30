@@ -7,8 +7,8 @@ number is likely to move (coverage thresholds, complexity scores), this doc
 points at the config that owns it instead of duplicating the value.
 
 See also: [`CLAUDE.md`](../../CLAUDE.md) (project overview, dev rules),
-[`DECISIONS.md`](../../DECISIONS.md) (one-off technical decisions),
-[`docs/quality/complexity-baseline.md`](../quality/complexity-baseline.md)
+[`docs/archive/DECISIONS.md`](../archive/DECISIONS.md) (frozen, one-off technical
+decisions up to 2026-03), [`docs/quality/complexity-baseline.md`](../quality/complexity-baseline.md)
 (current hotspot scores).
 
 ## Package layout
@@ -61,20 +61,29 @@ entrypoint whitelist) across all three packages.
 
 ## Where checks run
 
-| Check                               | Command                        | CI (blocks PR) |   Pre-commit    | Local only |
-| ----------------------------------- | ------------------------------ | :------------: | :-------------: | :--------: |
-| Conventional commit message         | `commitlint`                   |       ✓        |                 |            |
-| ESLint (boundaries, hooks, sonarjs) | `lint`                         |       ✓        | ✓ (lint-staged) |            |
-| Prettier formatting                 | `format:check`                 |       ✓        | ✓ (lint-staged) |            |
-| TypeScript typecheck                | `typecheck`                    |       ✓        |                 |            |
-| Unit tests                          | `test` / `test:coverage`       |       ✓        |                 |            |
-| Coverage thresholds                 | `test:coverage` (vitest v8)    |       ✓        |                 |            |
-| Playwright smoke tests              | `playwright test`              |       ✓        |                 |            |
-| Bundle size budget                  | CI `bundle-size` job           |       ✓        |                 |            |
-| Lighthouse (accessibility)          | CI `lighthouse` job            |       ✓        |                 |            |
-| Dependency boundaries / cycles      | `depcruise`                    |                |                 |     ✓      |
-| Dead code & unused deps             | `knip:strict`                  |                |                 |     ✓      |
-| Structural complexity               | `quality:complexity` (`fta .`) |                |                 |     ✓      |
+| Check                               | Command                        | Runs in CI | Pre-commit | Local only |
+| ----------------------------------- | ------------------------------ | :--------: | :--------: | :--------: |
+| Conventional commit message         | `commitlint`                   |   ✓ (PR)   |  ✓ (hook)  |            |
+| ESLint (boundaries, hooks, sonarjs) | `lint`                         |     ✓      |     ✓      |            |
+| Prettier formatting                 | `format:check`                 |     ✓      |     ✓      |            |
+| TypeScript typecheck                | `typecheck`                    |     ✓      |            |            |
+| Dependency audit (critical only)    | `bun audit`                    |     ✓      |            |            |
+| Production image builds             | CI `docker-build` job          |     ✓      |            |            |
+| Unit tests                          | `test` / `test:coverage`       |     ✓      |            |            |
+| Coverage thresholds                 | `test:coverage` (vitest v8)    |     ✓      |            |            |
+| Playwright smoke tests              | `playwright test`              |     ✓      |            |            |
+| Bundle size budget                  | CI `bundle-size` job           |   ✓ (PR)   |            |            |
+| Lighthouse (accessibility)          | CI `lighthouse` job            |   ✓ (PR)   |            |            |
+| Dependency boundaries / cycles      | `depcruise`                    |            |            |     ✓      |
+| Dead code & unused deps             | `knip:strict`                  |            |            |     ✓      |
+| Structural complexity               | `quality:complexity` (`fta .`) |            |            |     ✓      |
+
+"Runs in CI" does not mean "blocks the merge". The required status checks (branch
+protection, a repository setting that is not versioned here) are Lint & Format,
+Tests, TypeScript check and the Playwright smoke test. The other CI jobs fail
+their own job when violated but do not block the merge. The same `ci.yml` also
+runs on push to `main`, and `auto-bump.yml` waits for that run before deploying a bumped commit
+(see [`CLAUDE.md`](../../CLAUDE.md#cicd-pipeline)).
 
 `quality:local` (`format:check && lint && typecheck`) reproduces the fast CI
 gates before pushing.

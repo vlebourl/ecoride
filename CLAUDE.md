@@ -85,9 +85,10 @@ migration auto-applies on the next deploy.**
 
 Before migrating, `ensureCoolifyBackupBeforeMigration` (`server/src/lib/coolify-backup.ts`)
 triggers a Coolify backup and blocks on it — but only if `COOLIFY_WEBHOOK_URL` and
-`COOLIFY_API_TOKEN` are both set. If either is missing, the backup check is **silently
+`COOLIFY_API_TOKEN` are both set. If both are missing, the backup check is **silently
 skipped** (a `coolify_backup_check_skipped` warning log, then straight to migration) —
-it is not a guaranteed pre-migration backup.
+it is not a guaranteed pre-migration backup. If only one is set, startup fails before
+migrating.
 
 - `drizzle-kit push` is local-dev only (`db:push:local`). Never against production.
 - Adding an index or column to `server/src/db/schema/` does **nothing** on its own.
@@ -117,8 +118,8 @@ it is not a guaranteed pre-migration backup.
 
 ## Infrastructure
 
-Server access, Coolify credentials, and container identifiers are **not documented in
-this public repo**. They're kept in internal team memory — ask Lyra/Mnemosyne if an
+Server access and Coolify credentials are **not documented in this public repo**. They're
+kept in internal team memory — ask Lyra/Mnemosyne if an
 agent session needs them.
 
 ## Current State

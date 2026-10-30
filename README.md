@@ -153,6 +153,7 @@ docker compose up --build
 - Toute évolution de schéma passe par `bun run db:generate`, revue du SQL généré, puis application via `bun run db:migrate`.
 - La base PostgreSQL de production est sauvegardée automatiquement par Coolify sur un planning dédié.
 - En production Coolify, un **échec** du backup (une fois déclenché) bloque la migration et empêche
-  le démarrage de la nouvelle révision. En revanche, si `COOLIFY_WEBHOOK_URL` / `COOLIFY_API_TOKEN`
-  ne sont pas configurées, la vérification de backup est **ignorée silencieusement** et la migration
-  se lance quand même — ce n'est pas un garde-fou garanti (`server/src/lib/coolify-backup.ts`).
+  le démarrage de la nouvelle révision. En revanche, si `COOLIFY_WEBHOOK_URL` et `COOLIFY_API_TOKEN`
+  sont toutes deux absentes, la vérification de backup est **ignorée silencieusement** et la migration
+  se lance quand même — ce n'est pas un garde-fou garanti (`server/src/lib/coolify-backup.ts`). Si une
+  seule des deux est définie, le démarrage échoue avant la migration.

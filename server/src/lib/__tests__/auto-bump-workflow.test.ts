@@ -177,6 +177,13 @@ describe("auto-bump commit-to-deployment decision", () => {
     expect(evaluate(workflow.jobs.deploy.if, { needs })).toBe("false");
   });
 
+  it("triggers Coolify with POST, the only method its deploy endpoint accepts", () => {
+    const trigger = workflow.jobs.deploy.steps.find((step) =>
+      step.run?.includes("/api/v1/deploy?"),
+    );
+    expect(trigger?.run).toContain("-X POST");
+  });
+
   it("gates and deploys the exact commit the bump job recorded after its push", () => {
     const { bump, deploy } = workflow.jobs;
     const gate = workflow.jobs["ci-gate"];

@@ -23,7 +23,7 @@ jobs:
     # Skip if the commit is already a version bump (prevent infinite loop)
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # PAT with repo scope (owner token) — GITHUB_TOKEN cannot push directly
           # to a protected branch. Owner token bypasses branch protection when
@@ -107,7 +107,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Require successful CI for the deployment SHA
         env:
           GITHUB_TOKEN: ${{ github.token }}

@@ -12,7 +12,7 @@ jobs:
     permissions:
       issues: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check for updates stuck awaiting schedule
         env:
           GITHUB_TOKEN: ${{ github.token }}

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { BadgeGrid } from "../BadgeGrid";
+import { BADGE_EXPLANATIONS } from "../badge-explanations";
 import { I18nProvider } from "@/i18n/provider";
 
 // Install a Storage-like mock so tests do not rely on the host localStorage
@@ -55,5 +56,35 @@ describe("BadgeGrid", () => {
   it("affiche les 46 badges", () => {
     renderGrid();
     expect(screen.getAllByRole("listitem")).toHaveLength(46);
+  });
+
+  it("explique le critère d'un badge verrouillé au clic et se ferme avec Échap", () => {
+    renderGrid();
+    fireEvent.click(screen.getByRole("button", { name: "Lève-tôt" }));
+    expect(screen.getByRole("dialog", { name: "Lève-tôt" })).toBeTruthy();
+    expect(screen.getByText("Démarrer 10 trajets avant 7 h, heure locale.")).toBeTruthy();
+    expect(screen.getByText("À débloquer")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("explique aussi un badge déjà débloqué", () => {
+    renderGrid([{ badgeId: "first_trip" }]);
+    fireEvent.click(screen.getByRole("button", { name: "Premier trajet" }));
+    expect(screen.getByText("Effectuer votre premier trajet à vélo.")).toBeTruthy();
+    expect(screen.getByText("Débloqué")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("ne déclenche pas la navigation par balayage depuis la modale", () => {
+    renderGrid();
+    fireEvent.click(screen.getByRole("button", { name: "Lève-tôt" }));
+    expect(screen.getByRole("dialog").closest("[data-no-swipe]")).toBeTruthy();
+  });
+
+  it("exige les sept jours pour all_week, y compris en anglais", () => {
+    expect(BADGE_EXPLANATIONS.all_week.en).not.toMatch(/weekday/i);
+    expect(BADGE_EXPLANATIONS.all_week.en).toMatch(/every day of the week/);
   });
 });

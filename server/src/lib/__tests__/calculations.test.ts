@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateSavings } from "../calculations";
+import { calculateSavings, plausibleStoredSavings } from "../calculations";
 
 describe("calculateSavings", () => {
   it("calculates normal case (10km, 7L/100km, 1.85 EUR/L)", () => {
@@ -102,3 +102,63 @@ describe("calculateSavings", () => {
     expect(result.moneySavedEur).toBe(0.01);
   });
 });
+
+describe("plausibleStoredSavings", () => {
+  it("accepts what calculateSavings produced, rounded or stored as float32", () => {
+    for (const distanceKm of [0.01, 0.37, 3.333, 12.345, 87.654, 500]) {
+      for (const consumptionL100 of [0.1, 3.9, 5.67, 7, 12.5, 50]) {
+        for (const fuelPriceEur of [0.85, 1.234, 1.75, 2.049, 5]) {
+          const saved = calculateSavings({ distanceKm, consumptionL100, fuelPriceEur });
+          for (const stored of [saved, mapValues(saved, Math.fround)]) {
+            expect(plausibleStoredSavings({ distanceKm, ...stored, fuelPriceEur })).toEqual({
+              ...stored,
+              fuelPriceEur,
+            });
+          }
+        }
+      }
+    }
+  });
+
+  it("returns null for missing savings and keeps an absent price as null", () => {
+    expect(
+      plausibleStoredSavings({ distanceKm: 10, fuelSavedL: 0.7, co2SavedKg: 1.617 }),
+    ).toBeNull();
+    expect(
+      plausibleStoredSavings({
+        distanceKm: 10,
+        fuelSavedL: 0.7,
+        co2SavedKg: 1.617,
+        moneySavedEur: 1.3,
+      }),
+    ).toMatchObject({ fuelPriceEur: null });
+  });
+
+  it.each([
+    {
+      label: "fuel above distance x 50 L/100km",
+      fuelSavedL: 5.01,
+      co2SavedKg: 11.573,
+      moneySavedEur: 5,
+    },
+    { label: "CO2 off the ADEME factor", fuelSavedL: 0.7, co2SavedKg: 10_000, moneySavedEur: 1.3 },
+    { label: "money above fuel x 5 EUR/L", fuelSavedL: 0.7, co2SavedKg: 1.617, moneySavedEur: 3.6 },
+    {
+      label: "fuel price above 5 EUR/L",
+      fuelSavedL: 0.7,
+      co2SavedKg: 1.617,
+      moneySavedEur: 1.3,
+      fuelPriceEur: 5.01,
+    },
+  ])("returns null for $label", ({ label: _label, ...savings }) => {
+    expect(plausibleStoredSavings({ distanceKm: 10, ...savings })).toBeNull();
+  });
+});
+
+function mapValues(saved: ReturnType<typeof calculateSavings>, fn: (n: number) => number) {
+  return {
+    co2SavedKg: fn(saved.co2SavedKg),
+    moneySavedEur: fn(saved.moneySavedEur),
+    fuelSavedL: fn(saved.fuelSavedL),
+  };
+}

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "trips_user_id_idempotency_key_unique" ON "trips" USING btree ("user_id","idempotency_key");

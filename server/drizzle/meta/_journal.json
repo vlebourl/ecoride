@@ -50,6 +50,13 @@
       "when": 1793367745396,
       "tag": "0006_account_issuer_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793368310965,
+      "tag": "0007_trip_idempotency",
+      "breakpoints": true
     }
   ]
 }

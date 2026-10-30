@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FUEL_TYPES, WEEK_DAYS, type Super73Mode } from "@ecoride/shared/types";
+import { MAX_CONSUMPTION_L100 } from "../lib/calculations";
 import { isValidIanaTimezone } from "../lib/timezone";
 
 const SUPER73_MODES = ["eco", "tour", "sport", "race"] as const satisfies readonly Super73Mode[];
@@ -8,7 +9,7 @@ export const updateUserSchema = z
   .object({
     vehicleModel: z.string().max(100).optional(),
     fuelType: z.enum(FUEL_TYPES as unknown as [string, ...string[]]).optional(),
-    consumptionL100: z.number().positive().max(50).optional(),
+    consumptionL100: z.number().positive().max(MAX_CONSUMPTION_L100).optional(),
     mileage: z.number().int().nonnegative().optional(),
     timezone: z.string().refine(isValidIanaTimezone, "Invalid IANA timezone").optional(),
     leaderboardOptOut: z.boolean().optional(),

@@ -97,6 +97,9 @@ function decision(message: string, result = "success") {
 describe("auto-bump commit-to-deployment decision", () => {
   it.each([
     ["docs: clarify setup", "none", false],
+    ["Merge pull request #371 from o/b\n\nfix: allow Renovate\n\nDetails", "patch", true],
+    ["Merge pull request #372 from o/b\n\nfeat: add badges", "minor", true],
+    ["Merge pull request #373 from o/b\n\ndocs: clarify\n\nfix: not the title", "none", false],
     ["chore: update tooling", "none", false],
     ["docs(api): explain routes\n\nfeat: this is documentation, not the subject", "none", false],
     ["ci: adjust checks", "none", false],

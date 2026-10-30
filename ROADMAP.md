@@ -81,11 +81,7 @@ Voir `docs/archive/AUDIT-v1.2.md` pour le détail des 31/35 findings corrigés �
 
 - ~~better-auth < 1.6.11 et drizzle-kit 0.30 traînent des CVE critiques~~ — corrigé :
   better-auth ^1.7.2, drizzle-kit ^0.31.10, drizzle-orm ^0.45.2. Le job `audit` de la CI
-  n'a plus aucun `--ignore` codé en dur.
-- **`bun audit --audit-level=critical` est actuellement rouge** : vulnérabilité critique sur
-  `maplibre-gl` ≤ 6.4.0 (GHSA-jrc7-96c5-q579). Bloque la CI sur toute PR (dont #359) depuis
-  plusieurs semaines. Renovate n'a ouvert aucune PR de mise à jour depuis fin juillet
-  (23 updates en attente) — à investiguer avant de pouvoir remonter maplibre.
+  n'a plus aucun `--ignore`, `bun audit --audit-level=critical` est vert.
 - Migration `0004_account_issuer` : better-auth ≥ 1.6 exige une colonne `account.issuer`
   (`local:credential` / `https://accounts.google.com`). Le backfill est obligatoire — une
   valeur absente ou fausse verrouille le compte, vérifié sur une base réelle.

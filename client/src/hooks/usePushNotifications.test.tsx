@@ -40,6 +40,10 @@ describe("usePushNotifications", () => {
     vi.setSystemTime(new Date(2026, 0, 15, 9, 5));
     await result.current.toggle();
 
-    expect(mutate).toHaveBeenCalledWith({ reminderEnabled: true, reminderTime: "09:05" });
+    expect(mutate).toHaveBeenCalledWith({
+      reminderEnabled: true,
+      reminderTime: "09:05",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
   });
 });

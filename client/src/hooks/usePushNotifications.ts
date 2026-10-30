@@ -65,6 +65,7 @@ export function usePushNotifications() {
           updateProfile.mutate({
             reminderEnabled: true,
             reminderTime: formatLocalReminderTime(new Date()),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           });
           setStatus("subscribed");
         } else {

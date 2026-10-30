@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - run: bunx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
 
   lint:
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run format:check
 
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
       # Gate on critical only — the moderate/high noise is almost entirely
       # transitive build tooling. Renovate opens the PRs for the rest.
       # No ignores: the two former exceptions (GHSA-w7jw-789q-3m8p via
@@ -43,13 +43,20 @@ jobs:
       # drizzle-kit 0.31 / better-auth 1.7 upgrades.
       - run: bun audit --audit-level=critical
 
+  docker-build:
+    name: Production image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag ecoride:ci .
+
   typecheck:
     name: TypeScript check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - run: bun run typecheck
 
   test:
@@ -58,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - run: cd client && bunx vitest run
       - run: cd server && bun run test:coverage
 
@@ -79,7 +86,7 @@ jobs:
       - name: Build base branch
         run: |
           git checkout ${{ github.event.pull_request.base.sha }}
-          bun install
+          bun install --frozen-lockfile
           (cd client && bun run build)
           mkdir -p /tmp/base-dist
           cp -r client/dist/assets /tmp/base-dist/assets
@@ -87,7 +94,7 @@ jobs:
       - name: Build PR branch
         run: |
           git checkout -f ${{ github.sha }}
-          bun install
+          bun install --frozen-lockfile
           cd client && bun run build
 
       - name: Compare bundle sizes
@@ -173,7 +180,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Restore base coverage
         if: github.event_name == 'pull_request'
@@ -291,7 +298,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - run: cd client && bun run build
         env:
           # Optional: add SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT as GitHub
@@ -318,7 +325,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Build
         run: (cd client && bun run build)

@@ -14,7 +14,13 @@ const mocks = vi.hoisted(() => {
   const mockGetFuelPrice = vi.fn();
   const mockCalculateSavings = vi.fn();
   const mockLoggerError = vi.fn();
-  const mockWithContext = vi.fn(() => ({ error: mockLoggerError, info: vi.fn(), warn: vi.fn() }));
+  const mockLoggerWarn = vi.fn();
+  const mockLoggerInfo = vi.fn();
+  const mockWithContext = vi.fn(() => ({
+    error: mockLoggerError,
+    info: mockLoggerInfo,
+    warn: mockLoggerWarn,
+  }));
   const mockTransaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
     callback({
       select: mockSelect,
@@ -35,6 +41,8 @@ const mocks = vi.hoisted(() => {
     mockGetFuelPrice,
     mockCalculateSavings,
     mockLoggerError,
+    mockLoggerWarn,
+    mockLoggerInfo,
     mockWithContext,
     mockTransaction,
   };
@@ -239,7 +247,7 @@ describe("POST /trips", () => {
 
     const res = await buildApp().request("/trips", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Trip-Source": "offline-sync" },
       body: JSON.stringify({
         distanceKm: 12,
         durationSec: 600,
@@ -252,6 +260,13 @@ describe("POST /trips", () => {
     expect(res.status).toBe(409);
     expect(mocks.mockEvaluateAndUnlockBadges).not.toHaveBeenCalled();
     expect(mocks.mockTransaction).not.toHaveBeenCalled();
+    expect(mocks.mockLoggerWarn).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "offline_sync",
+      outcome: "idempotency_conflict",
+      category: "expected",
+      count: 1,
+    });
+    expect(JSON.stringify(mocks.mockLoggerWarn.mock.calls)).not.toContain("f0cffc30");
   });
 
   it("also rejects a key collision found after entering the creation transaction", async () => {
@@ -286,6 +301,127 @@ describe("POST /trips", () => {
     expect(mocks.mockTransaction).toHaveBeenCalledTimes(1);
     expect(mocks.mockEvaluateAndUnlockBadges).not.toHaveBeenCalled();
     expect(mocks.mockInsert).not.toHaveBeenCalled();
+    expect(mocks.mockLoggerWarn).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "direct",
+      outcome: "idempotency_conflict",
+      category: "expected",
+      count: 1,
+    });
+  });
+
+  it("logs a safe replay after acceptance without another insert or push", async () => {
+    const key = "f0cffc30-f3f8-4eb1-84e1-a94d18618994";
+    mocks.mockSelect.mockReset().mockReturnValueOnce(
+      buildLimitChain([
+        {
+          id: "trip-1",
+          distanceKm: 10,
+          durationSec: 600,
+          startedAt: new Date("2026-04-07T10:00:00.000Z"),
+          endedAt: new Date("2026-04-07T10:10:00.000Z"),
+          gpsPoints: null,
+        },
+      ]),
+    );
+    const res = await buildApp().request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 10,
+        durationSec: 600,
+        startedAt: "2026-04-07T10:00:00.000Z",
+        endedAt: "2026-04-07T10:10:00.000Z",
+        idempotencyKey: key,
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(mocks.mockInsert).not.toHaveBeenCalled();
+    expect(mocks.mockSendPushToUser).not.toHaveBeenCalled();
+    expect(mocks.mockLoggerInfo).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "direct",
+      outcome: "idempotent_replay",
+      category: "expected",
+      count: 1,
+    });
+    expect(JSON.stringify(mocks.mockLoggerInfo.mock.calls)).not.toContain(key);
+  });
+
+  it("separates overlap rejection from persistence failure", async () => {
+    mocks.mockSelect
+      .mockReset()
+      .mockReturnValueOnce(buildProfileChain([{ consumptionL100: 6.5, fuelType: "sp95" }]))
+      .mockReturnValueOnce(buildLimitChain([{ id: "trip-old" }]));
+    const payload = {
+      distanceKm: 10,
+      durationSec: 600,
+      startedAt: "2026-04-07T10:00:00.000Z",
+      endedAt: "2026-04-07T10:10:00.000Z",
+    };
+    const res = await buildApp().request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    expect(res.status).toBe(409);
+    expect(mocks.mockLoggerWarn).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "direct",
+      outcome: "overlap_rejected",
+      category: "expected",
+      count: 1,
+    });
+    expect(mocks.mockLoggerError).not.toHaveBeenCalledWith("trip_write_outcome", expect.anything());
+  });
+
+  it("logs a persistence error without leaking the database message or trip data", async () => {
+    mocks.mockSelect.mockReset().mockReturnValueOnce({
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockRejectedValue(new Error("secret-key 48.8566")),
+    });
+    const res = await buildApp().request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        distanceKm: 10,
+        durationSec: 600,
+        startedAt: "2026-04-07T10:00:00.000Z",
+        endedAt: "2026-04-07T10:10:00.000Z",
+        idempotencyKey: "f0cffc30-f3f8-4eb1-84e1-a94d18618994",
+      }),
+    });
+    expect(res.status).toBe(500);
+    expect(mocks.mockLoggerError).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "direct",
+      outcome: "persistence_error",
+      category: "persistence_error",
+      count: 1,
+    });
+    expect(JSON.stringify(mocks.mockLoggerError.mock.calls)).not.toMatch(
+      /secret-key|48\.8566|f0cffc30/,
+    );
+  });
+
+  it("labels a rejected offline sync before any persistence call", async () => {
+    const res = await buildApp().request("/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Trip-Source": "offline-sync" },
+      body: JSON.stringify({
+        distanceKm: -1,
+        durationSec: 600,
+        startedAt: "2026-04-07T10:00:00.000Z",
+        endedAt: "2026-04-07T10:10:00.000Z",
+        idempotencyKey: "f0cffc30-f3f8-4eb1-84e1-a94d18618994",
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(mocks.mockSelect).not.toHaveBeenCalled();
+    expect(mocks.mockLoggerWarn).toHaveBeenCalledWith("trip_write_outcome", {
+      source: "offline_sync",
+      outcome: "validation_rejected",
+      category: "expected",
+      count: 1,
+    });
+    expect(JSON.stringify(mocks.mockLoggerWarn.mock.calls)).not.toContain("f0cffc30");
   });
 
   it("skips the leaderboard overtake check for backdated trips", async () => {

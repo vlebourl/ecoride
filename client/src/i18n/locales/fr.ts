@@ -32,6 +32,8 @@ export const fr = {
   "trip.confirm.abandon": "Abandonner ce trajet ? Les données seront perdues.",
   "trip.offline.savedLocally": "Trajet sauvegardé hors-ligne. Il sera envoyé automatiquement.",
   "trip.errors.saveRejected": "Trajet refusé par le serveur. Vérifiez les horaires et réessayez.",
+  "trip.errors.queueFailed":
+    "Enregistrement local impossible. Gardez cette page ouverte et réessayez.",
 
   "trip.dashboard.pausedAria": "Trajet en pause",
   "trip.dashboard.pausedLabel": "PAUSÉ",

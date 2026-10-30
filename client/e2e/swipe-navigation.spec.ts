@@ -198,7 +198,7 @@ test.describe("swipe navigation between pages", () => {
       });
     });
 
-    await page.goto("/trip", { waitUntil: "networkidle" });
+    await page.goto("/trip", { waitUntil: "load" });
     await page.getByText("Démarrer").click();
     await expect(page.getByText("Interrompre")).toBeVisible({ timeout: 5000 });
 

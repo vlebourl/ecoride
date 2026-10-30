@@ -46,7 +46,7 @@ const importTripSchema = z
   .object({
     distanceKm: z.number().positive().max(500),
     durationSec: z.number().int().min(1).max(86400),
-    // Legacy exports include these values, but the import route recalculates them.
+    // Exports include these values; the import keeps them only when plausible, else recalculates.
     co2SavedKg: z.number().nonnegative().optional(),
     moneySavedEur: z.number().nonnegative().optional(),
     fuelSavedL: z.number().nonnegative().optional(),

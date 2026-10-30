@@ -12,7 +12,12 @@ import { logAudit } from "../lib/audit";
 import { evaluateAndUnlockBadges } from "../lib/badges";
 import { reportBackgroundError } from "../lib/background";
 import { logger } from "../lib/logger";
-import { calculateSavings } from "../lib/calculations";
+import {
+  calculateSavings,
+  plausibleStoredSavings,
+  MAX_CONSUMPTION_L100,
+  MAX_FUEL_PRICE_EUR,
+} from "../lib/calculations";
 import { getFuelPrice } from "../lib/fuel-price";
 import type { AuthEnv } from "../types/context";
 
@@ -132,7 +137,31 @@ usersRouter.get("/export", async (c) => {
   return c.json(exportData);
 });
 
-// POST /api/user/import — Restore exported trips using server-calculated savings
+// Current profile consumption and market fuel price, used to recalculate impossible trips.
+async function currentMarket(currentUser: AuthEnv["Variables"]["user"]) {
+  const consumptionL100 =
+    currentUser.consumptionL100 && currentUser.consumptionL100 <= MAX_CONSUMPTION_L100
+      ? currentUser.consumptionL100
+      : 7;
+  const fuelType = (currentUser.fuelType ?? "sp95") as "sp95" | "sp98" | "diesel" | "e85" | "gpl";
+  const fallbackPrices = { sp95: 1.75, sp98: 1.85, diesel: 1.65, e85: 0.85, gpl: 0.95 };
+  let fuelPriceEur = fallbackPrices[fuelType];
+  try {
+    const currentPrice = await getFuelPrice(fuelType);
+    if (currentPrice.priceEur > 0 && currentPrice.priceEur <= MAX_FUEL_PRICE_EUR)
+      fuelPriceEur = currentPrice.priceEur;
+  } catch {
+    // The market feed is optional; keep the import bounded during an outage.
+  }
+  return { consumptionL100, fuelPriceEur };
+}
+
+// POST /api/user/import — Restore exported trips. An import restores history: stored
+// co2/money/fuel/fuelPrice are kept as-is when physically plausible (see
+// plausibleStoredSavings), never recomputed with today's profile or prices. A trip whose
+// values are missing or impossible (forged to inflate leaderboards) is not rejected; its
+// savings are recalculated from the current profile and market price. The profile and
+// market price are only read when such a trip exists.
 usersRouter.post("/import", zValidator("json", importDataSchema, validationHook), async (c) => {
   const currentUser = c.get("user");
   const { trips: incoming } = c.req.valid("json");
@@ -145,20 +174,16 @@ usersRouter.post("/import", zValidator("json", importDataSchema, validationHook)
   const incomingStarts = incoming.map((t) => new Date(t.startedAt));
   const incomingKeys = incoming.flatMap((t) => (t.idempotencyKey ? [t.idempotencyKey] : []));
 
-  const consumptionL100 =
-    currentUser.consumptionL100 && currentUser.consumptionL100 <= 50
-      ? currentUser.consumptionL100
-      : 7;
-  const fuelType = (currentUser.fuelType ?? "sp95") as "sp95" | "sp98" | "diesel" | "e85" | "gpl";
-  const fallbackPrices = { sp95: 1.75, sp98: 1.85, diesel: 1.65, e85: 0.85, gpl: 0.95 };
-  let fuelPriceEur = fallbackPrices[fuelType];
-  try {
-    const currentPrice = await getFuelPrice(fuelType);
-    if (currentPrice.priceEur > 0 && currentPrice.priceEur <= 5)
-      fuelPriceEur = currentPrice.priceEur;
-  } catch {
-    // The market feed is optional; keep the import bounded during an outage.
-  }
+  let market: ReturnType<typeof currentMarket> | undefined;
+  const prepared = await Promise.all(
+    incoming.map(async (t) => {
+      const kept = plausibleStoredSavings(t);
+      if (kept) return { t, savings: kept };
+      const { consumptionL100, fuelPriceEur } = await (market ??= currentMarket(currentUser));
+      const savings = calculateSavings({ distanceKm: t.distanceKm, consumptionL100, fuelPriceEur });
+      return { t, savings: { ...savings, fuelPriceEur } };
+    }),
+  );
 
   const imported = await db.transaction(async (tx) => {
     // Match POST /trips' lock, so its key lookup and our import insert cannot race.
@@ -178,8 +203,8 @@ usersRouter.post("/import", zValidator("json", importDataSchema, validationHook)
 
     const seenStarts = new Set(existing.map((r) => r.startedAt.getTime()));
     const seenKeys = new Set(existing.flatMap((r) => (r.idempotencyKey ? [r.idempotencyKey] : [])));
-    const toInsert = incoming
-      .filter((t) => {
+    const toInsert = prepared
+      .filter(({ t }) => {
         const start = new Date(t.startedAt).getTime();
         if (seenStarts.has(start) || (t.idempotencyKey && seenKeys.has(t.idempotencyKey)))
           return false;
@@ -187,12 +212,11 @@ usersRouter.post("/import", zValidator("json", importDataSchema, validationHook)
         if (t.idempotencyKey) seenKeys.add(t.idempotencyKey);
         return true;
       })
-      .map((t) => ({
+      .map(({ t, savings }) => ({
         userId: currentUser.id,
         distanceKm: t.distanceKm,
         durationSec: t.durationSec,
-        ...calculateSavings({ distanceKm: t.distanceKm, consumptionL100, fuelPriceEur }),
-        fuelPriceEur,
+        ...savings,
         startedAt: new Date(t.startedAt),
         endedAt: new Date(t.endedAt),
         gpsPoints: t.gpsPoints ?? null,

@@ -113,7 +113,7 @@ describe("POST /user/import", () => {
     mocks.selectWhere.mockResolvedValue([]);
   });
 
-  it("recalculates historical savings from server-side values", async () => {
+  it("keeps plausible stored savings and fuel price as exported", async () => {
     const res = await buildApp().request("/user/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -130,44 +130,105 @@ describe("POST /user/import", () => {
       userId: "user-1",
       distanceKm: 12.345,
       durationSec: 1800,
-      co2SavedKg: 1.996,
-      moneySavedEur: 1.51,
-      fuelSavedL: 0.864,
-      fuelPriceEur: 1.75,
+      co2SavedKg: 1.617,
+      moneySavedEur: 2.34,
+      fuelSavedL: 0.7,
+      fuelPriceEur: 1.82,
     });
     expect(inserted.startedAt).toBeInstanceOf(Date);
     expect(inserted.startedAt.toISOString()).toBe("2026-01-01T10:00:00.000Z");
+    // Nothing to recalculate, so the market price is never fetched.
+    expect(mocks.getFuelPrice).not.toHaveBeenCalled();
   });
 
-  it("does not trust imported savings or fuel price", async () => {
+  it("stores a null fuel price when a plausible export has none", async () => {
+    await buildApp().request("/user/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trips: [sampleTrip({ fuelPriceEur: null })] }),
+    });
+
+    expect(mocks.insertValues.mock.calls[0]![0][0]).toMatchObject({
+      co2SavedKg: 1.617,
+      moneySavedEur: 2.34,
+      fuelSavedL: 0.7,
+      fuelPriceEur: null,
+    });
+    expect(mocks.getFuelPrice).not.toHaveBeenCalled();
+  });
+
+  it("recalculates forged savings instead of storing them", async () => {
     const res = await buildApp().request("/user/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         trips: [
+          sampleTrip({ co2SavedKg: 10_000 }),
           sampleTrip({
-            co2SavedKg: 1_000_000,
-            moneySavedEur: 1_000_000,
-            fuelSavedL: 1_000_000,
-            fuelPriceEur: 1_000_000,
+            startedAt: "2026-01-02T10:00:00.000Z",
+            endedAt: "2026-01-02T10:30:00.000Z",
+            // Coherent with each other but impossible for 12 km.
+            fuelSavedL: 5000,
+            co2SavedKg: 11_550,
+            moneySavedEur: 8750,
+            fuelPriceEur: 1.75,
           }),
         ],
       }),
     });
 
     expect(res.status).toBe(200);
-    expect(mocks.insertValues).toHaveBeenCalledWith([
-      expect.objectContaining({
-        co2SavedKg: expect.any(Number),
-        moneySavedEur: expect.any(Number),
-        fuelSavedL: expect.any(Number),
+    expect(await res.json()).toMatchObject({ data: { imported: 2, skipped: 0 } });
+    for (const inserted of mocks.insertValues.mock.calls[0]![0]) {
+      expect(inserted).toMatchObject({
+        co2SavedKg: 1.996,
+        moneySavedEur: 1.51,
+        fuelSavedL: 0.864,
         fuelPriceEur: 1.75,
+      });
+    }
+  });
+
+  it("recalculates only the implausible trips of a mixed import, without failing it", async () => {
+    mocks.getFuelPrice.mockResolvedValueOnce({ priceEur: 2 });
+    const res = await buildApp().request("/user/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trips: [
+          sampleTrip(),
+          sampleTrip({
+            startedAt: "2026-01-02T10:00:00.000Z",
+            endedAt: "2026-01-02T10:30:00.000Z",
+            moneySavedEur: 1_000_000,
+          }),
+          sampleTrip({
+            startedAt: "2026-01-03T10:00:00.000Z",
+            endedAt: "2026-01-03T10:30:00.000Z",
+            fuelPriceEur: 1_000_000,
+          }),
+          sampleTrip({
+            startedAt: "2026-01-04T10:00:00.000Z",
+            endedAt: "2026-01-04T10:30:00.000Z",
+            co2SavedKg: undefined,
+          }),
+        ],
       }),
-    ]);
-    const inserted = mocks.insertValues.mock.calls[0]![0][0];
-    expect(inserted.co2SavedKg).toBeLessThan(10);
-    expect(inserted.moneySavedEur).toBeLessThan(10);
-    expect(inserted.fuelSavedL).toBeLessThan(10);
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ data: { imported: 4, skipped: 0 } });
+    expect(mocks.getFuelPrice).toHaveBeenCalledTimes(1);
+    const [kept, ...recalculated] = mocks.insertValues.mock.calls[0]![0];
+    expect(kept).toMatchObject({ co2SavedKg: 1.617, moneySavedEur: 2.34, fuelPriceEur: 1.82 });
+    for (const inserted of recalculated) {
+      expect(inserted).toMatchObject({
+        co2SavedKg: 1.996,
+        moneySavedEur: 1.73,
+        fuelSavedL: 0.864,
+        fuelPriceEur: 2,
+      });
+    }
   });
 
   it("skips trips whose startedAt already exists for this user", async () => {

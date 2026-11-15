@@ -672,7 +672,8 @@ export async function startStateNotifications(
         const ride = parseRidePacket(bytes);
         if (ride && onRide) onRide(ride);
       } else if (bytes[0] === 0x02 && bytes[1] === 0x02) {
-        const odometerKm = parseOdometerPacket(bytes);
+        // Same gate as readOdometer: an unidentified bike gets no odometer.
+        const odometerKm = getProtocol(server) === "v1" ? parseOdometerPacket(bytes) : null;
         if (odometerKm !== null && onOdometer) onOdometer(odometerKm);
       } else if (onSpeed) {
         const speedKmh = parseSpeedPacket(bytes);

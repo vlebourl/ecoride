@@ -7,13 +7,16 @@
 // 1. Every odometer reading is paired with the GPS distance at that moment.
 // 2. A segment runs from one observed odometer step to a later one. The step is
 //    the only moment the 100 m counter is exact, so a segment is a whole number
-//    of steps and the resolution error is not paid at its ends.
+//    of steps and its ends are off only by how late the step was seen: a few
+//    metres by notification, up to the poll interval otherwise. The exception is
+//    a reading that reveals several steps at once (the first one after a lost
+//    link): it can be up to 100 m late, until the next step replaces it.
 // 3. Pausing or stopping closes the segment; the first step after a resume opens
 //    a new one. Distance ridden during a pause is never counted.
 // 4. A lost Bluetooth link does not close the segment: the odometer is absolute,
 //    so the next reading still covers what was ridden meanwhile.
 // 5. A segment replaces its GPS distance by its odometer distance only when
-//    - it is at least MIN_ODOMETER_SEGMENT_KM long (resolution error <= 5 %), and
+//    - it is at least MIN_ODOMETER_SEGMENT_KM long (see the constant), and
 //    - the two sources agree within MIN/MAX_ODOMETER_TO_GPS_RATIO.
 //    Otherwise the segment keeps its GPS distance.
 // 6. Everything outside a segment keeps its GPS distance: the trip before the
@@ -24,7 +27,10 @@
 
 import { bleLog } from "@/lib/ble-log";
 
-/** One 100 m step is the worst case a segment can be off by: 5 % of 2 km. */
+/**
+ * A segment that ends on a late reading (rule 2) is short by up to one 100 m
+ * step: 5 % of 2 km. Usual error is well under that.
+ */
 export const MIN_ODOMETER_SEGMENT_KM = 2;
 /**
  * Below this, the phone travelled well beyond what the wheel turned (walked away

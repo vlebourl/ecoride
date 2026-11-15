@@ -37,3 +37,20 @@ export const updateUserSchema = z
       path: ["super73AutoModeLowSpeedKmh"],
     },
   );
+
+// Super73 Bluetooth diagnostics (#bleDebug). The connection runs entirely in the
+// rider's browser, so without this a failed connection leaves no trace anywhere.
+export const bleLogSchema = z.object({
+  appVersion: z.string().max(40).optional(),
+  userAgent: z.string().max(300).optional(),
+  events: z
+    .array(
+      z.object({
+        at: z.string().max(40),
+        event: z.string().max(60),
+        detail: z.string().max(300).optional(),
+      }),
+    )
+    .min(1)
+    .max(100),
+});

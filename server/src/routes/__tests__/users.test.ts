@@ -84,4 +84,30 @@ describe("users routes", () => {
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mockLogAudit).not.toHaveBeenCalled();
   });
+
+  it("stores a Super73 Bluetooth diagnostics batch in the audit log", async () => {
+    const payload = {
+      appVersion: "2.53.4",
+      events: [{ at: "2026-11-15T08:00:00.000Z", event: "connect_error", detail: "BLE timeout" }],
+    };
+    const res = await buildApp({ super73Enabled: true }).request("/user/ble-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockLogAudit).toHaveBeenCalledWith("user-1", "ble_debug", undefined, payload);
+  });
+
+  it("refuses Bluetooth diagnostics from a user without Super73 access", async () => {
+    const res = await buildApp({ super73Enabled: false }).request("/user/ble-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ events: [{ at: "x", event: "connect_error" }] }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(mockLogAudit).not.toHaveBeenCalled();
+  });
 });

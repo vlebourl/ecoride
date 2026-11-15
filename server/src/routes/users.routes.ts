@@ -4,11 +4,12 @@ import { and, eq, sum, count, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { user, session } from "../db/schema/auth";
 import { trips, achievements, tripPresets, pushSubscriptions, auditLogs } from "../db/schema";
-import { updateUserSchema } from "../validators/users";
+import { updateUserSchema, bleLogSchema } from "../validators/users";
 import { importDataSchema } from "../validators/trips";
 import { validationHook } from "../lib/validation";
 import { forbidden } from "../lib/errors";
 import { logAudit } from "../lib/audit";
+import { rateLimit } from "../lib/rate-limit";
 import { evaluateAndUnlockBadges } from "../lib/badges";
 import { reportBackgroundError } from "../lib/background";
 import { logger } from "../lib/logger";
@@ -159,6 +160,20 @@ async function currentMarket(currentUser: AuthEnv["Variables"]["user"]) {
   }
   return { consumptionL100, fuelPriceEur };
 }
+
+// POST /api/user/ble-log — Super73 Bluetooth diagnostics, one audit row per batch.
+// Stored in audit_logs (not container logs) so it survives a redeploy.
+usersRouter.post(
+  "/ble-log",
+  rateLimit({ maxRequests: 30, windowMs: 60_000, prefix: "ble-log" }),
+  zValidator("json", bleLogSchema, validationHook),
+  (c) => {
+    const currentUser = c.get("user");
+    if (!currentUser.super73Enabled) throw forbidden("Super73 access required");
+    logAudit(currentUser.id, "ble_debug", undefined, c.req.valid("json"));
+    return c.json({ ok: true });
+  },
+);
 
 // POST /api/user/import — Restore exported trips. An import restores history: stored
 // co2/money/fuel/fuelPrice are kept as-is when physically plausible (see

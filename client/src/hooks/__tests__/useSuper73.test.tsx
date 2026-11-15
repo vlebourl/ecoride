@@ -629,7 +629,8 @@ describe("useSuper73 provider", () => {
       removeEventListener: vi.fn(),
     } as unknown as BluetoothDevice;
     scanAndConnectMock.mockResolvedValue(device);
-    reconnectPairedDeviceMock.mockResolvedValue(device);
+    // No paired device at mount: the launch auto-reconnect must not race the tap.
+    reconnectPairedDeviceMock.mockResolvedValue(null);
 
     render(
       <Super73Provider enabled>
@@ -644,6 +645,12 @@ describe("useSuper73 provider", () => {
     writeStateMock.mockClear();
 
     // The bike drops on its own; the app retries after RECONNECT_DELAY.
+    // A real drop: the link reports itself down until the reconnection succeeds.
+    (device.gatt as { connected: boolean }).connected = false;
+    reconnectPairedDeviceMock.mockImplementation(async () => {
+      (device.gatt as { connected: boolean }).connected = true;
+      return device;
+    });
     vi.useFakeTimers();
     await act(async () => {
       listeners["gattserverdisconnected"]?.();
@@ -653,6 +660,11 @@ describe("useSuper73 provider", () => {
     });
     vi.useRealTimers();
 
+    // Wait on the writes, not the status: the status still reads "connected"
+    // between the drop and the retry, so it proves nothing on its own.
+    await waitFor(() => {
+      expect(writtenStates()).toEqual(connectFrames(baseState));
+    });
     await waitFor(() => {
       expect(screen.getByText("vehicle:connected")).toBeTruthy();
     });

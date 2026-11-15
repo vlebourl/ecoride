@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TripPage } from "../TripPage";
 import { I18nProvider } from "@/i18n/provider";
 import { recordOdometerReading, resetTripOdometer } from "@/lib/trip-odometer";
+import type { AutoTripEnd } from "@/lib/auto-trip";
 
 const renderTripPage = () =>
   render(
@@ -19,6 +20,13 @@ const startMock = vi.fn();
 const resetMock = vi.fn();
 const restoreMock = vi.fn();
 const resumeMock = vi.fn();
+
+let autoStop: (end: AutoTripEnd) => void = () => {};
+vi.mock("@/hooks/useAutoTrip", () => ({
+  useAutoTripHandlers: (_start: () => void, stop: (end: AutoTripEnd) => void) => {
+    autoStop = stop;
+  },
+}));
 
 vi.mock("react-map-gl/maplibre", () => ({
   __esModule: true,
@@ -152,6 +160,26 @@ describe("TripPage saved distance with a Super73 odometer", () => {
     expect(mutateMock).toHaveBeenCalledOnce();
     expect(mutateMock.mock.calls[0]![0]).toMatchObject({ distanceKm: 4, durationSec: 900 });
     expect(setStoppedSessionMock.mock.calls[0]![0]).toMatchObject({ distanceKm: 4 });
+  });
+
+  // An automatic stop ends the trip at the last movement (3.9 km by GPS here),
+  // without a pause first: the correction applies to that distance.
+  it("corrects an automatically stopped trip too", async () => {
+    recordDriftedRide();
+    renderTripPage();
+    await waitFor(() => expect(screen.getByText("Interrompre")).toBeTruthy());
+
+    act(() =>
+      autoStop({
+        at: Date.parse(STARTED_AT) + 14 * 60_000,
+        distanceKm: 3.9,
+        durationSec: 840,
+        autoStarted: false,
+      }),
+    );
+
+    expect(mutateMock).toHaveBeenCalledOnce();
+    expect(mutateMock.mock.calls[0]![0]).toMatchObject({ distanceKm: 3.64, durationSec: 840 });
   });
 
   it("sends the GPS distance when no odometer was recorded", async () => {

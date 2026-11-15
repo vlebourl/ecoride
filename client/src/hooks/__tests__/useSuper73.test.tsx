@@ -16,6 +16,7 @@ const scanAndConnectMock = vi.fn();
 const reconnectPairedDeviceMock = vi.fn();
 const readStateMock = vi.fn();
 const readRideMock = vi.fn().mockResolvedValue(null);
+const readSpeedMock = vi.fn().mockResolvedValue(null);
 const writeStateMock = vi.fn();
 // Simulates notifier unavailable by default (returns null = firmware doesn't support it).
 const startStateNotificationsMock = vi.fn().mockResolvedValue(null);
@@ -28,6 +29,7 @@ vi.mock("@/lib/super73-ble", () => ({
   reconnectPairedDevice: (...args: unknown[]) => reconnectPairedDeviceMock(...args),
   readState: (...args: unknown[]) => readStateMock(...args),
   readRide: (...args: unknown[]) => readRideMock(...args),
+  readSpeed: (...args: unknown[]) => readSpeedMock(...args),
   writeState: (...args: unknown[]) => writeStateMock(...args),
   startStateNotifications: (...args: unknown[]) => startStateNotificationsMock(...args),
   authenticate: (...args: unknown[]) => authenticateMock(...args),
@@ -93,6 +95,11 @@ function Consumer({ label }: { label: string }) {
       </span>
     </div>
   );
+}
+
+function SpeedConsumer() {
+  const ble = useSuper73();
+  return <span>bike-speed:{ble.bikeSpeedKmh === null ? "null" : ble.bikeSpeedKmh}</span>;
 }
 
 function BatteryConsumer({ label }: { label: string }) {
@@ -249,6 +256,7 @@ describe("useSuper73 provider", () => {
     // Recorded calls are asserted per test (writtenStates), and restoreAllMocks
     // does not clear hand-made vi.fn()s — without this they accumulate.
     vi.clearAllMocks();
+    readSpeedMock.mockResolvedValue(null);
     authenticateMock.mockResolvedValue(undefined);
     vi.stubGlobal("localStorage", makeLocalStorageStub());
     reconnectPairedDeviceMock.mockResolvedValue(null);
@@ -323,6 +331,25 @@ describe("useSuper73 provider", () => {
 
     await waitFor(() => expect(screen.getByText("trip:error")).toBeTruthy());
     expect(device.gatt!.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: the bike only notifies 0201 when the speed changes, so a
+  // stationary bike never sent one and the trip screen showed GPS drift
+  // (4-12 km/h indoors, 2026-11-15) instead of the bike's 0 km/h.
+  it("reads the wheel speed from the bike once connected, without waiting for a notification", async () => {
+    readSpeedMock.mockResolvedValue(0);
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+        <SpeedConsumer />
+      </Super73Provider>,
+    );
+    expect(screen.getByText("bike-speed:null")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+
+    await waitFor(() => expect(screen.getByText("bike-speed:0")).toBeTruthy());
+    expect(readSpeedMock).toHaveBeenCalled();
   });
 
   it("exposes null battery telemetry before any RIDE frame", () => {

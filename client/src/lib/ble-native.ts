@@ -150,6 +150,9 @@ class NativeService {
 class NativeGattServer {
   connected = false;
   private services: BleService[] = [];
+  private pending: Promise<this> | null = null;
+  // Low-level link state, including during connect (unlike `connected`).
+  private linkUp = false;
   // Drops caused by our own bond recovery must not reach the app as a disconnect.
   private connecting = false;
 
@@ -162,12 +165,26 @@ class NativeGattServer {
    * A bike that forgot this phone (paired elsewhere since, reset) rejects the
    * key Android still holds: drop that bond, reconnect, pair again.
    */
-  async connect(): Promise<this> {
+  connect(): Promise<this> {
+    // One connection attempt at a time per bike: a caller that times out and
+    // retries joins the attempt still running instead of racing it (two
+    // parallel opens left one with an empty service table, 2026-11-15).
+    this.pending ??= this.connectOnce().finally(() => {
+      this.pending = null;
+    });
+    return this.pending;
+  }
+
+  private async connectOnce(): Promise<this> {
     const ble = await bleClient();
     this.connecting = true;
+    this.connected = false;
     try {
       await this.open(ble);
       if (!(await this.bondedAndEncrypted(ble))) {
+        // A probe that failed because the link dropped says nothing about the
+        // bond. Only a probe refused on a live link means the key is stale.
+        if (!this.linkUp) throw new Error("Super73 dropped the connection before it was encrypted");
         bleLog("bond_stale", this.device.id);
         await (await bondPlugin()).removeBond({ deviceId: this.device.id });
         await ble.disconnect(this.device.id).catch(() => undefined);
@@ -208,11 +225,13 @@ class NativeGattServer {
     await ble.connect(
       this.device.id,
       () => {
+        this.linkUp = false;
         this.connected = false;
         if (!this.connecting) this.device.dispatchEvent(new Event("gattserverdisconnected"));
       },
       { timeout: OPERATION_TIMEOUT_MS },
     );
+    this.linkUp = true;
     this.services = await ble.getServices(this.device.id);
   }
 
@@ -250,11 +269,25 @@ class NativeDevice extends EventTarget {
 
   constructor(
     readonly id: string,
-    readonly name: string | undefined,
+    public name: string | undefined,
   ) {
     super();
     this.gatt = new NativeGattServer(this);
   }
+}
+
+// One object per bike, so every scan/reconnect shares its connection state.
+const devices = new Map<string, NativeDevice>();
+
+function deviceFor(id: string, name: string | undefined): NativeDevice {
+  const known = devices.get(id);
+  if (known) {
+    known.name ??= name;
+    return known;
+  }
+  const device = new NativeDevice(id, name);
+  devices.set(id, device);
+  return device;
 }
 
 // ponytail: one cast at the boundary. The shim implements only what
@@ -283,7 +316,7 @@ export async function nativeScan(
         if (!matches(name)) return;
         clearTimeout(timer);
         void ble.stopLEScan();
-        resolve(new NativeDevice(result.device.deviceId, name));
+        resolve(deviceFor(result.device.deviceId, name));
       })
       .catch((e: unknown) => {
         clearTimeout(timer);
@@ -297,5 +330,5 @@ export async function nativeScan(
 export async function nativeDeviceById(id: string): Promise<BluetoothDevice> {
   const ble = await bleClient();
   const [known] = await ble.getDevices([id]).catch(() => []);
-  return asWebDevice(new NativeDevice(id, known?.name));
+  return asWebDevice(deviceFor(id, known?.name));
 }

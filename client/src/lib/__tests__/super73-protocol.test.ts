@@ -7,6 +7,7 @@ import {
   protocolFromFirmware,
   protocolFromName,
   readRide,
+  readSpeed,
   readState,
   writeState,
   type Super73State,
@@ -228,6 +229,7 @@ describe("real v1 bike captures", () => {
     "0300": hexBytes("0300045a010400000000"),
     "0203": hexBytes("02030000000000002e00"),
     "0202": hexBytes("0202003b00005dce0000"),
+    "0201": hexBytes("02010000000000000000"),
   };
 
   it("decodes state and range from the captured records", async () => {
@@ -236,6 +238,8 @@ describe("real v1 bike captures", () => {
     expect(getProtocol(server)).toBe("v1");
     expect(await readState(server)).toEqual({ mode: "eco", assist: 4, light: true, region: "eu" });
     expect(await readRide(server)).toEqual({ rangeKm: 46, batteryPercent: 77 });
+    // 0201 captured on the same bike, stationary: 0 km/h.
+    expect(await readSpeed(server)).toBe(0);
   });
 
   it("identifies v1 from firmware 221122 when the name is not conclusive", async () => {

@@ -28,7 +28,7 @@ export function AppShell() {
           onTouchMove={swipe.onTouchMove}
           onTouchEnd={swipe.onTouchEnd}
         >
-          <main className="flex-1 overflow-hidden pb-24">
+          <main className="flex-1 overflow-hidden pb-[calc(4rem+env(safe-area-inset-bottom,0px))]">
             <PullToRefresh onRefresh={handleRefresh} scrollKey={location.pathname}>
               <AnimatedOutlet
                 dragX={swipe.dragX}

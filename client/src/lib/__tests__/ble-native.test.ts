@@ -123,7 +123,7 @@ describe("native BLE transport", () => {
     await writeState(device.gatt!, { mode: "race", assist: 4, light: true, region: "eu" });
     const control = ble.write.mock.calls.find((c) => c[2] === RESULT)!;
     expect(Array.from(new Uint8Array((control[3] as DataView).buffer))).toEqual([
-      0x00, 0xd1, 1, 4, 7, 0, 0, 0, 0, 0,
+      0x00, 0xd1, 1, 4, 7, 1, 0, 0, 0, 0,
     ]);
   });
 

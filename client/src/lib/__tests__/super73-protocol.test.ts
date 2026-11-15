@@ -161,7 +161,7 @@ describe("v1 bike (SUPER73 / 221122)", () => {
       region: "eu",
     });
     await writeState(server, STATE);
-    expect(controlWrites).toEqual([[0x00, 0xd1, 1, 3, 6, 0, 0, 0, 0, 0]]);
+    expect(controlWrites).toEqual([[0x00, 0xd1, 1, 3, 6, 1, 0, 0, 0, 0]]);
   });
 
   it("rejects a stale 0x155f value instead of decoding it as state", async () => {
@@ -188,7 +188,7 @@ describe("v2 bike (S73 FTEX / 250426)", () => {
     });
     await writeState(server, STATE);
     // Doc example: 00 c1 01 03 02 → lights on, assist 3, ride mode 2.
-    expect(controlWrites).toEqual([[0x00, 0xc1, 1, 3, 2, 0, 0, 0, 0, 0]]);
+    expect(controlWrites).toEqual([[0x00, 0xc1, 1, 3, 2, 1, 0, 0, 0, 0]]);
   });
 
   it("patches the known state from 00D0 / 00D9 telemetry and ignores 00D1 (speed)", () => {
@@ -217,7 +217,7 @@ describe("unidentified bike", () => {
 });
 
 it("buildWriteCommand defaults to the v1 frame", () => {
-  expect(Array.from(buildWriteCommand(STATE))).toEqual([0x00, 0xd1, 1, 3, 6, 0, 0, 0, 0, 0]);
+  expect(Array.from(buildWriteCommand(STATE))).toEqual([0x00, 0xd1, 1, 3, 6, 1, 0, 0, 0, 0]);
 });
 
 // Captured from a real bike on 2026-11-15 (Chrome macOS, display firmware 221122,

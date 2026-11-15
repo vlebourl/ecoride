@@ -561,8 +561,14 @@ describe("GATT operation serialization", () => {
       getCharacteristic: vi.fn().mockImplementation((uuid: string) => {
         if (uuid === "00001564-1212-efde-1523-785feabcd123") return Promise.resolve(registerIdChar);
         if (uuid === "0000155f-1212-efde-1523-785feabcd123") return Promise.resolve(registerChar);
+        if (uuid === "0000155e-1212-efde-1523-785feabcd123") return Promise.resolve(notifierChar);
         return Promise.reject(new Error("Unknown char"));
       }),
+    };
+    const notifierChar = {
+      startNotifications: vi.fn().mockImplementation(gate),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
     };
     const server = {
       connected: true,
@@ -583,6 +589,22 @@ describe("GATT operation serialization", () => {
       writeState(server, state),
       readState(server),
       writeState(server, state),
+    ]);
+
+    expect(getMaxActive()).toBe(1);
+  });
+
+  // Subscribing ran outside the queue: when the auto-reconnect at launch and a tap
+  // on "Connecter" overlapped, Chrome rejected with "GATT operation already in
+  // progress" and the vehicle page showed an error.
+  it("queues the notifier subscription with the reads and writes", async () => {
+    const { server, getMaxActive } = makeGatedGATT([3, 0, 2, 0, 1, 6, 0, 0, 0, 0]);
+    const state: Super73State = { mode: "race", assist: 4, light: true, region: "eu" };
+
+    await Promise.all([
+      writeState(server, state),
+      startStateNotifications(server, vi.fn()),
+      readState(server),
     ]);
 
     expect(getMaxActive()).toBe(1);

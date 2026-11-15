@@ -114,6 +114,13 @@ export const fr = {
   "vehicle.autoMode.saving": "Sauvegarde...",
   "vehicle.autoMode.save": "Enregistrer le mode auto",
 
+  "vehicle.autoTrip.title": "Trajet automatique",
+  "vehicle.autoTrip.subtitle":
+    "Démarre le trajet quand le vélo roule et le termine quand il s'arrête. L'app doit rester ouverte.",
+  "vehicle.autoTrip.toggleLabel": "Démarrer et terminer tout seul",
+  "vehicle.autoTrip.toggleHint":
+    "Départ : {{speed}} km/h ou plus pendant {{hold}} s. Fin : {{stop}} min sans mouvement ou sans connexion. Réglage propre à ce téléphone.",
+
   "vehicle.defaults.title": "Réglages par défaut",
   "vehicle.defaults.subtitle": "Appliqués automatiquement à la connexion.",
   "vehicle.defaults.mode": "Mode",

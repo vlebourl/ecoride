@@ -34,6 +34,8 @@ import { useSuper73 } from "@/hooks/useSuper73";
 import { modeIndex } from "@/lib/super73-ble";
 import { BatteryIndicator } from "@/components/trip/BatteryIndicator";
 import { HeadlightIndicator } from "@/components/trip/HeadlightIndicator";
+import { useAutoTripHandlers } from "@/hooks/useAutoTrip";
+import { endSessionAtLastMovement, isAutoTripWorthSaving, type AutoTripEnd } from "@/lib/auto-trip";
 
 type TripState = "idle" | "tracking" | "stopped" | "manual";
 
@@ -307,33 +309,56 @@ export function TripPage() {
     setInterruptMenuOpen(false);
   }, [gps]);
 
-  const handleStopFromInterrupt = useCallback(() => {
-    const session = { ...gps.stop(), idempotencyKey: crypto.randomUUID() };
-    recovery.setSession(session);
-    const persisted = setStoppedSession(session);
-    recovery.setSessionPersistFailed(!persisted);
-    if (persisted) clearTrackingBackup();
-    resetMapState();
-    setIsTrackingMapFollowing(true);
+  const finishTrip = useCallback(
+    (stopped: TrackingSession) => {
+      const session = { ...stopped, idempotencyKey: crypto.randomUUID() };
+      recovery.setSession(session);
+      const persisted = setStoppedSession(session);
+      recovery.setSessionPersistFailed(!persisted);
+      if (persisted) clearTrackingBackup();
+      resetMapState();
+      setIsTrackingMapFollowing(true);
+      setInterruptMenuOpen(false);
+      if (persisted) recovery.setPendingBackup(null);
+      setUiState("stopped");
+      navigation.clearRoute();
+      handleSaveTrip(session.distanceKm, session.durationSec, session);
+    },
+    [recovery, resetMapState, handleSaveTrip, navigation],
+  );
+
+  const handleStopFromInterrupt = useCallback(() => finishTrip(gps.stop()), [finishTrip, gps]);
+
+  const discardTrip = useCallback(() => {
+    recovery.setPendingBackup(null);
+    clearStoppedSession();
     setInterruptMenuOpen(false);
-    if (persisted) recovery.setPendingBackup(null);
-    setUiState("stopped");
+    setIsTrackingMapFollowing(true);
+    setUiState("idle");
+    recovery.clearSession();
+    gps.reset();
     navigation.clearRoute();
-    handleSaveTrip(session.distanceKm, session.durationSec, session);
-  }, [gps, recovery, resetMapState, handleSaveTrip, navigation]);
+  }, [gps, recovery, navigation]);
 
   const handleAbandonFromInterrupt = useCallback(() => {
-    if (window.confirm("Abandonner ce trajet ? Les donn\u00e9es seront perdues.")) {
-      recovery.setPendingBackup(null);
-      clearStoppedSession();
-      setInterruptMenuOpen(false);
-      setIsTrackingMapFollowing(true);
-      setUiState("idle");
-      recovery.clearSession();
-      gps.reset();
-      navigation.clearRoute();
-    }
-  }, [gps, recovery, navigation]);
+    if (window.confirm("Abandonner ce trajet ? Les donn\u00e9es seront perdues.")) discardTrip();
+  }, [discardTrip]);
+
+  // Auto start/stop from the bike's Bluetooth link (see lib/auto-trip.ts).
+  const handleAutoStart = useCallback(() => {
+    if (uiState === "idle" && !createTrip.isPending) startTracking();
+  }, [uiState, createTrip.isPending, startTracking]);
+
+  const handleAutoStop = useCallback(
+    (end: AutoTripEnd) => {
+      if (uiState !== "tracking") return;
+      const session = endSessionAtLastMovement(gps.stop(), end);
+      if (isAutoTripWorthSaving(session, end)) finishTrip(session);
+      else discardTrip();
+    },
+    [uiState, gps, finishTrip, discardTrip],
+  );
+  useAutoTripHandlers(handleAutoStart, handleAutoStop);
 
   const handleRestore = useCallback(() => {
     recovery.handleRestore(() => {

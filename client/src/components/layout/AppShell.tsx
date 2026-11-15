@@ -6,6 +6,7 @@ import { AnimatedOutlet } from "./AnimatedOutlet";
 import { Super73Provider } from "@/components/Super73Provider";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { GpsTrackingProvider } from "@/hooks/useGpsTracking";
+import { AutoTripController } from "@/hooks/useAutoTrip";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
@@ -22,6 +23,7 @@ export function AppShell() {
   return (
     <GpsTrackingProvider>
       <Super73Provider>
+        <AutoTripController />
         <div
           className="flex h-full flex-col bg-bg pt-[env(safe-area-inset-top)]"
           onTouchStart={swipe.onTouchStart}

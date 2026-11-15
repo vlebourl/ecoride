@@ -115,6 +115,13 @@ export const en: Record<TranslationKey, string> = {
   "vehicle.autoMode.saving": "Saving…",
   "vehicle.autoMode.save": "Save auto mode",
 
+  "vehicle.autoTrip.title": "Automatic trip",
+  "vehicle.autoTrip.subtitle":
+    "Starts the trip when the bike rolls and ends it when it stops. The app must stay open.",
+  "vehicle.autoTrip.toggleLabel": "Start and end on its own",
+  "vehicle.autoTrip.toggleHint":
+    "Start: {{speed}} km/h or more for {{hold}} s. End: {{stop}} min without movement or connection. This setting stays on this phone.",
+
   "vehicle.defaults.title": "Default settings",
   "vehicle.defaults.subtitle": "Applied automatically on connection.",
   "vehicle.defaults.mode": "Mode",

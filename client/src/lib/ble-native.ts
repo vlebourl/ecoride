@@ -17,6 +17,12 @@ type BleClientApi = typeof BleClient;
 const OPERATION_TIMEOUT_MS = 5_000;
 const SCAN_TIMEOUT_MS = 10_000;
 const BOND_TIMEOUT_MS = 20_000;
+// The Super73 often ignores the first connection requests: Android gets "LE
+// Connection Complete", then HCI 0x3E (connection failed to be established)
+// ~100 ms later, reported as GATT status 147/133. Observed on 2026-11-15 for
+// both ecoRide and superduper on the same Pixel; superduper got through on its
+// 3rd attempt because it retries. Delays between attempts:
+const CONNECT_RETRY_DELAYS_MS = [1_000, 2_000, 3_000, 5_000];
 // Encryption probe: the history selector (0x1564) is readable, needs an
 // encrypted link, and reading it has no side effect on the bike.
 const METRICS_SERVICE = "00001554-1212-efde-1523-785feabcd123";
@@ -184,6 +190,21 @@ class NativeGattServer {
   }
 
   private async open(ble: BleClientApi): Promise<void> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.openOnce(ble);
+        return;
+      } catch (e) {
+        const delay = CONNECT_RETRY_DELAYS_MS[attempt];
+        if (delay === undefined) throw e;
+        bleLog("connect_retry", `attempt ${attempt + 1}: ${describeError(e)}`);
+        await ble.disconnect(this.device.id).catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  private async openOnce(ble: BleClientApi): Promise<void> {
     await ble.connect(
       this.device.id,
       () => {

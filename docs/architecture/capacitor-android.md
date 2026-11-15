@@ -121,16 +121,35 @@ chemin 4 couvre ce cas côté Android.
 Les déconnexions provoquées par cette récupération ne sont pas remontées à
 l'app comme `gattserverdisconnected`.
 
+### Connexion Google
+
+Google refuse son OAuth web dans une WebView (`disallowed_useragent`). L'app
+utilise donc le sélecteur de compte natif : Credential Manager, via
+`@capgo/capacitor-social-login` (`client/src/lib/native-google.ts`). L'ID token
+obtenu part dans `signIn.social({ provider: "google", idToken: { token, nonce } })`.
+
+Better Auth 1.7.14 vérifie l'émetteur, la signature, l'audience (= l'ID client
+**web** déjà configuré) et le nonce, puis pose le même cookie de session que le
+flux web. **Aucun changement serveur**, et c'est le même compte que dans la PWA.
+
+Prérequis Google Cloud (projet `1077014709095`) : un client OAuth de type
+**Android** pour le package `com.tiarkaerell.ecoride` et la SHA-1 de la clé de
+signature. Le client debug de condor (SHA-1 `90:2E:…:C0:97`) est créé. La clé
+release demandera une 2ᵉ empreinte.
+
+Seul Google est compilé : `plugins.SocialLogin.providers` dans
+`capacitor.config.ts` exclut les SDK Facebook, Apple et Twitter. Leur absence
+dans le dex est vérifiée.
+
 ## Plan v1 installable
 
-| Étape                                                                                                                                                                      | Estimation    |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| Test terrain de l'APK debug (connexion, auth, lecture, écriture, bond périmé)                                                                                              | 1–2 h         |
-| Connexion Google : OAuth est bloqué dans les WebView (`disallowed_useragent`). Custom Tabs + deep link, ou email/mot de passe seulement                                    | 4–6 h         |
-| GPS en arrière-plan : foreground service `location` + `ACCESS_BACKGROUND_LOCATION`, par ex. `@capacitor-community/background-geolocation` branché sur le tracking existant | 6–8 h         |
-| Signature release (keystore hors dépôt) + workflow CI qui publie l'APK en release GitHub                                                                                   | 2–3 h         |
-| Hors ligne : vérifier le démarrage à froid sans réseau (service worker dans la WebView avec `server.url`)                                                                  | 1–2 h         |
-| **Total v1 (sideload)**                                                                                                                                                    | **≈ 2 jours** |
+| Étape                                                                                                                                                                      | Estimation     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Test terrain de l'APK debug (connexion, auth, lecture, écriture, bond périmé)                                                                                              | 1–2 h          |
+| GPS en arrière-plan : foreground service `location` + `ACCESS_BACKGROUND_LOCATION`, par ex. `@capacitor-community/background-geolocation` branché sur le tracking existant | 6–8 h          |
+| Signature release (keystore hors dépôt) + workflow CI qui publie l'APK en release GitHub                                                                                   | 2–3 h          |
+| Hors ligne : vérifier le démarrage à froid sans réseau (service worker dans la WebView avec `server.url`)                                                                  | 1–2 h          |
+| **Total v1 (sideload)**                                                                                                                                                    | **≈ 1,5 jour** |
 
 **Distribution recommandée : APK signé en sideload** (release GitHub). Play
 exige une revue, une justification de la localisation en arrière-plan et une

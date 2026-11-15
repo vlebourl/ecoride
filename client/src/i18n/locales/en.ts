@@ -115,6 +115,13 @@ export const en: Record<TranslationKey, string> = {
   "vehicle.autoMode.saving": "Saving…",
   "vehicle.autoMode.save": "Save auto mode",
 
+  "vehicle.autoTrip.title": "Automatic trip",
+  "vehicle.autoTrip.subtitle":
+    "Starts the trip when the bike rolls and ends it when it stops. The app must stay open.",
+  "vehicle.autoTrip.toggleLabel": "Start and end on its own",
+  "vehicle.autoTrip.toggleHint":
+    "Start: {{speed}} km/h or more for {{hold}} s. End: {{stop}} min without movement or connection. This setting stays on this phone.",
+
   "vehicle.defaults.title": "Default settings",
   "vehicle.defaults.subtitle": "Applied automatically on connection.",
   "vehicle.defaults.mode": "Mode",
@@ -137,6 +144,18 @@ export const en: Record<TranslationKey, string> = {
   "vehicle.info.regionUs": "USA",
   "vehicle.info.currentMode": "Current mode",
   "vehicle.info.assist": "Assist",
+
+  "vehicle.battery.title": "Battery",
+  "vehicle.battery.learnedLabel": "Learned range, full charge",
+  "vehicle.battery.approxKm": "≈ {{km}} km",
+  "vehicle.battery.basis":
+    "From {{count}} measured trips: {{ratio}} real km per km of range shown by the bike.",
+  "vehicle.battery.remaining":
+    "Estimated remaining range: ≈ {{km}} km (the bike shows {{bike}} km).",
+  "vehicle.battery.pending":
+    "Learned range: not enough measured trips yet ({{count}}/{{minTrips}} trips, {{drop}}/{{minDrop}} km of range used).",
+  "vehicle.battery.note":
+    "The bike only sends an estimated range, in whole km. The battery percentage is derived from it (range ÷ {{full}} km): it is not a measured charge. These readings stay on this device.",
 
   "profile.header.title": "Profile",
   "profile.loadingAria": "Loading",
@@ -280,6 +299,10 @@ export const en: Record<TranslationKey, string> = {
   "stats.detail.km": "km",
   "stats.detail.co2": "kg CO₂",
   "stats.detail.eur": "€",
+  "stats.detail.battery.title": "Battery · bike's estimate",
+  "stats.detail.battery.readings":
+    "Displayed range: {{start}} → {{end}} km ({{delta}} km, ≈ {{percent}}%)",
+  "stats.detail.battery.ratio": "{{ratio}} km of range per km ridden, measured over {{km}} km",
   "stats.detail.hideForm": "Hide the form",
   "stats.detail.createPreset": "Create a saved trip",
   "stats.detail.presetLabel": "Saved trip name",

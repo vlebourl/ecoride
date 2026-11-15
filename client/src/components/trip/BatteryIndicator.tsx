@@ -6,9 +6,11 @@ interface BatteryIndicatorProps {
   percent: number | null;
   /** Estimated remaining range in km, or null. */
   rangeKm: number | null;
+  /** True when rangeKm is rescaled from past trips rather than the bike's own figure. */
+  learned?: boolean;
 }
 
-export function BatteryIndicator({ percent, rangeKm }: BatteryIndicatorProps) {
+export function BatteryIndicator({ percent, rangeKm, learned }: BatteryIndicatorProps) {
   const t = useT();
   if (percent == null) return null;
   return (
@@ -20,6 +22,7 @@ export function BatteryIndicator({ percent, rangeKm }: BatteryIndicatorProps) {
       {rangeKm != null && (
         <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-text-dim">
           <Triangle size={10} aria-hidden />
+          {learned && "≈ "}
           {rangeKm.toFixed(0)} {t("trip.dashboard.km")}
         </span>
       )}

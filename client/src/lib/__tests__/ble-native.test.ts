@@ -195,3 +195,31 @@ describe("native bonding", () => {
     expect(ble.disconnect).toHaveBeenCalled();
   });
 });
+
+describe("native connection retries", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("retries a connection the bike drops while it is being established (0x3E → status 147)", async () => {
+    vi.useFakeTimers();
+    ble.connect
+      .mockRejectedValueOnce(new Error("Connection failed with status 147 (unnamed)."))
+      .mockRejectedValueOnce(new Error("Connection failed with status 133 (GATT_ERROR)."));
+    const device = await nativeDeviceById("AA");
+    const connecting = device.gatt!.connect();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await connecting;
+    expect(ble.connect).toHaveBeenCalledTimes(3);
+    expect(device.gatt!.connected).toBe(true);
+  });
+
+  it("gives up after the last retry with the platform error", async () => {
+    vi.useFakeTimers();
+    ble.connect.mockRejectedValue(new Error("Connection failed with status 147 (unnamed)."));
+    const device = await nativeDeviceById("AA");
+    const connecting = device.gatt!.connect().catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(String(await connecting)).toMatch(/status 147/);
+    expect(ble.connect).toHaveBeenCalledTimes(5);
+    expect(device.gatt!.connected).toBe(false);
+  });
+});

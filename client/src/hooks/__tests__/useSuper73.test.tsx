@@ -280,6 +280,25 @@ describe("useSuper73 provider", () => {
     expect(scanAndConnectMock).toHaveBeenCalledTimes(1);
   });
 
+  it("drops a link whose connect read timed out, so the next tap gets a fresh one", async () => {
+    // Field log (2.54.1): the first read timed out with the link still up, and
+    // Chrome kept that operation pending. Every later tap reused the same link
+    // and failed at once with "GATT operation already in progress".
+    const device = buildDevice();
+    scanAndConnectMock.mockResolvedValue(device);
+    readStateMock.mockRejectedValueOnce(new Error("BLE timeout"));
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+
+    await waitFor(() => expect(screen.getByText("trip:error")).toBeTruthy());
+    expect(device.gatt!.disconnect).toHaveBeenCalledTimes(1);
+  });
+
   it("exposes null battery telemetry before any RIDE frame", () => {
     render(
       <Super73Provider enabled>

@@ -458,6 +458,11 @@ function useSuper73Controller(
           setStatus((prev) => (prev === "connecting" ? "disconnected" : prev));
           return;
         }
+        // The link is up but an operation failed (typically a timeout). Chrome
+        // keeps that operation pending on the link, so every later attempt on it
+        // fails with "GATT operation already in progress". Only dropping the link
+        // clears it; the next connect then starts from a fresh one.
+        device.gatt?.disconnect();
         throw e;
       }
     },

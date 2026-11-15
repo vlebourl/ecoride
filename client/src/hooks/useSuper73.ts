@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  authenticate,
   isBleSupported,
   isBleDebugEnabled,
   scanAndConnect,
@@ -418,6 +419,8 @@ function useSuper73Controller(
       // reach connect()'s catch would overwrite it with "error".
       bleLog("attach_start", `session ${session} ${device.name ?? "?"}`);
       try {
+        await authenticate(device.gatt!);
+        if (session !== bleSessionRef.current) return;
         const currentState = await readState(device.gatt!, "connect");
         if (session !== bleSessionRef.current) return;
         const finalState = await runConnectInitSequence(device.gatt!, currentState, session);

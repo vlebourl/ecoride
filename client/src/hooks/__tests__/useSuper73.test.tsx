@@ -19,6 +19,7 @@ const readRideMock = vi.fn().mockResolvedValue(null);
 const writeStateMock = vi.fn();
 // Simulates notifier unavailable by default (returns null = firmware doesn't support it).
 const startStateNotificationsMock = vi.fn().mockResolvedValue(null);
+const authenticateMock = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/lib/super73-ble", () => ({
   isBleSupported: () => true,
@@ -29,6 +30,7 @@ vi.mock("@/lib/super73-ble", () => ({
   readRide: (...args: unknown[]) => readRideMock(...args),
   writeState: (...args: unknown[]) => writeStateMock(...args),
   startStateNotifications: (...args: unknown[]) => startStateNotificationsMock(...args),
+  authenticate: (...args: unknown[]) => authenticateMock(...args),
 }));
 
 function makeLocalStorageStub() {
@@ -247,6 +249,7 @@ describe("useSuper73 provider", () => {
     // Recorded calls are asserted per test (writtenStates), and restoreAllMocks
     // does not clear hand-made vi.fn()s — without this they accumulate.
     vi.clearAllMocks();
+    authenticateMock.mockResolvedValue(undefined);
     vi.stubGlobal("localStorage", makeLocalStorageStub());
     reconnectPairedDeviceMock.mockResolvedValue(null);
     readStateMock.mockResolvedValue(baseState);
@@ -278,6 +281,29 @@ describe("useSuper73 provider", () => {
     });
 
     expect(scanAndConnectMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("authenticates with the bike before the first read", async () => {
+    // Firmware ignores every command from an unauthenticated client, so the
+    // handshake has to land before the state read that starts the session.
+    const order: string[] = [];
+    authenticateMock.mockImplementationOnce(async () => {
+      order.push("auth");
+    });
+    readStateMock.mockImplementationOnce(async () => {
+      order.push("read");
+      return baseState;
+    });
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("trip connect"));
+
+    await waitFor(() => expect(screen.getByText("trip:connected")).toBeTruthy());
+    expect(order).toEqual(["auth", "read"]);
   });
 
   it("drops a link whose connect read timed out, so the next tap gets a fresh one", async () => {

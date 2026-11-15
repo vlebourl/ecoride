@@ -13,6 +13,7 @@ import {
   readState,
   writeState,
   startStateNotifications,
+  authenticate,
   type Super73State,
 } from "../super73-ble";
 
@@ -214,7 +215,10 @@ describe("scanAndConnect", () => {
         { namePrefix: "super73" },
         { namePrefix: "s73" },
       ],
-      optionalServices: ["00001554-1212-efde-1523-785feabcd123"],
+      optionalServices: [
+        "00001554-1212-efde-1523-785feabcd123",
+        "00002554-1212-efde-1523-785feabcd123",
+      ],
     });
     expect(gatt.connect).toHaveBeenCalled();
     expect(localStorage.setItem).toHaveBeenCalledWith("ecoride-super73-device-id", "bike-123");
@@ -688,5 +692,47 @@ describe("parseRidePacket", () => {
     const speed = new Uint8Array([0x02, 0x01, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(parseRidePacket(speed)).toBeNull();
     expect(parseRidePacket(new Uint8Array([0x02, 0x03]))).toBeNull(); // too short
+  });
+});
+
+describe("authenticate", () => {
+  const hex = (h: string) => Uint8Array.from(h.match(/../g)!.map((b) => parseInt(b, 16)));
+
+  function makeAuthServer(challengeHex: string, authState: number) {
+    const responseWrite = vi.fn().mockResolvedValue(undefined);
+    const chars: Record<string, object> = {
+      "00002556-1212-efde-1523-785feabcd123": {
+        readValue: vi.fn().mockResolvedValue(new DataView(hex(challengeHex).buffer)),
+      },
+      "00002557-1212-efde-1523-785feabcd123": { writeValue: responseWrite },
+      "00002558-1212-efde-1523-785feabcd123": {
+        readValue: vi.fn().mockResolvedValue(new DataView(new Uint8Array([authState]).buffer)),
+      },
+    };
+    const service = { getCharacteristic: vi.fn((uuid: string) => Promise.resolve(chars[uuid])) };
+    const server = {
+      getPrimaryService: vi.fn().mockResolvedValue(service),
+    } as unknown as BluetoothRemoteGATTServer;
+    return { server, responseWrite };
+  }
+
+  // Vectors captured from a real Super73 (blopker/superduper#106).
+  it("answers the bike's challenge with SHA1(challenge + 20 x 0xFF)", async () => {
+    const { server, responseWrite } = makeAuthServer("6EFBD1F7D470764157BD22AEA24502B0C27D187E", 1);
+    await authenticate(server);
+    const written = new Uint8Array(responseWrite.mock.calls[0][0] as ArrayBuffer);
+    expect(written).toEqual(hex("D7C323B8D51671B9C013332D6E18505C376613DF"));
+  });
+
+  it("rejects when the bike does not report itself authenticated", async () => {
+    const { server } = makeAuthServer("6BA9E9527C46635438E16EE6D3DE54B73A618487", 0);
+    await expect(authenticate(server)).rejects.toThrow(/authentication/i);
+  });
+
+  it("skips bikes without the authentication service", async () => {
+    const server = {
+      getPrimaryService: vi.fn().mockRejectedValue(new DOMException("No service", "NotFoundError")),
+    } as unknown as BluetoothRemoteGATTServer;
+    await expect(authenticate(server)).resolves.toBeUndefined();
   });
 });

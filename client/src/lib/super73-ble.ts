@@ -10,6 +10,13 @@ const REGISTER_ID_CHAR = "00001564-1212-efde-1523-785feabcd123";
 const REGISTER_CHAR = "0000155f-1212-efde-1523-785feabcd123";
 // Push notifications from the bike (unconfirmed — may not fire on all firmware versions).
 const REGISTER_NOTIFIER_CHAR = "0000155e-1212-efde-1523-785feabcd123";
+// Application authentication (see authenticate()).
+const AUTH_SERVICE = "00002554-1212-efde-1523-785feabcd123";
+const AUTH_CHALLENGE_CHAR = "00002556-1212-efde-1523-785feabcd123";
+const AUTH_RESPONSE_CHAR = "00002557-1212-efde-1523-785feabcd123";
+const AUTH_STATE_CHAR = "00002558-1212-efde-1523-785feabcd123";
+// Factory key the firmware creates on first boot.
+const AUTH_DEFAULT_KEY = new Uint8Array(20).fill(0xff);
 
 // ---- Types ----
 
@@ -138,7 +145,7 @@ function isSuper73DeviceName(name: string | undefined): boolean {
 export async function scanAndConnect(): Promise<BluetoothDevice> {
   const device = await navigator.bluetooth.requestDevice({
     filters: SUPER73_NAME_PREFIXES.map((namePrefix) => ({ namePrefix })),
-    optionalServices: [METRICS_SERVICE],
+    optionalServices: [METRICS_SERVICE, AUTH_SERVICE],
   });
   if (!device.gatt) throw new Error("GATT not available");
   await withTimeout(device.gatt.connect(), "connect");
@@ -207,6 +214,42 @@ function serializeGatt<T>(operation: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return result;
+}
+
+/**
+ * Super73 firmware ignores register commands until the client passes a
+ * challenge/response handshake, on every connection: read a 20-byte challenge,
+ * write SHA1(challenge + key), then read back the state byte (1 = accepted).
+ * Without it the first register write never completes. Protocol from
+ * https://github.com/blopker/superduper (docs/ble_protocol.md, issue #106).
+ * Bikes that don't expose the service are left on the unauthenticated path.
+ */
+export async function authenticate(server: BluetoothRemoteGATTServer): Promise<void> {
+  return serializeGatt(async () => {
+    let service: BluetoothRemoteGATTService;
+    try {
+      service = await withTimeout(server.getPrimaryService(AUTH_SERVICE), "auth service");
+    } catch (e) {
+      bleLog("auth_skip", describeError(e));
+      return;
+    }
+    const [challengeChar, responseChar, stateChar] = await Promise.all([
+      withTimeout(service.getCharacteristic(AUTH_CHALLENGE_CHAR), "auth characteristic"),
+      withTimeout(service.getCharacteristic(AUTH_RESPONSE_CHAR), "auth characteristic"),
+      withTimeout(service.getCharacteristic(AUTH_STATE_CHAR), "auth characteristic"),
+    ]);
+    const challenge = await withTimeout(challengeChar.readValue(), "auth challenge");
+    const payload = new Uint8Array(40);
+    payload.set(new Uint8Array(challenge.buffer, challenge.byteOffset, 20));
+    payload.set(AUTH_DEFAULT_KEY, 20);
+    const response = await crypto.subtle.digest("SHA-1", payload);
+    await withTimeout(responseChar.writeValue(response), "auth response");
+    const state = await withTimeout(stateChar.readValue(), "auth state");
+    if (state.getUint8(0) !== 1) {
+      throw new Error(`Super73 authentication refused (state ${state.getUint8(0)})`);
+    }
+    bleLog("auth_ok");
+  });
 }
 
 export async function readState(

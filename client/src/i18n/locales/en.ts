@@ -192,8 +192,6 @@ export const en: Record<TranslationKey, string> = {
   "profile.settings.super73Connected": "Connected bike (Super73)",
   "profile.settings.super73Unsupported": "Not supported by this browser",
   "profile.settings.super73Enabled": "Enabled",
-  "profile.settings.super73DisableAria": "Disable BLE control",
-  "profile.settings.super73EnableAria": "Enable BLE control",
   "profile.feedback.title": "Report a problem",
   "profile.feedback.thanks": "Thanks for your feedback!",
   "profile.feedback.bug": "Bug",

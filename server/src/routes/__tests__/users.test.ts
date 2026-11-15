@@ -71,27 +71,17 @@ describe("users routes", () => {
     expect(mockLogAudit).not.toHaveBeenCalled();
   });
 
-  it("allows disabling Super73 for a user who already has access", async () => {
-    mocks.updateReturning.mockResolvedValueOnce([{ id: "user-1", super73Enabled: false }]);
-
+  // Access is admin-granted: a rider who switched it off from the profile lost
+  // every Super73 control and had no way to switch it back on.
+  it("rejects self-disabling Super73 — only an admin can change access", async () => {
     const res = await buildApp({ super73Enabled: true }).request("/user/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ super73Enabled: false }),
     });
-    const body = (await res.json()) as { ok: boolean; data: { user: { super73Enabled: boolean } } };
 
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.data.user.super73Enabled).toBe(false);
-    expect(mocks.updateSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        super73Enabled: false,
-        updatedAt: expect.any(Date),
-      }),
-    );
-    expect(mockLogAudit).toHaveBeenCalledWith("user-1", "update_profile", undefined, {
-      fields: ["super73Enabled"],
-    });
+    expect(res.status).toBe(403);
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mockLogAudit).not.toHaveBeenCalled();
   });
 });

@@ -55,8 +55,17 @@ export function shouldTriggerEpac(state: Super73State): boolean {
 export type BleStatus = "disconnected" | "connecting" | "connected" | "unsupported" | "error";
 
 const STATE_KEY = "ecoride-super73-state";
+// A bike that drops out of range (rider walks away, BLE hiccup mid-ride) comes
+// back on its own: keep trying, backing off from RECONNECT_DELAY up to
+// MAX_RECONNECT_DELAY, until it answers or the rider disconnects manually.
+// One single attempt used to be the limit, so a drop of more than a few seconds
+// lost the bike for the rest of the ride.
 const RECONNECT_DELAY = 2_000;
-const MAX_RECONNECT_ATTEMPTS = 1;
+const MAX_RECONNECT_DELAY = 30_000;
+
+export function reconnectDelay(attempt: number): number {
+  return Math.min(RECONNECT_DELAY * 2 ** attempt, MAX_RECONNECT_DELAY);
+}
 // TODO: EPAC poll disabled for observation — the BLE notifier appears reliable on all
 // tested firmware versions. If no regression is reported, remove poll entirely.
 // If a firmware where the notifier silently fails is found, re-enable and consider
@@ -450,23 +459,35 @@ function useSuper73Controller(
 
   // Auto-reconnect on unexpected disconnect
   const tryReconnect = useCallback(async () => {
-    if (manualDisconnectRef.current || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+    reconnectTimerRef.current = null;
+    if (manualDisconnectRef.current) {
       setStatus("disconnected");
       return;
     }
+    // The rider reconnected by hand while this attempt was waiting.
+    if (serverRef.current?.connected) return;
+    const attempt = reconnectAttemptsRef.current;
     reconnectAttemptsRef.current += 1;
     setStatus("connecting");
     try {
       const device = await reconnectPairedDevice();
-      if (device) {
+      if (device && !manualDisconnectRef.current) {
         await attachDevice(device);
-      } else {
-        setStatus("disconnected");
+        return;
       }
     } catch {
-      setStatus("disconnected");
+      // fall through to the next attempt
     }
+    // A failed gatt.connect() fires no `gattserverdisconnected`, so nothing else
+    // would schedule the next attempt.
+    if (manualDisconnectRef.current || serverRef.current?.connected) return;
+    setStatus("disconnected");
+    reconnectTimerRef.current = setTimeout(tryReconnectRef.current, reconnectDelay(attempt + 1));
   }, [attachDevice]);
+  const tryReconnectRef = useRef(tryReconnect);
+  useEffect(() => {
+    tryReconnectRef.current = tryReconnect;
+  }, [tryReconnect]);
 
   const onDisconnected = useCallback(() => {
     notifierCleanupRef.current?.();
@@ -483,7 +504,8 @@ function useSuper73Controller(
       setStatus("disconnected");
       return;
     }
-    reconnectTimerRef.current = setTimeout(tryReconnect, RECONNECT_DELAY);
+    reconnectAttemptsRef.current = 0;
+    reconnectTimerRef.current = setTimeout(tryReconnect, reconnectDelay(0));
   }, [tryReconnect]);
 
   useEffect(() => {
@@ -529,6 +551,8 @@ function useSuper73Controller(
 
   const connect = useCallback(async () => {
     if (!enabled || !isBleSupported()) return;
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    reconnectTimerRef.current = null;
     setStatus("connecting");
     setError(null);
     try {

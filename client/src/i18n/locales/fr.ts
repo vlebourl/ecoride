@@ -191,8 +191,6 @@ export const fr = {
   "profile.settings.super73Connected": "Vélo connecté (Super73)",
   "profile.settings.super73Unsupported": "Non supporté par ce navigateur",
   "profile.settings.super73Enabled": "Activé",
-  "profile.settings.super73DisableAria": "Désactiver le contrôle BLE",
-  "profile.settings.super73EnableAria": "Activer le contrôle BLE",
   "profile.feedback.title": "Signaler un problème",
   "profile.feedback.thanks": "Merci pour votre retour !",
   "profile.feedback.bug": "Bug",

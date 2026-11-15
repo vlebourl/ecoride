@@ -25,7 +25,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useT } from "@/i18n/provider";
 import { signOut } from "@/lib/auth";
 import { formatFullDate } from "@/lib/format-utils";
-import { isBleSupported, scanAndConnect } from "@/lib/super73-ble";
+import { isBleSupported } from "@/lib/super73-ble";
 
 export function ProfilePage() {
   const t = useT();
@@ -182,22 +182,6 @@ export function ProfilePage() {
     if (user.super73Enabled) navigate("/vehicle");
   };
 
-  const handleSuper73ToggleClick = async () => {
-    if (user.super73Enabled) {
-      updateProfile.mutate({ super73Enabled: false });
-      return;
-    }
-    if (!isBleSupported()) return;
-
-    try {
-      await scanAndConnect();
-      updateProfile.mutate({ super73Enabled: true });
-      navigate("/vehicle");
-    } catch {
-      // User cancelled pairing — leave access disabled.
-    }
-  };
-
   return (
     <>
       <PageHeader title={t("profile.header.title")} />
@@ -236,11 +220,9 @@ export function ProfilePage() {
           showPersonalInfo={showPersonalInfo}
           push={push}
           bleSupported={isBleSupported()}
-          profileUpdatePending={updateProfile.isPending}
           onTogglePersonalInfo={() => setShowPersonalInfo((current) => !current)}
           onVehicleClick={handleVehicleToggle}
           onSuper73RowClick={handleSuper73RowClick}
-          onSuper73ToggleClick={handleSuper73ToggleClick}
           formatMemberSince={formatFullDate}
         />
 

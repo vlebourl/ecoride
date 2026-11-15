@@ -294,9 +294,14 @@ export async function startStateNotifications(
   onRide?: (data: { rangeKm: number; batteryPercent: number }) => void,
 ): Promise<(() => void) | null> {
   try {
-    const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE));
-    const char = await withTimeout(service.getCharacteristic(REGISTER_NOTIFIER_CHAR));
-    await withTimeout(char.startNotifications());
+    // Through the queue like every other GATT operation: subscribing while a
+    // read or write is in flight fails with "GATT operation already in progress".
+    const char = await serializeGatt(async () => {
+      const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE));
+      const c = await withTimeout(service.getCharacteristic(REGISTER_NOTIFIER_CHAR));
+      await withTimeout(c.startNotifications());
+      return c;
+    });
     const listener = (event: Event) => {
       const c = event.target as BluetoothRemoteGATTCharacteristic;
       if (!c.value) return;

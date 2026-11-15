@@ -662,6 +662,100 @@ describe("useSuper73 provider", () => {
     expect(writtenStates()).toEqual(connectFrames(baseState));
   });
 
+  it("keeps retrying the reconnection instead of giving up after one failed attempt", async () => {
+    const listeners: Record<string, () => void> = {};
+    const device = {
+      gatt: {
+        connected: true,
+        connect: vi.fn().mockResolvedValue(undefined),
+        disconnect: vi.fn(),
+      },
+      addEventListener: vi.fn((event: string, handler: () => void) => {
+        listeners[event] = handler;
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as BluetoothDevice;
+    scanAndConnectMock.mockResolvedValue(device);
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    // The bike goes out of range for a while: the first two attempts find nothing.
+    reconnectPairedDeviceMock.mockReset();
+    reconnectPairedDeviceMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(device);
+
+    vi.useFakeTimers();
+    await act(async () => {
+      listeners["gattserverdisconnected"]?.();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+    expect(reconnectPairedDeviceMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops retrying once the rider disconnects manually", async () => {
+    const listeners: Record<string, () => void> = {};
+    const device = {
+      gatt: {
+        connected: true,
+        connect: vi.fn().mockResolvedValue(undefined),
+        disconnect: vi.fn(),
+      },
+      addEventListener: vi.fn((event: string, handler: () => void) => {
+        listeners[event] = handler;
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as BluetoothDevice;
+    scanAndConnectMock.mockResolvedValue(device);
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+
+    reconnectPairedDeviceMock.mockClear();
+    reconnectPairedDeviceMock.mockResolvedValue(null);
+    vi.useFakeTimers();
+    await act(async () => {
+      listeners["gattserverdisconnected"]?.();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    const callsBeforeManual = reconnectPairedDeviceMock.mock.calls.length;
+    fireEvent.click(screen.getByText("vehicle disconnect"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    vi.useRealTimers();
+
+    expect(reconnectPairedDeviceMock).toHaveBeenCalledTimes(callsBeforeManual);
+    expect(screen.getByText("vehicle:disconnected")).toBeTruthy();
+  });
+
   it("surfaces an error and does not half-initialise when the first light write fails", async () => {
     writeStateMock.mockRejectedValueOnce(new Error("GATT operation failed"));
 

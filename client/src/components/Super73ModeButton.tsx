@@ -53,8 +53,11 @@ export function Super73ModeButton({ enabled, compact = false }: Props) {
   // ---- Compact mode: fixed-size control for TripPage header ----
   // Min touch target: 48×48 (iOS HIG)
   if (compact) {
+    // Explicit width: `aspect-square` on a stretched flex item gave the browser no
+    // width to derive, so the button collapsed to a 20px sliver. 4.75rem matches
+    // the height of the Start / Interrupt buttons it sits beside (py-6 + 28px).
     const compactBaseClass =
-      "flex aspect-square shrink-0 self-stretch items-center justify-center rounded-2xl border active:scale-95";
+      "flex w-[4.75rem] shrink-0 self-stretch items-center justify-center rounded-2xl border active:scale-95";
 
     if (ble.status === "disconnected") {
       return (

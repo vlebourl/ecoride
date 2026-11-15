@@ -166,6 +166,31 @@ voir [`super73-background-sync.md`](super73-background-sync.md). C'est faisable,
 mais en Kotlin natif (CDM + `CompanionDeviceService`), Android 12+, ≈ 25–30 h.
 Prérequis : marquer l'octet 5 des écritures à `1`.
 
+## Release signée (CI)
+
+`.github/workflows/android-release.yml`, lancé à la main
+(`gh workflow run android-release.yml`) quand le code **natif** change. Le code
+web, lui, arrive par le déploiement. Le workflow :
+
+1. construit l'APK release sur un runner GitHub ;
+2. le signe avec la keystore stockée dans les secrets `ANDROID_KEYSTORE_*` ;
+3. vérifie qu'il n'est pas signé debug ;
+4. le publie en release `android-v<version>`.
+
+La version vient du `package.json` racine (`2.56.0` → `versionCode 25600`).
+
+**Keystore** : `CN=ecoRide`, RSA 4096, valide jusqu'en 2054, SHA-1
+`92:97:CF:5D:3D:63:4D:34:44:BF:76:C6:8A:F3:38:46:1F:FB:21:D1`. Un secret GitHub
+ne se relit pas : l'original et son mot de passe sont sur condor
+(`~/ecoride-release-keystore/`, `700`/`600`), à copier dans le gestionnaire de
+mots de passe. **Perdre cette clé = plus aucune mise à jour possible de l'app
+installée.**
+
+Cette SHA-1 doit aussi figurer dans un client OAuth Android (projet
+`1077014709095`, package `com.tiarkaerell.ecoride`), sans quoi la connexion
+Google échoue dans l'APK release. Passer d'un APK debug à un APK release
+demande de désinstaller d'abord : les signatures diffèrent.
+
 ## Limites connues du spike
 
 - v2 implémenté d'après la doc, **jamais testé sur un vélo v2**. Région non

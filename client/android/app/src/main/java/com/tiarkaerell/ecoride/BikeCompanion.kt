@@ -24,18 +24,31 @@ import androidx.annotation.RequiresApi
 @RequiresApi(Build.VERSION_CODES.S)
 internal object BikeCompanion {
     private const val TYPED_PRESENCE_API = 36
+    // Same rule as the app's scan (super73-ble.ts isSuper73DeviceName).
+    private val SUPER73_NAME = java.util.regex.Pattern.compile("(?i)^(super73|s73).*")
 
     private fun manager(context: Context) = context.getSystemService(CompanionDeviceManager::class.java)
 
-    /** Exact MAC, single device: the system dialog names this bike only. */
+    /** Super73 by name, single device; the MAC is checked in observe(). */
     fun associationRequest(address: String): AssociationRequest = AssociationRequest.Builder()
         .addDeviceFilter(
             BluetoothLeDeviceFilter.Builder()
-                .setScanFilter(ScanFilter.Builder().setDeviceAddress(address).build())
+                .setNamePattern(SUPER73_NAME)
+                .setScanFilter(scanFilter())
                 .build(),
         )
         .setSingleDevice(true)
         .build()
+
+    /**
+     * Match by advertised name, not MAC: the Super73 advertises from a random
+     * static address (FD:10:…), and the one-argument setDeviceAddress() means a
+     * *public* address since Android 13, so the association dialog searched
+     * forever ("Vous recherchez un appareil", Pixel 9 Pro, 2026-11-15). The
+     * typed overload is not public API. observe() then refuses an association
+     * whose MAC is not the plan's bike.
+     */
+    private fun scanFilter(): ScanFilter = ScanFilter.Builder().build()
 
     @Suppress("DEPRECATION")
     fun isAssociated(context: Context, address: String): Boolean =

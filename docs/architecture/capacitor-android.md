@@ -98,6 +98,25 @@ _télémétrie_ (vitesse, autonomie), ce qui explique la confusion.
 L'état d'auth à `01` avant le handshake ne doit **jamais** servir à sauter le
 handshake : c'est le bug v1 de déconnexion.
 
+### Connexion intermittente : réessayer (HCI 0x3E)
+
+Le vélo ignore souvent les premières demandes de connexion. Android reçoit
+`LE Connection Complete`, puis environ 100 ms plus tard une déconnexion HCI
+`0x3E` (« connection failed to be established ») : le vélo n'a répondu à aucun
+paquet. Android le remonte en statut GATT **147** (`GATT_CONNECTION_TIMEOUT`),
+puis 133.
+
+Le 15/11, superduper échouait exactement pareil sur le même Pixel et passait au
+3ᵉ essai. `NativeGattServer.open()` réessaie donc jusqu'à 4 fois (1, 2, 3 puis
+5 s, journalisé `connect_retry`), ce qui a suffi dès le 2ᵉ essai.
+
+Validé ce jour-là dans l'app 2.56.1 sur le Pixel :
+
+```
+connect_tap → attach_start → dis_firmware 221122 → auth_ok → protocol v1 → connected notifier=on
+écriture Tour : 0300 octet 5 04→05, puis retour EPAC 05→04
+```
+
 ### Bond (appairage)
 
 Les services 0x1554/0x2554 exigent un lien chiffré (Security Mode 1 Level 2).
@@ -165,6 +184,31 @@ démarrage pose problème.
 voir [`super73-background-sync.md`](super73-background-sync.md). C'est faisable,
 mais en Kotlin natif (CDM + `CompanionDeviceService`), Android 12+, ≈ 25–30 h.
 Prérequis : marquer l'octet 5 des écritures à `1`.
+
+## Release signée (CI)
+
+`.github/workflows/android-release.yml`, lancé à la main
+(`gh workflow run android-release.yml`) quand le code **natif** change. Le code
+web, lui, arrive par le déploiement. Le workflow :
+
+1. construit l'APK release sur un runner GitHub ;
+2. le signe avec la keystore stockée dans les secrets `ANDROID_KEYSTORE_*` ;
+3. vérifie qu'il n'est pas signé debug ;
+4. le publie en release `android-v<version>`.
+
+La version vient du `package.json` racine (`2.56.0` → `versionCode 25600`).
+
+**Keystore** : `CN=ecoRide`, RSA 4096, valide jusqu'en 2054, SHA-1
+`92:97:CF:5D:3D:63:4D:34:44:BF:76:C6:8A:F3:38:46:1F:FB:21:D1`. Un secret GitHub
+ne se relit pas : l'original et son mot de passe sont sur condor
+(`~/ecoride-release-keystore/`, `700`/`600`), à copier dans le gestionnaire de
+mots de passe. **Perdre cette clé = plus aucune mise à jour possible de l'app
+installée.**
+
+Cette SHA-1 doit aussi figurer dans un client OAuth Android (projet
+`1077014709095`, package `com.tiarkaerell.ecoride`), sans quoi la connexion
+Google échoue dans l'APK release. Passer d'un APK debug à un APK release
+demande de désinstaller d'abord : les signatures diffèrent.
 
 ## Limites connues du spike
 

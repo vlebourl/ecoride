@@ -350,15 +350,13 @@ function hexId(id: readonly number[]): string {
 }
 
 /**
- * Name first, then Device Information, then probe history records 00D9 (v2)
- * and 0300 (v1). The probe only reads, so it also runs on bikes without the
- * auth service (older firmware may serve history unauthenticated). Never
- * probes by sending control frames.
+ * Device Information Firmware Revision (0x2a26): open read, no pairing or app
+ * auth. Read first on every connection, so a link that cannot carry any ATT
+ * request (Chrome Android, 2026-11-15) fails here, before the handshake, and the
+ * log says so. Null when unavailable (older Chrome grants lack the service).
  * Must run inside serializeGatt.
  */
-async function detectProtocol(server: BluetoothRemoteGATTServer): Promise<Super73Protocol> {
-  const byName = protocolFromName(server.device?.name);
-  if (byName !== "unknown") return byName;
+async function readFirmwareRevision(server: BluetoothRemoteGATTServer): Promise<string | null> {
   try {
     const dis = await withTimeout(server.getPrimaryService(DEVICE_INFO_SERVICE), "dis service");
     const char = await withTimeout(
@@ -366,13 +364,37 @@ async function detectProtocol(server: BluetoothRemoteGATTServer): Promise<Super7
       "dis characteristic",
     );
     const value = await withTimeout(char.readValue(), "dis firmware");
-    const byFirmware = protocolFromFirmware(
-      new TextDecoder().decode(new Uint8Array(value.buffer, value.byteOffset, value.byteLength)),
-    );
-    if (byFirmware !== "unknown") return byFirmware;
+    const revision = new TextDecoder()
+      .decode(new Uint8Array(value.buffer, value.byteOffset, value.byteLength))
+      .replace(/\0/g, "")
+      .trim();
+    bleLog("dis_firmware", revision);
+    return revision;
   } catch (e) {
-    bleLog("protocol_dis_unavailable", describeError(e));
+    bleLog("dis_unavailable", describeError(e));
+    return null;
   }
+}
+
+/**
+ * Advertised name and firmware revision must agree when both are known
+ * (superduper docs/ble_protocol.md); either one alone is enough. Otherwise
+ * probe history records 00D9 (v2) then 0300 (v1) — reads only, so it also runs
+ * on bikes without the auth service. Never probes by sending control frames.
+ * Must run inside serializeGatt.
+ */
+async function detectProtocol(
+  server: BluetoothRemoteGATTServer,
+  firmware: string | null,
+): Promise<Super73Protocol> {
+  const byName = protocolFromName(server.device?.name);
+  const byFirmware = firmware === null ? "unknown" : protocolFromFirmware(firmware);
+  if (byName !== "unknown" && byFirmware !== "unknown" && byName !== byFirmware) {
+    bleLog("protocol_mismatch", `name ${byName}, firmware ${byFirmware}`);
+    return "unknown";
+  }
+  if (byName !== "unknown") return byName;
+  if (byFirmware !== "unknown") return byFirmware;
   try {
     const chars = await getCharacteristics(server);
     if (await readRecord(chars, V2_MODE_RECORD, "probe v2")) return "v2";
@@ -406,12 +428,13 @@ function serializeGatt<T>(operation: () => Promise<T>): Promise<T> {
  */
 export async function authenticate(server: BluetoothRemoteGATTServer): Promise<void> {
   return serializeGatt(async () => {
+    const firmware = await readFirmwareRevision(server);
     let service: BluetoothRemoteGATTService;
     try {
       service = await withTimeout(server.getPrimaryService(AUTH_SERVICE), "auth service");
     } catch (e) {
       bleLog("auth_skip", describeError(e));
-      await resolveProtocol(server);
+      await resolveProtocol(server, firmware);
       return;
     }
     const [challengeChar, responseChar, stateChar] = await Promise.all([
@@ -430,12 +453,12 @@ export async function authenticate(server: BluetoothRemoteGATTServer): Promise<v
       throw new Error(`Super73 authentication refused (state ${state.getUint8(0)})`);
     }
     bleLog("auth_ok");
-    await resolveProtocol(server);
+    await resolveProtocol(server, firmware);
   });
 }
 
-async function resolveProtocol(server: BluetoothRemoteGATTServer) {
-  const protocol = await detectProtocol(server);
+async function resolveProtocol(server: BluetoothRemoteGATTServer, firmware: string | null) {
+  const protocol = await detectProtocol(server, firmware);
   protocols.set(server, protocol);
   lastStates.delete(server);
   bleLog("protocol", protocol);

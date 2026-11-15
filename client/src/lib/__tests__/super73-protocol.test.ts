@@ -131,6 +131,23 @@ it("identifies a v1 bike without the auth service by its 0300 record (PWA compat
   expect(controlWrites).toHaveLength(1);
 });
 
+it("refuses to identify a bike whose name and firmware disagree", async () => {
+  const { server, controlWrites } = fakeBike({ name: "SUPER73", firmware: "250426", records: {} });
+  await authenticate(server);
+  expect(getProtocol(server)).toBe("unknown");
+  await expect(writeState(server, STATE)).rejects.toThrow(/unknown/);
+  expect(controlWrites).toEqual([]);
+});
+
+it("reads Device Information before the auth handshake", async () => {
+  const { server } = fakeBike({ name: "SUPER73", firmware: "221122", records: {} });
+  await authenticate(server);
+  const services = (server.getPrimaryService as ReturnType<typeof vi.fn>).mock.calls.map(
+    (c) => c[0],
+  );
+  expect(services.indexOf(DIS)).toBeLessThan(services.indexOf(AUTH));
+});
+
 describe("v1 bike (SUPER73 / 221122)", () => {
   it("reads state from record 0300 and writes an 00D1 control frame", async () => {
     const { server, controlWrites } = fakeBike({ name: "SUPER73", records: { "0300": V1_STATE } });

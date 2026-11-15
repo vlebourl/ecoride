@@ -47,11 +47,28 @@ récupère chaque déploiement web sans rebuild. Une modification **native**
 
 ### Connexion (comme superduper)
 
-- **Pas de demande de MTU.** Le plugin demandait toujours 512 et ne résolvait
-  `connect` qu'au `onMtuChanged`. Il est patché (`patches/`, via `bun patch`)
-  pour se comporter comme superduper (`mtu: null`). Rien ne prouve que le MTU
-  explique l'échec de Chrome Android : c'est un alignement sur l'implémentation
-  qui marche.
+- **Exigence n°1 : ne JAMAIS demander de MTU.** Cause probable de l'échec
+  Chrome Android (logcat, 15/11 16:15) :
+  - à la connexion, le vélo lance lui-même un Exchange MTU (→ 247) ;
+  - Chrome envoie ensuite `requestMtu(517)`, codé en dur dans
+    `ChromeBluetoothDevice.java` ;
+  - Android logge `bta_gattc_enqueue: Already has a pending command … Queuing
+for later`, puis plus aucune requête ATT n'aboutit (même Device Information).
+
+  Le firmware ne répond vraisemblablement pas à ce 2ᵉ échange, ce qui bloque le
+  bearer ATT. La PWA ne peut rien y faire.
+
+  Le plugin `bluetooth-le` demandait 512 à chaque connexion. Le patch
+  (`patches/`, via `bun patch`) supprime l'appel **et** la fonction
+  `requestMtu`, comme superduper (`mtu: null`). Android répond seul à l'échange
+  lancé par le vélo.
+
+  Garde-fou : `client/src/lib/__tests__/native-no-mtu-request.test.ts` scanne
+  le Kotlin/Java réellement compilé (plugin, Capacitor, `android/app`) et échoue
+  sur tout appel `requestMtu(`. Le patch est indexé sur la version du plugin :
+  une montée de version qui le perdrait en silence casse ce test, pas le vélo.
+  Le test a été validé par mutation (un appel réinjecté le fait échouer).
+
 - Découverte des services, puis auth, puis lectures.
 - Type d'écriture : acquittée sauf si la caractéristique n'offre que _write
   without response_.
@@ -66,8 +83,10 @@ Superduper `docs/ble_protocol.md` et `lib/src/ble/bike_protocol.dart` :
 | Écriture contrôle | `00D1`                | `00C1`                                   |
 | État              | enregistrement `0300` | `00D0` (assist, lumière) + `00D9` (mode) |
 
-Ordre de détection, à chaque connexion : nom exact, puis DIS `0x2a26`, puis
-(après auth) sonde `00D9` → v2, `0300` → v1. Un vélo non identifié **ne reçoit
+À chaque connexion, le DIS `0x2a26` est lu **avant** le handshake (lecture
+ouverte, journalisée `dis_firmware`). Identification : le nom exact et le
+firmware doivent concorder quand les deux sont connus (sinon : inconnu), un seul
+suffit, et à défaut on sonde `00D9` → v2 puis `0300` → v1. Un vélo non identifié **ne reçoit
 aucune commande**. Toute lecture d'historique vérifie l'ID de l'enregistrement
 renvoyé, car 0x155f garde son ancienne valeur si l'ID est absent : c'est un
 correctif, l'ancien code décodait le contenu sans vérifier.
@@ -155,6 +174,11 @@ la PR).
 
 Scénario :
 
+0. **Premier test : connexion + lecture `0x2a26` sur le Pixel.** Attendre
+   `dis_firmware 221122` dans les logs. C'est le test décisif : il échouait
+   en Chrome Android, avant toute auth. En parallèle, vérifier dans
+   `adb logcat` qu'aucun `requestMtu`/`configureMTU` client ne part et
+   qu'aucun `Already has a pending command` n'apparaît.
 1. Autoriser « Appareils à proximité » et « Localisation ».
 2. Véhicule → Connecter : scan, puis connexion automatique au `SUPER73`.
 3. Logs (`chrome://inspect` sur condor, ou `adb logcat | grep -i Bluetooth`) :

@@ -1,0 +1,21 @@
+diff --git a/node_modules/@capacitor-community/bluetooth-le/.bun-tag-b9a055a11f5eaf3f b/.bun-tag-b9a055a11f5eaf3f
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt b/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt
+index fc7a80efc7b5ed5374d57bd8df606c97c9336d9d..2db47ec77876bfe6379ce698044a50373c5ce14d 100644
+--- a/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt
++++ b/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt
+@@ -158,8 +158,11 @@ class Device(
+             if (status == BluetoothGatt.GATT_SUCCESS) {
+                 resolve("discoverServices", "Services discovered.")
+                 if (connectCallOngoing()) {
+-                    // Try requesting a larger MTU. Maximally supported MTU will be selected.
+-                    requestMtu(REQUEST_MTU)
++                    // ecoRide patch: no MTU request, like superduper (mtu: null),
++                    // which works with the Super73. Its attributes are fixed
++                    // 10/20 bytes, so the default MTU is enough. Not proven to be
++                    // the cause of the Chrome Android failure.
++                    resolve("connect", "Connected.")
+                 }
+             } else {
+                 reject("discoverServices", "Service discovery failed.")

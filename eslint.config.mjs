@@ -87,6 +87,7 @@ export default tseslint.config(
       "**/dist/",
       ".claude/",
       "design/",
+      "client/android/",
       "**/*.js",
       "!eslint.config.mjs",
     ],

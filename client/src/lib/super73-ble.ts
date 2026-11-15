@@ -2,6 +2,7 @@
 // Reverse-engineered from https://github.com/blopker/superduper
 
 import { bleLog, describeError } from "@/lib/ble-log";
+import { isNativeBle, nativeDeviceById, nativeScan } from "@/lib/ble-native";
 
 // ---- UUIDs ----
 
@@ -17,6 +18,52 @@ const AUTH_RESPONSE_CHAR = "00002557-1212-efde-1523-785feabcd123";
 const AUTH_STATE_CHAR = "00002558-1212-efde-1523-785feabcd123";
 // Factory key the firmware creates on first boot.
 const AUTH_DEFAULT_KEY = new Uint8Array(20).fill(0xff);
+// Standard Device Information — open reads, no pairing or app auth needed.
+const DEVICE_INFO_SERVICE = "0000180a-0000-1000-8000-00805f9b34fb";
+const FIRMWARE_REVISION_CHAR = "00002a26-0000-1000-8000-00805f9b34fb";
+
+// ---- Protocol version ----
+//
+// Two display firmwares speak different control frames (superduper
+// docs/ble_protocol.md): v1 (221122) writes 00D1 and reports state in record
+// 0300; v2 (250426) writes 00C1 and reports state in records 00D0 + 00D9 — where
+// 00D1 is a *telemetry* record. Sending the wrong family's frame is at best
+// ignored, so the version is resolved on every connection and an unknown bike
+// gets no control command at all.
+
+export type Super73Protocol = "v1" | "v2" | "unknown";
+
+const V1_STATE_RECORD = [0x03, 0x00] as const;
+const V1_RIDE_RECORD = [0x02, 0x03] as const;
+const V2_CONTROL_RECORD = [0x00, 0xd0] as const;
+const V2_MODE_RECORD = [0x00, 0xd9] as const;
+
+/** The advertised GAP name is the documented discriminator (exact match). */
+export function protocolFromName(name: string | undefined): Super73Protocol {
+  if (name === "SUPER73") return "v1";
+  if (name === "S73 FTEX") return "v2";
+  return "unknown";
+}
+
+/** Device Information Firmware Revision (0x2a26). Unknown builds stay unknown. */
+export function protocolFromFirmware(revision: string): Super73Protocol {
+  const build = revision.replace(/\0/g, "").trim();
+  if (build === "221122") return "v1";
+  if (build === "250426") return "v2";
+  return "unknown";
+}
+
+// Keyed by GATT server: Web Bluetooth reuses the same object across reconnects,
+// and authenticate() re-resolves it on each connection.
+const protocols = new WeakMap<BluetoothRemoteGATTServer, Super73Protocol>();
+// v2 splits state across two telemetry records; notifications patch this.
+const lastStates = new WeakMap<BluetoothRemoteGATTServer, Super73State>();
+
+// ponytail: callers that never authenticated (legacy tests, bikes without the
+// auth service that predate detection) keep the historical v1 behaviour.
+export function getProtocol(server: BluetoothRemoteGATTServer): Super73Protocol {
+  return protocols.get(server) ?? "v1";
+}
 
 // ---- Types ----
 
@@ -91,15 +138,50 @@ export function parseStateBytes(bytes: Uint8Array, source = "unknown"): Super73S
   return state;
 }
 
-export function buildWriteCommand(state: Super73State): Uint8Array {
+/** v2 state lives in two records: 00D0 (assist, lights) and 00D9 (ride preset). */
+function parseV2State(d0: Uint8Array, d9: Uint8Array): Super73State {
+  if (!hasRecordId(d0, V2_CONTROL_RECORD) || !hasRecordId(d9, V2_MODE_RECORD)) {
+    throw new Error("Invalid v2 state records");
+  }
+  return {
+    mode: MODE_ORDER[d9[5]!] ?? "eco",
+    assist: Math.min(Math.max(d0[2]!, 0), 4),
+    light: d0[4] === 1,
+    // ponytail: v2 carries no region on the wire; the ride preset is the mode.
+    region: "us",
+  };
+}
+
+export function buildWriteCommand(
+  state: Super73State,
+  protocol: Super73Protocol = "v1",
+): Uint8Array {
+  if (protocol === "v2") {
+    return new Uint8Array([
+      0x00,
+      0xc1,
+      state.light ? 1 : 0,
+      state.assist,
+      modeIndex(state.mode),
+      0,
+      0,
+      0,
+      0,
+      0,
+    ]);
+  }
   const modeByte = encodeMode(state.mode, state.region);
-  return new Uint8Array([0, 209, state.light ? 1 : 0, state.assist, modeByte, 0, 0, 0, 0, 0]);
+  return new Uint8Array([0x00, 0xd1, state.light ? 1 : 0, state.assist, modeByte, 0, 0, 0, 0, 0]);
+}
+
+function hasRecordId(bytes: Uint8Array, id: readonly [number, number]): boolean {
+  return bytes.length >= 10 && bytes[0] === id[0] && bytes[1] === id[1];
 }
 
 // ---- Capability check ----
 
 export function isBleSupported(): boolean {
-  return typeof navigator !== "undefined" && "bluetooth" in navigator;
+  return isNativeBle() || (typeof navigator !== "undefined" && "bluetooth" in navigator);
 }
 
 // ---- BLE operations ----
@@ -143,10 +225,12 @@ function isSuper73DeviceName(name: string | undefined): boolean {
 
 /** Open the browser device picker, let the user select a Super73, and connect. */
 export async function scanAndConnect(): Promise<BluetoothDevice> {
-  const device = await navigator.bluetooth.requestDevice({
-    filters: SUPER73_NAME_PREFIXES.map((namePrefix) => ({ namePrefix })),
-    optionalServices: [METRICS_SERVICE, AUTH_SERVICE],
-  });
+  const device = isNativeBle()
+    ? await nativeScan(isSuper73DeviceName)
+    : await navigator.bluetooth.requestDevice({
+        filters: SUPER73_NAME_PREFIXES.map((namePrefix) => ({ namePrefix })),
+        optionalServices: [METRICS_SERVICE, AUTH_SERVICE, DEVICE_INFO_SERVICE],
+      });
   if (!device.gatt) throw new Error("GATT not available");
   await withTimeout(device.gatt.connect(), "connect");
   saveSelectedDeviceId(device);
@@ -159,6 +243,7 @@ export async function scanAndConnect(): Promise<BluetoothDevice> {
  * paired device is found or if the API is unavailable.
  */
 export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
+  if (isNativeBle()) return reconnectNativeDevice();
   if (!navigator.bluetooth.getDevices) {
     bleLog("reconnect_skip", "getDevices unavailable");
     return null;
@@ -189,6 +274,23 @@ export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
   }
 }
 
+// Android connects by MAC address without a scan, so the saved id is enough.
+async function reconnectNativeDevice(): Promise<BluetoothDevice | null> {
+  const id = loadSelectedDeviceId();
+  if (!id) {
+    bleLog("reconnect_skip", "no saved native device");
+    return null;
+  }
+  const device = await nativeDeviceById(id);
+  try {
+    await withTimeout(device.gatt!.connect(), "connect");
+    return device;
+  } catch (e) {
+    bleLog("reconnect_gatt_error", `${device.name ?? id}: ${describeError(e)}`);
+    return null;
+  }
+}
+
 async function getCharacteristics(server: BluetoothRemoteGATTServer) {
   const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE), "service");
   const [registerIdChar, registerChar] = await Promise.all([
@@ -204,6 +306,84 @@ async function getCharacteristics(server: BluetoothRemoteGATTServer) {
 // can all issue operations at once, so every read/write is funneled through a single
 // FIFO queue to guarantee only one GATT operation runs at a time.
 let gattQueue: Promise<unknown> = Promise.resolve();
+
+const HISTORY_RETRY_DELAYS_MS = [0, 10, 25, 75];
+
+/**
+ * Select a history record on 0x1564 and read it back from 0x155f. The result
+ * characteristic keeps its previous value when the record is absent or the
+ * select is still in flight, so the ID must match before the bytes are trusted.
+ * Must run inside serializeGatt.
+ */
+async function readRecord(
+  chars: {
+    registerIdChar: BluetoothRemoteGATTCharacteristic;
+    registerChar: BluetoothRemoteGATTCharacteristic;
+  },
+  id: readonly [number, number],
+  step: string,
+): Promise<Uint8Array | null> {
+  await withTimeout(chars.registerIdChar.writeValue(new Uint8Array(id)), `${step} select`);
+  for (const delay of HISTORY_RETRY_DELAYS_MS) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    const value = await withTimeout(chars.registerChar.readValue(), `${step} read`);
+    const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    // ponytail: re-reading the same record can still return the previous copy;
+    // superduper selects a different record (FCFC) first as a cache barrier.
+    if (hasRecordId(bytes, id)) return bytes;
+  }
+  return null;
+}
+
+async function requireRecord(
+  chars: Parameters<typeof readRecord>[0],
+  id: readonly [number, number],
+  step: string,
+): Promise<Uint8Array> {
+  const bytes = await readRecord(chars, id, step);
+  if (!bytes) throw new Error(`Super73 record ${hexId(id)} unavailable (${step})`);
+  return bytes;
+}
+
+function hexId(id: readonly number[]): string {
+  return id.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Name first, then Device Information, then — only once authenticated — probe
+ * 00D9 (v2) and 0300 (v1). Never probes by sending control frames.
+ * Must run inside serializeGatt.
+ */
+async function detectProtocol(
+  server: BluetoothRemoteGATTServer,
+  authenticated: boolean,
+): Promise<Super73Protocol> {
+  const byName = protocolFromName(server.device?.name);
+  if (byName !== "unknown") return byName;
+  try {
+    const dis = await withTimeout(server.getPrimaryService(DEVICE_INFO_SERVICE), "dis service");
+    const char = await withTimeout(
+      dis.getCharacteristic(FIRMWARE_REVISION_CHAR),
+      "dis characteristic",
+    );
+    const value = await withTimeout(char.readValue(), "dis firmware");
+    const byFirmware = protocolFromFirmware(
+      new TextDecoder().decode(new Uint8Array(value.buffer, value.byteOffset, value.byteLength)),
+    );
+    if (byFirmware !== "unknown") return byFirmware;
+  } catch (e) {
+    bleLog("protocol_dis_unavailable", describeError(e));
+  }
+  if (!authenticated) return "unknown";
+  try {
+    const chars = await getCharacteristics(server);
+    if (await readRecord(chars, V2_MODE_RECORD, "probe v2")) return "v2";
+    if (await readRecord(chars, V1_STATE_RECORD, "probe v1")) return "v1";
+  } catch (e) {
+    bleLog("protocol_probe_failed", describeError(e));
+  }
+  return "unknown";
+}
 
 function serializeGatt<T>(operation: () => Promise<T>): Promise<T> {
   // Chain onto the queue regardless of whether the previous op resolved or rejected,
@@ -223,6 +403,8 @@ function serializeGatt<T>(operation: () => Promise<T>): Promise<T> {
  * Without it the first register write never completes. Protocol from
  * https://github.com/blopker/superduper (docs/ble_protocol.md, issue #106).
  * Bikes that don't expose the service are left on the unauthenticated path.
+ * Never skip the handshake because the state byte already reads 1: v1 firmware
+ * (221122) leaves it set after a disconnect — observed on a real bike.
  */
 export async function authenticate(server: BluetoothRemoteGATTServer): Promise<void> {
   return serializeGatt(async () => {
@@ -231,6 +413,7 @@ export async function authenticate(server: BluetoothRemoteGATTServer): Promise<v
       service = await withTimeout(server.getPrimaryService(AUTH_SERVICE), "auth service");
     } catch (e) {
       bleLog("auth_skip", describeError(e));
+      await resolveProtocol(server, false);
       return;
     }
     const [challengeChar, responseChar, stateChar] = await Promise.all([
@@ -249,7 +432,23 @@ export async function authenticate(server: BluetoothRemoteGATTServer): Promise<v
       throw new Error(`Super73 authentication refused (state ${state.getUint8(0)})`);
     }
     bleLog("auth_ok");
+    await resolveProtocol(server, true);
   });
+}
+
+async function resolveProtocol(server: BluetoothRemoteGATTServer, authenticated: boolean) {
+  const protocol = await detectProtocol(server, authenticated);
+  protocols.set(server, protocol);
+  lastStates.delete(server);
+  bleLog("protocol", protocol);
+}
+
+function requireKnownProtocol(server: BluetoothRemoteGATTServer): "v1" | "v2" {
+  const protocol = getProtocol(server);
+  if (protocol === "unknown") {
+    throw new Error("Super73 protocol version unknown — refusing to send control commands");
+  }
+  return protocol;
 }
 
 export async function readState(
@@ -257,11 +456,17 @@ export async function readState(
   source = "poll",
 ): Promise<Super73State> {
   return serializeGatt(async () => {
-    const { registerIdChar, registerChar } = await getCharacteristics(server);
-    // Request state by writing [3, 0] to register ID
-    await withTimeout(registerIdChar.writeValue(new Uint8Array([3, 0])), "state select");
-    const value = await withTimeout(registerChar.readValue(), "state read");
-    return parseStateBytes(new Uint8Array(value.buffer), source);
+    const protocol = requireKnownProtocol(server);
+    const chars = await getCharacteristics(server);
+    const state =
+      protocol === "v2"
+        ? parseV2State(
+            await requireRecord(chars, V2_CONTROL_RECORD, "state"),
+            await requireRecord(chars, V2_MODE_RECORD, "mode"),
+          )
+        : parseStateBytes(await requireRecord(chars, V1_STATE_RECORD, "state"), source);
+    lastStates.set(server, state);
+    return state;
   });
 }
 
@@ -280,9 +485,10 @@ export async function writeState(
 ): Promise<void> {
   return serializeGatt(async () => {
     if (!isStillValid()) return;
+    const protocol = requireKnownProtocol(server);
     const { registerChar } = await getCharacteristics(server);
     if (!isStillValid()) return;
-    const command = buildWriteCommand(state);
+    const command = buildWriteCommand(state, protocol);
     await withTimeout(registerChar.writeValue(command as unknown as BufferSource), "state write");
   });
 }
@@ -291,11 +497,11 @@ export async function readRide(
   server: BluetoothRemoteGATTServer,
 ): Promise<{ rangeKm: number; batteryPercent: number } | null> {
   return serializeGatt(async () => {
-    const { registerIdChar, registerChar } = await getCharacteristics(server);
-    // Select the RIDE register, then read its 10 bytes.
-    await withTimeout(registerIdChar.writeValue(new Uint8Array([0x02, 0x03])), "ride select");
-    const value = await withTimeout(registerChar.readValue(), "ride read");
-    return parseRidePacket(new Uint8Array(value.buffer));
+    // ponytail: v2 range/SoC live in 00D1/00D0 — not decoded yet.
+    if (getProtocol(server) !== "v1") return null;
+    const chars = await getCharacteristics(server);
+    const bytes = await readRecord(chars, V1_RIDE_RECORD, "ride");
+    return bytes ? parseRidePacket(bytes) : null;
   });
 }
 
@@ -369,7 +575,15 @@ export async function startStateNotifications(
     const listener = (event: Event) => {
       const c = event.target as BluetoothRemoteGATTCharacteristic;
       if (!c.value) return;
-      const bytes = new Uint8Array(c.value.buffer);
+      const bytes = new Uint8Array(c.value.buffer, c.value.byteOffset, c.value.byteLength);
+      if (getProtocol(server) === "v2") {
+        const patched = applyV2Telemetry(lastStates.get(server), bytes);
+        if (patched) {
+          lastStates.set(server, patched);
+          onState(patched);
+        }
+        return;
+      }
       if (bytes[0] === 0x03) {
         try {
           onState(parseStateBytes(bytes, "notifier"));
@@ -390,4 +604,19 @@ export async function startStateNotifications(
     bleLog("notifier_unavailable", describeError(e));
     return null;
   }
+}
+
+/** Patch a known v2 state with a 00D0 or 00D9 telemetry record; null otherwise. */
+export function applyV2Telemetry(
+  current: Super73State | undefined,
+  bytes: Uint8Array,
+): Super73State | null {
+  if (!current) return null;
+  if (hasRecordId(bytes, V2_CONTROL_RECORD)) {
+    return { ...current, assist: Math.min(Math.max(bytes[2]!, 0), 4), light: bytes[4] === 1 };
+  }
+  if (hasRecordId(bytes, V2_MODE_RECORD) && MODE_ORDER[bytes[5]!]) {
+    return { ...current, mode: MODE_ORDER[bytes[5]!]! };
+  }
+  return null;
 }

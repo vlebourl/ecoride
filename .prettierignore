@@ -3,6 +3,8 @@ dist
 .claude
 design
 bun.lock
+# Generated Capacitor Android project (Gradle, copied web assets)
+client/android
 
 # Local workspace artifacts
 client/test-results

@@ -350,14 +350,13 @@ function hexId(id: readonly number[]): string {
 }
 
 /**
- * Name first, then Device Information, then — only once authenticated — probe
- * 00D9 (v2) and 0300 (v1). Never probes by sending control frames.
+ * Name first, then Device Information, then probe history records 00D9 (v2)
+ * and 0300 (v1). The probe only reads, so it also runs on bikes without the
+ * auth service (older firmware may serve history unauthenticated). Never
+ * probes by sending control frames.
  * Must run inside serializeGatt.
  */
-async function detectProtocol(
-  server: BluetoothRemoteGATTServer,
-  authenticated: boolean,
-): Promise<Super73Protocol> {
+async function detectProtocol(server: BluetoothRemoteGATTServer): Promise<Super73Protocol> {
   const byName = protocolFromName(server.device?.name);
   if (byName !== "unknown") return byName;
   try {
@@ -374,7 +373,6 @@ async function detectProtocol(
   } catch (e) {
     bleLog("protocol_dis_unavailable", describeError(e));
   }
-  if (!authenticated) return "unknown";
   try {
     const chars = await getCharacteristics(server);
     if (await readRecord(chars, V2_MODE_RECORD, "probe v2")) return "v2";
@@ -413,7 +411,7 @@ export async function authenticate(server: BluetoothRemoteGATTServer): Promise<v
       service = await withTimeout(server.getPrimaryService(AUTH_SERVICE), "auth service");
     } catch (e) {
       bleLog("auth_skip", describeError(e));
-      await resolveProtocol(server, false);
+      await resolveProtocol(server);
       return;
     }
     const [challengeChar, responseChar, stateChar] = await Promise.all([
@@ -432,12 +430,12 @@ export async function authenticate(server: BluetoothRemoteGATTServer): Promise<v
       throw new Error(`Super73 authentication refused (state ${state.getUint8(0)})`);
     }
     bleLog("auth_ok");
-    await resolveProtocol(server, true);
+    await resolveProtocol(server);
   });
 }
 
-async function resolveProtocol(server: BluetoothRemoteGATTServer, authenticated: boolean) {
-  const protocol = await detectProtocol(server, authenticated);
+async function resolveProtocol(server: BluetoothRemoteGATTServer) {
+  const protocol = await detectProtocol(server);
   protocols.set(server, protocol);
   lastStates.delete(server);
   bleLog("protocol", protocol);

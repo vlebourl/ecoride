@@ -32,7 +32,12 @@ const toBytes = (v: BufferSource) =>
  * A fake display that implements the history mechanism: writing an ID to 0x1564
  * copies the matching record into 0x155f; an absent ID leaves 0x155f unchanged.
  */
-function fakeBike(opts: { name?: string; firmware?: string; records: Record<string, number[]> }) {
+function fakeBike(opts: {
+  name?: string;
+  firmware?: string;
+  noAuth?: boolean;
+  records: Record<string, number[]>;
+}) {
   let result = new Uint8Array(10).fill(0xee);
   const controlWrites: number[][] = [];
   const chars: Record<string, object> = {
@@ -71,7 +76,8 @@ function fakeBike(opts: { name?: string; firmware?: string; records: Record<stri
     connected: true,
     device: { name: opts.name },
     getPrimaryService: vi.fn(async (uuid: string) => {
-      if (![METRICS, AUTH, DIS].includes(uuid)) throw new Error(`no service ${uuid}`);
+      const services = opts.noAuth ? [METRICS] : [METRICS, AUTH, DIS];
+      if (!services.includes(uuid)) throw new Error(`no service ${uuid}`);
       return service;
     }),
   } as unknown as BluetoothRemoteGATTServer;
@@ -111,6 +117,18 @@ describe("protocol identification", () => {
     await authenticate(v1.server);
     expect(getProtocol(v1.server)).toBe("v1");
   });
+});
+
+it("identifies a v1 bike without the auth service by its 0300 record (PWA compat)", async () => {
+  const { server, controlWrites } = fakeBike({
+    name: "SUPER73-E2E",
+    noAuth: true,
+    records: { "0300": V1_STATE },
+  });
+  await authenticate(server);
+  expect(getProtocol(server)).toBe("v1");
+  await writeState(server, STATE);
+  expect(controlWrites).toHaveLength(1);
 });
 
 describe("v1 bike (SUPER73 / 221122)", () => {

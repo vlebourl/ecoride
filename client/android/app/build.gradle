@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 import groovy.json.JsonSlurper
 
@@ -45,6 +46,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+}
+
+kotlin {
+    jvmToolchain(21)
 }
 
 repositories {

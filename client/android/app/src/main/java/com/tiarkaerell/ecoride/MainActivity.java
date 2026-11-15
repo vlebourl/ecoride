@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(Super73BondPlugin.class);
+        registerPlugin(BikeSyncPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ecoRide</string>
+    <string name="title_activity_main">ecoRide</string>
+    <string name="package_name">com.tiarkaerell.ecoride</string>
+    <string name="custom_url_scheme">com.tiarkaerell.ecoride</string>
+</resources>

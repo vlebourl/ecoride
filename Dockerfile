@@ -10,6 +10,7 @@ COPY package.json bun.lock ./
 COPY shared/package.json shared/
 COPY client/package.json client/
 COPY server/package.json server/
+COPY patches/ patches/
 
 RUN bun install --frozen-lockfile
 
@@ -38,6 +39,7 @@ COPY package.json bun.lock ./
 COPY shared/package.json shared/
 COPY client/package.json client/
 COPY server/package.json server/
+COPY patches/ patches/
 RUN bun install --filter server --production --frozen-lockfile --ignore-scripts
 
 COPY --from=build /app/shared shared/

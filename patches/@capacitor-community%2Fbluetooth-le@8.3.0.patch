@@ -1,0 +1,49 @@
+diff --git a/node_modules/@capacitor-community/bluetooth-le/.bun-tag-5d2883e752c58285 b/.bun-tag-5d2883e752c58285
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/@capacitor-community/bluetooth-le/.bun-tag-b9a055a11f5eaf3f b/.bun-tag-b9a055a11f5eaf3f
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt b/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt
+index fc7a80efc7b5ed5374d57bd8df606c97c9336d9d..eb4c4ddc43cd09ba630a735c1704d6c46511a9df 100644
+--- a/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt
++++ b/android/src/main/java/com/capacitorjs/community/plugins/bluetoothle/Device.kt
+@@ -73,7 +73,6 @@ class Device(
+         private const val STATE_CONNECTING = 1
+         private const val STATE_CONNECTED = 2
+         private const val CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb"
+-        private const val REQUEST_MTU = 512
+     }
+ 
+     private var connectionState = STATE_DISCONNECTED
+@@ -158,8 +157,13 @@ class Device(
+             if (status == BluetoothGatt.GATT_SUCCESS) {
+                 resolve("discoverServices", "Services discovered.")
+                 if (connectCallOngoing()) {
+-                    // Try requesting a larger MTU. Maximally supported MTU will be selected.
+-                    requestMtu(REQUEST_MTU)
++                    // ecoRide patch: never send an MTU request (superduper: mtu: null).
++                    // The Super73 starts its own MTU exchange on connect; a second,
++                    // client-initiated exchange (Chrome sends 517) is never answered
++                    // and leaves every later ATT request queued (logcat 2026-11-15:
++                    // "bta_gattc_enqueue: Already has a pending command"). The
++                    // requestMtu helper is removed so nothing can call it.
++                    resolve("connect", "Connected.")
+                 }
+             } else {
+                 reject("discoverServices", "Service discovery failed.")
+@@ -379,14 +383,6 @@ class Device(
+         return bluetoothGatt != null && connectionState == STATE_CONNECTED
+     }
+ 
+-    private fun requestMtu(mtu: Int) {
+-        Logger.debug(TAG, "requestMtu $mtu")
+-        val result = bluetoothGatt?.requestMtu(mtu)
+-        if (result != true) {
+-            reject("connect", "Starting requestMtu failed.")
+-        }
+-    }
+-
+     fun getMtu(): Int {
+         return currentMtu
+     }

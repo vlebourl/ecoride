@@ -20,8 +20,9 @@ async function stubConnectedSuper73(page: Page) {
     ({ service, registerIdChar }) => {
       // Register 0x03 -> state frame: assist = [2], light = [4], mode = [5].
       // 7 = race in the EU offset. Register 0x02 0x03 -> RIDE frame, [8] = range.
-      const stateFrame = new Uint8Array([0, 209, 4, 0, 1, 7, 0, 0, 0, 0]);
-      const rideFrame = new Uint8Array([0x02, 0x03, 0, 0, 0, 0, 0, 0, 45]);
+      // Records as a real v1 bike returns them (ID 0300 / 0203, 10 bytes).
+      const stateFrame = new Uint8Array([0x03, 0x00, 4, 0, 1, 7, 0, 0, 0, 0]);
+      const rideFrame = new Uint8Array([0x02, 0x03, 0, 0, 0, 0, 0, 0, 45, 0]);
       let selected: "state" | "ride" = "state";
 
       const registerIdCharacteristic = {

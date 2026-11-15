@@ -101,10 +101,13 @@ const BLE_TIMEOUT = 5_000;
 const SUPER73_NAME_PREFIXES = ["SUPER73", "S73", "super73", "s73"] as const;
 const SELECTED_DEVICE_ID_KEY = "ecoride-super73-device-id";
 
-function withTimeout<T>(promise: Promise<T>, ms = BLE_TIMEOUT): Promise<T> {
+// The step name lands in the diagnostic log, which is how we tell a bike that
+// never answers service discovery from one that ignores a register read.
+function withTimeout<T>(promise: Promise<T>, step?: string, ms = BLE_TIMEOUT): Promise<T> {
+  const message = step ? `BLE timeout (${step})` : "BLE timeout";
   return Promise.race([
     promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("BLE timeout")), ms)),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
   ]);
 }
 
@@ -138,7 +141,7 @@ export async function scanAndConnect(): Promise<BluetoothDevice> {
     optionalServices: [METRICS_SERVICE],
   });
   if (!device.gatt) throw new Error("GATT not available");
-  await withTimeout(device.gatt.connect());
+  await withTimeout(device.gatt.connect(), "connect");
   saveSelectedDeviceId(device);
   return device;
 }
@@ -170,7 +173,7 @@ export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
     return null;
   }
   try {
-    await withTimeout(super73.gatt.connect());
+    await withTimeout(super73.gatt.connect(), "connect");
     saveSelectedDeviceId(super73);
     return super73;
   } catch (e) {
@@ -180,10 +183,10 @@ export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
 }
 
 async function getCharacteristics(server: BluetoothRemoteGATTServer) {
-  const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE));
+  const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE), "service");
   const [registerIdChar, registerChar] = await Promise.all([
-    withTimeout(service.getCharacteristic(REGISTER_ID_CHAR)),
-    withTimeout(service.getCharacteristic(REGISTER_CHAR)),
+    withTimeout(service.getCharacteristic(REGISTER_ID_CHAR), "characteristic"),
+    withTimeout(service.getCharacteristic(REGISTER_CHAR), "characteristic"),
   ]);
   return { registerIdChar, registerChar };
 }
@@ -213,8 +216,8 @@ export async function readState(
   return serializeGatt(async () => {
     const { registerIdChar, registerChar } = await getCharacteristics(server);
     // Request state by writing [3, 0] to register ID
-    await withTimeout(registerIdChar.writeValue(new Uint8Array([3, 0])));
-    const value = await withTimeout(registerChar.readValue());
+    await withTimeout(registerIdChar.writeValue(new Uint8Array([3, 0])), "state select");
+    const value = await withTimeout(registerChar.readValue(), "state read");
     return parseStateBytes(new Uint8Array(value.buffer), source);
   });
 }
@@ -237,7 +240,7 @@ export async function writeState(
     const { registerChar } = await getCharacteristics(server);
     if (!isStillValid()) return;
     const command = buildWriteCommand(state);
-    await withTimeout(registerChar.writeValue(command as unknown as BufferSource));
+    await withTimeout(registerChar.writeValue(command as unknown as BufferSource), "state write");
   });
 }
 
@@ -247,8 +250,8 @@ export async function readRide(
   return serializeGatt(async () => {
     const { registerIdChar, registerChar } = await getCharacteristics(server);
     // Select the RIDE register, then read its 10 bytes.
-    await withTimeout(registerIdChar.writeValue(new Uint8Array([0x02, 0x03])));
-    const value = await withTimeout(registerChar.readValue());
+    await withTimeout(registerIdChar.writeValue(new Uint8Array([0x02, 0x03])), "ride select");
+    const value = await withTimeout(registerChar.readValue(), "ride read");
     return parseRidePacket(new Uint8Array(value.buffer));
   });
 }
@@ -309,9 +312,15 @@ export async function startStateNotifications(
     // Through the queue like every other GATT operation: subscribing while a
     // read or write is in flight fails with "GATT operation already in progress".
     const char = await serializeGatt(async () => {
-      const service = await withTimeout(server.getPrimaryService(METRICS_SERVICE));
-      const c = await withTimeout(service.getCharacteristic(REGISTER_NOTIFIER_CHAR));
-      await withTimeout(c.startNotifications());
+      const service = await withTimeout(
+        server.getPrimaryService(METRICS_SERVICE),
+        "notifier service",
+      );
+      const c = await withTimeout(
+        service.getCharacteristic(REGISTER_NOTIFIER_CHAR),
+        "notifier characteristic",
+      );
+      await withTimeout(c.startNotifications(), "notifier start");
       return c;
     });
     const listener = (event: Event) => {

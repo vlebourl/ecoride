@@ -19,6 +19,7 @@ import {
   startStateNotifications,
   readRide,
   readSpeed,
+  readOdometer,
   type Super73State,
   type Super73Mode,
 } from "@/lib/super73-ble";
@@ -80,6 +81,9 @@ const RIDE_POLL_INTERVAL_MS = 20_000;
 // Wheel speed read from the bike while connected: the trip screen shows it
 // instead of GPS speed, so it must stay fresh even when no notification comes.
 const SPEED_POLL_INTERVAL_MS = 1_000;
+// The odometer steps every 100 m (about 15 s of riding). The notifier pushes each
+// step; this poll bounds how late a step is seen on firmware where it does not.
+const ODOMETER_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_AUTO_MODE_LOW_SPEED_KMH = 10;
 const DEFAULT_AUTO_MODE_HIGH_SPEED_KMH = 17;
 
@@ -206,6 +210,8 @@ export interface UseSuper73Result {
   batteryPercent: number | null;
   /** Estimated remaining range in km from the bike's RIDE telemetry. Null until first read. */
   rangeKm: number | null;
+  /** Bike odometer in km, 100 m steps (v1 record 0202). Null when not connected or on v2. */
+  odometerKm: number | null;
   error: string | null;
   tripModeSelection: Super73TripModeSelection;
   connect: () => Promise<void>;
@@ -226,6 +232,7 @@ const NOOP_RESULT: UseSuper73Result = {
   bikeSpeedKmh: null,
   batteryPercent: null,
   rangeKm: null,
+  odometerKm: null,
   error: null,
   tripModeSelection: "eco",
   connect: async () => {},
@@ -253,6 +260,7 @@ function useSuper73Controller(
   const [bikeSpeedKmh, setBikeSpeedKmh] = useState<number | null>(null);
   const [batteryPercent, setBatteryPercent] = useState<number | null>(null);
   const [rangeKm, setRangeKm] = useState<number | null>(null);
+  const [odometerKm, setOdometerKm] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tripModeSelectionIntent, setTripModeSelectionIntent] =
     useState<Super73TripModeSelection | null>(null);
@@ -440,6 +448,7 @@ function useSuper73Controller(
             setBatteryPercent(ride.batteryPercent);
             setRangeKm(ride.rangeKm);
           },
+          setOdometerKm,
         );
         if (session !== bleSessionRef.current) {
           // Tear down the subscription we just made rather than storing it: the
@@ -521,6 +530,9 @@ function useSuper73Controller(
     setBikeSpeedKmh(null);
     setBatteryPercent(null);
     setRangeKm(null);
+    // A reading from a lost link must not survive it: the trip recorder would
+    // take it for the bike's current position after a pause.
+    setOdometerKm(null);
     if (manualDisconnectRef.current) {
       setStatus("disconnected");
       return;
@@ -823,6 +835,33 @@ function useSuper73Controller(
     };
   }, [status]);
 
+  // Odometer poll, same shape as the speed poll above.
+  useEffect(() => {
+    if (status !== "connected") return;
+    const server = serverRef.current;
+    if (!server) return;
+    let cancelled = false;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const km = await readOdometer(server);
+        if (!cancelled && km !== null) setOdometerKm(km);
+      } catch {
+        // best-effort — the next tick retries
+      } finally {
+        inFlight = false;
+      }
+    };
+    void poll();
+    const id = setInterval(poll, ODOMETER_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [status]);
+
   // TODO: poll disabled — see EPAC_TRIGGER_POLL_INTERVAL_MS comment above.
   // useEffect(() => {
   //   if (status !== "connected") return;
@@ -864,6 +903,7 @@ function useSuper73Controller(
     bikeSpeedKmh,
     batteryPercent,
     rangeKm,
+    odometerKm,
     error,
     tripModeSelection,
     connect,

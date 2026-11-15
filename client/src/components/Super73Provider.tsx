@@ -4,6 +4,7 @@ import { useProfile } from "@/hooks/queries";
 import { useAppGpsTracking } from "@/hooks/useGpsTracking";
 import { Super73Provider as Super73ProviderBase, useSuper73 } from "@/hooks/useSuper73";
 import { useT } from "@/i18n/provider";
+import { TripOdometerRecorder } from "@/components/TripOdometerRecorder";
 
 export function Super73Provider({ children }: { children: ReactNode }) {
   const { data: profileData } = useProfile();
@@ -27,6 +28,7 @@ export function Super73Provider({ children }: { children: ReactNode }) {
     >
       {children}
       <EpacPollFallbackBanner />
+      <TripOdometerRecorder />
     </Super73ProviderBase>
   );
 }

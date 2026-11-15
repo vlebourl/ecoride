@@ -3,6 +3,7 @@ import {
   parseStateBytes,
   parseSpeedPacket,
   parseRidePacket,
+  parseOdometerPacket,
   buildWriteCommand,
   decodeMode,
   encodeMode,
@@ -403,6 +404,33 @@ describe("parseSpeedPacket", () => {
   });
 });
 
+describe("parseOdometerPacket", () => {
+  // Read from a real v1 bike (firmware 221122) whose display showed 851 mi.
+  const REAL_0202 = [0x02, 0x02, 0x00, 0x42, 0x00, 0x00, 0x47, 0x35, 0x00, 0x00];
+
+  it("decodes bytes 6-9 as a little-endian count of 100 m", () => {
+    expect(parseOdometerPacket(new Uint8Array(REAL_0202))).toBe(1363.9);
+  });
+
+  it("uses all four bytes", () => {
+    // 0x00010000 hundred-metre units = 6 553.6 km: a 16-bit read would wrap to 0.
+    expect(
+      parseOdometerPacket(new Uint8Array([0x02, 0x02, 0, 0, 0, 0, 0x00, 0x00, 0x01, 0x00])),
+    ).toBe(6553.6);
+  });
+
+  it("decodes a frame that is a view into a larger buffer", () => {
+    const padded = new Uint8Array([0xff, 0xff, ...REAL_0202]);
+    expect(parseOdometerPacket(padded.subarray(2))).toBe(1363.9);
+  });
+
+  it("returns null for other records and truncated frames", () => {
+    expect(parseOdometerPacket(new Uint8Array([0x02, 0x03, ...REAL_0202.slice(2)]))).toBeNull();
+    expect(parseOdometerPacket(new Uint8Array([0x02, 0x01, ...REAL_0202.slice(2)]))).toBeNull();
+    expect(parseOdometerPacket(new Uint8Array(REAL_0202.slice(0, 9)))).toBeNull();
+  });
+});
+
 describe("startStateNotifications", () => {
   function makeNotifierGATT(notifierChar: object) {
     const service = {
@@ -493,6 +521,23 @@ describe("startStateNotifications", () => {
     char.emit([0x02, 0x03, 0x10, 0x0e, 0x58, 0xcc, 0xdf, 0x00, 0x19, 0x00]);
 
     expect(onSpeed).not.toHaveBeenCalled();
+  });
+
+  it("calls onOdometer, and nothing else, for a 0202 packet", async () => {
+    const char = makeNotifierChar();
+    const server = makeNotifierGATT(char);
+    const onState = vi.fn();
+    const onSpeed = vi.fn();
+    const onRide = vi.fn();
+    const onOdometer = vi.fn();
+
+    await startStateNotifications(server, onState, onSpeed, onRide, onOdometer);
+    char.emit([0x02, 0x02, 0x00, 0x42, 0x00, 0x00, 0x47, 0x35, 0x00, 0x00]);
+
+    expect(onOdometer).toHaveBeenCalledExactlyOnceWith(1363.9);
+    expect(onState).not.toHaveBeenCalled();
+    expect(onSpeed).not.toHaveBeenCalled();
+    expect(onRide).not.toHaveBeenCalled();
   });
 
   it("returns null when notifier characteristic is unavailable", async () => {

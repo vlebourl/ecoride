@@ -122,6 +122,13 @@ export const en: Record<TranslationKey, string> = {
   "vehicle.autoTrip.toggleHint":
     "Start: {{speed}} km/h or more for {{hold}} s. End: {{stop}} min without movement or connection. This setting stays on this phone.",
 
+  "vehicle.odometerDistance.title": "Distance from the bike's odometer",
+  "vehicle.odometerDistance.subtitle":
+    "Experimental. Corrects the trip distance with the bike's odometer, more reliable than GPS in town and in tunnels.",
+  "vehicle.odometerDistance.toggleLabel": "Use the bike's odometer",
+  "vehicle.odometerDistance.toggleHint":
+    "On stretches of {{minKm}} km or more where bike and GPS agree; otherwise GPS is kept. This setting stays on this phone.",
+
   "vehicle.defaults.title": "Default settings",
   "vehicle.defaults.subtitle": "Applied automatically on connection.",
   "vehicle.defaults.mode": "Mode",

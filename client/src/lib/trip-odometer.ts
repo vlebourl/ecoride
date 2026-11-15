@@ -24,8 +24,35 @@
 //    whose odometer is not decoded (protocol v2).
 //
 // When in doubt the GPS distance stands.
+//
+// The whole thing is behind a switch that is off by default (see
+// isOdometerDistanceEnabled): off, nothing here reads the bike or changes a
+// distance.
 
 import { bleLog } from "@/lib/ble-log";
+
+// Off by default: the rule has not been checked on a real bike yet. Kept on the
+// device rather than in the profile, like the auto-trip switch — it only means
+// something on the phone paired with the bike, and a profile column would need
+// a migration that auto-applies on deploy.
+const PREF_KEY = "ecoride-odometer-distance";
+
+export function isOdometerDistanceEnabled(): boolean {
+  try {
+    return localStorage.getItem(PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setOdometerDistanceEnabled(enabled: boolean): void {
+  try {
+    if (enabled) localStorage.setItem(PREF_KEY, "1");
+    else localStorage.removeItem(PREF_KEY);
+  } catch {
+    // storage unavailable — the feature stays off
+  }
+}
 
 /**
  * A segment that ends on a late reading (rule 2) is short by up to one 100 m
@@ -146,6 +173,7 @@ export function pauseOdometerRecording(): void {
 
 /** Distance to save for a stopped trip. Logged so a correction can be traced afterwards. */
 export function correctedTripDistance(tripId: string, gpsKm: number): number {
+  if (!isOdometerDistanceEnabled()) return gpsKm;
   const track = current?.tripId === tripId ? current : null;
   const { distanceKm, odometerKm } = resolveTripDistance(track, gpsKm);
   if (track) {

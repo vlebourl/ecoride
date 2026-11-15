@@ -24,6 +24,7 @@ import {
   type Super73Mode,
 } from "@/lib/super73-ble";
 import { bleLog, describeError } from "@/lib/ble-log";
+import { isOdometerDistanceEnabled } from "@/lib/trip-odometer";
 
 // When the rider sets assist level to ASSIST_EPAC_TRIGGER from the bike's
 // physical buttons, the app automatically resets the mode to EPAC (eco).
@@ -448,7 +449,10 @@ function useSuper73Controller(
             setBatteryPercent(ride.batteryPercent);
             setRangeKm(ride.rangeKm);
           },
-          setOdometerKm,
+          // Ignored unless the rider turned the odometer distance on.
+          (km) => {
+            if (isOdometerDistanceEnabled()) setOdometerKm(km);
+          },
         );
         if (session !== bleSessionRef.current) {
           // Tear down the subscription we just made rather than storing it: the
@@ -835,7 +839,8 @@ function useSuper73Controller(
     };
   }, [status]);
 
-  // Odometer poll, same shape as the speed poll above.
+  // Odometer poll, same shape as the speed poll above. Only while the rider has
+  // the odometer distance switched on: off, nothing extra goes over the link.
   useEffect(() => {
     if (status !== "connected") return;
     const server = serverRef.current;
@@ -844,7 +849,7 @@ function useSuper73Controller(
     let inFlight = false;
     let logged = false;
     const poll = async () => {
-      if (inFlight) return;
+      if (inFlight || !isOdometerDistanceEnabled()) return;
       inFlight = true;
       try {
         const km = await readOdometer(server);

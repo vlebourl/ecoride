@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TripPage } from "../TripPage";
 import { I18nProvider } from "@/i18n/provider";
@@ -86,12 +86,22 @@ vi.mock("@/lib/ble-log", () => ({ bleLog: vi.fn(), describeError: String }));
 
 const STARTED_AT = "2026-11-15T08:00:00.000Z";
 
+// Node's own experimental localStorage shadows jsdom's and is unusable here.
+function stubSetting(enabled: boolean) {
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => (enabled && key === "ecoride-odometer-distance" ? "1" : null),
+    setItem: () => undefined,
+    removeItem: () => undefined,
+  });
+}
+
 describe("TripPage saved distance with a Super73 odometer", () => {
   beforeEach(() => {
     vi.spyOn(navigator, "language", "get").mockReturnValue("fr-FR");
     mutateMock.mockReset();
     setStoppedSessionMock.mockClear();
     resetTripOdometer();
+    stubSetting(true);
     stopMock.mockReset().mockReturnValue({
       distanceKm: 4,
       durationSec: 900,
@@ -100,6 +110,15 @@ describe("TripPage saved distance with a Super73 odometer", () => {
       endedAt: "2026-11-15T08:15:00.000Z",
     });
   });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** GPS drifted: 3.26 km where the wheel did 3.0 between two odometer steps. */
+  function recordDriftedRide(tripId = STARTED_AT) {
+    recordOdometerReading(tripId, 100.0, 0.05);
+    recordOdometerReading(tripId, 100.1, 0.14);
+    recordOdometerReading(tripId, 103.1, 3.4);
+  }
 
   async function stopAndSave() {
     renderTripPage();
@@ -112,10 +131,7 @@ describe("TripPage saved distance with a Super73 odometer", () => {
   }
 
   it("sends the odometer-corrected distance, and stores it for retries", async () => {
-    // GPS drifted: 3.26 km where the wheel did 3.0 between two odometer steps.
-    recordOdometerReading(STARTED_AT, 100.0, 0.05);
-    recordOdometerReading(STARTED_AT, 100.1, 0.14);
-    recordOdometerReading(STARTED_AT, 103.1, 3.4);
+    recordDriftedRide();
 
     await stopAndSave();
 
@@ -126,6 +142,18 @@ describe("TripPage saved distance with a Super73 odometer", () => {
     expect(setStoppedSessionMock.mock.calls[0]![0]).toMatchObject({ distanceKm: 3.74 });
   });
 
+  // Setting off = the behaviour before this feature, whatever the bike reported.
+  it("sends and stores the untouched GPS distance while the setting is off", async () => {
+    stubSetting(false);
+    recordDriftedRide();
+
+    await stopAndSave();
+
+    expect(mutateMock).toHaveBeenCalledOnce();
+    expect(mutateMock.mock.calls[0]![0]).toMatchObject({ distanceKm: 4, durationSec: 900 });
+    expect(setStoppedSessionMock.mock.calls[0]![0]).toMatchObject({ distanceKm: 4 });
+  });
+
   it("sends the GPS distance when no odometer was recorded", async () => {
     await stopAndSave();
 
@@ -133,9 +161,7 @@ describe("TripPage saved distance with a Super73 odometer", () => {
   });
 
   it("sends the GPS distance when the odometer belongs to another trip", async () => {
-    recordOdometerReading("2026-11-14T08:00:00.000Z", 100.0, 0.05);
-    recordOdometerReading("2026-11-14T08:00:00.000Z", 100.1, 0.14);
-    recordOdometerReading("2026-11-14T08:00:00.000Z", 103.1, 3.4);
+    recordDriftedRide("2026-11-14T08:00:00.000Z");
 
     await stopAndSave();
 

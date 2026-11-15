@@ -7,6 +7,7 @@ import { isBleSupported } from "@/lib/super73-ble";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
 import { AutoTripSetting } from "@/components/AutoTripSetting";
 import { BatteryRangeCard } from "@/components/BatteryUsage";
+import { OdometerDistanceSetting } from "@/components/OdometerDistanceSetting";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useT } from "@/i18n/provider";
 import type { Super73Mode } from "@ecoride/shared/types";
@@ -156,6 +157,8 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
       </section>
 
       <AutoTripSetting />
+
+      <OdometerDistanceSetting />
 
       {/* Default settings */}
       <section className="rounded-2xl bg-surface-container p-4">

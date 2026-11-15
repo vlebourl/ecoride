@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { TripOdometerRecorder } from "../TripOdometerRecorder";
 import { correctedTripDistance, resetTripOdometer } from "@/lib/trip-odometer";
@@ -27,6 +27,8 @@ describe("TripOdometerRecorder", () => {
   };
 
   beforeEach(() => {
+    // Node's own experimental localStorage shadows jsdom's and is unusable here.
+    vi.stubGlobal("localStorage", { getItem: () => "1" });
     resetTripOdometer();
     bike.odometerKm = null;
     Object.assign(gps, { isTracking: false, isPaused: false, distanceKm: 0 });
@@ -34,6 +36,8 @@ describe("TripOdometerRecorder", () => {
     const view = render(<TripOdometerRecorder />);
     rerender = () => view.rerender(<TripOdometerRecorder />);
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("pairs each odometer step with the GPS distance at that moment", () => {
     session = TRIP;

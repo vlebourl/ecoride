@@ -121,6 +121,13 @@ export const fr = {
   "vehicle.autoTrip.toggleHint":
     "Départ : {{speed}} km/h ou plus pendant {{hold}} s. Fin : {{stop}} min sans mouvement ou sans connexion. Réglage propre à ce téléphone.",
 
+  "vehicle.odometerDistance.title": "Distance par l'odomètre du vélo",
+  "vehicle.odometerDistance.subtitle":
+    "Expérimental. Corrige la distance du trajet avec le compteur du vélo, plus fiable que le GPS en ville et en tunnel.",
+  "vehicle.odometerDistance.toggleLabel": "Utiliser l'odomètre du vélo",
+  "vehicle.odometerDistance.toggleHint":
+    "Sur les tronçons de {{minKm}} km ou plus où vélo et GPS sont cohérents ; sinon le GPS est gardé. Réglage propre à ce téléphone.",
+
   "vehicle.defaults.title": "Réglages par défaut",
   "vehicle.defaults.subtitle": "Appliqués automatiquement à la connexion.",
   "vehicle.defaults.mode": "Mode",

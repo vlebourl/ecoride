@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_ODOMETER_TO_GPS_RATIO,
   MIN_ODOMETER_SEGMENT_KM,
@@ -6,16 +6,27 @@ import {
   addOdometerReading,
   closeOdometerSegment,
   correctedTripDistance,
+  isOdometerDistanceEnabled,
   newOdometerTrack,
   pauseOdometerRecording,
   recordOdometerReading,
   resetTripOdometer,
   resolveTripDistance,
   segmentUsesOdometer,
+  setOdometerDistanceEnabled,
   type OdometerTrack,
 } from "../trip-odometer";
 
 vi.mock("@/lib/ble-log", () => ({ bleLog: vi.fn() }));
+
+// Node's own experimental localStorage shadows jsdom's and is unusable here.
+function stubSetting(enabled: boolean) {
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => (enabled && key === "ecoride-odometer-distance" ? "1" : null),
+    setItem: () => undefined,
+    removeItem: () => undefined,
+  });
+}
 
 /** Feed [odometerKm, gpsKm] readings in order. */
 function ride(readings: [number, number][], track = newOdometerTrack("trip")): OdometerTrack {
@@ -210,8 +221,52 @@ describe("trip distance", () => {
   });
 });
 
+describe("setting", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is off by default and remembers the choice", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+    });
+    expect(isOdometerDistanceEnabled()).toBe(false);
+    setOdometerDistanceEnabled(true);
+    expect(isOdometerDistanceEnabled()).toBe(true);
+    setOdometerDistanceEnabled(false);
+    expect(isOdometerDistanceEnabled()).toBe(false);
+  });
+
+  it("is off when storage is unavailable", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => {
+        throw new Error("denied");
+      },
+      setItem: () => {
+        throw new Error("denied");
+      },
+    });
+    expect(() => setOdometerDistanceEnabled(true)).not.toThrow();
+    expect(isOdometerDistanceEnabled()).toBe(false);
+  });
+
+  it("off, a recorded trip keeps its GPS distance", () => {
+    resetTripOdometer();
+    stubSetting(false);
+    recordOdometerReading("2026-11-15T08:00:00.000Z", 100.0, 0);
+    recordOdometerReading("2026-11-15T08:00:00.000Z", 100.1, 0.1);
+    recordOdometerReading("2026-11-15T08:00:00.000Z", 103.1, 3.3);
+    expect(correctedTripDistance("2026-11-15T08:00:00.000Z", 3.4)).toBe(3.4);
+  });
+});
+
 describe("current trip", () => {
-  beforeEach(() => resetTripOdometer());
+  beforeEach(() => {
+    resetTripOdometer();
+    stubSetting(true);
+  });
+  afterEach(() => vi.unstubAllGlobals());
 
   const recordRide = (tripId: string) => {
     recordOdometerReading(tripId, 100.0, 0);

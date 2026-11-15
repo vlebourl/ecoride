@@ -98,6 +98,25 @@ _télémétrie_ (vitesse, autonomie), ce qui explique la confusion.
 L'état d'auth à `01` avant le handshake ne doit **jamais** servir à sauter le
 handshake : c'est le bug v1 de déconnexion.
 
+### Connexion intermittente : réessayer (HCI 0x3E)
+
+Le vélo ignore souvent les premières demandes de connexion. Android reçoit
+`LE Connection Complete`, puis environ 100 ms plus tard une déconnexion HCI
+`0x3E` (« connection failed to be established ») : le vélo n'a répondu à aucun
+paquet. Android le remonte en statut GATT **147** (`GATT_CONNECTION_TIMEOUT`),
+puis 133.
+
+Le 15/11, superduper échouait exactement pareil sur le même Pixel et passait au
+3ᵉ essai. `NativeGattServer.open()` réessaie donc jusqu'à 4 fois (1, 2, 3 puis
+5 s, journalisé `connect_retry`), ce qui a suffi dès le 2ᵉ essai.
+
+Validé ce jour-là dans l'app 2.56.1 sur le Pixel :
+
+```
+connect_tap → attach_start → dis_firmware 221122 → auth_ok → protocol v1 → connected notifier=on
+écriture Tour : 0300 octet 5 04→05, puis retour EPAC 05→04
+```
+
 ### Bond (appairage)
 
 Les services 0x1554/0x2554 exigent un lien chiffré (Security Mode 1 Level 2).

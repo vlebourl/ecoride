@@ -36,6 +36,7 @@ export type Super73Protocol = "v1" | "v2" | "unknown";
 const V1_STATE_RECORD = [0x03, 0x00] as const;
 const V1_RIDE_RECORD = [0x02, 0x03] as const;
 const V1_SPEED_RECORD = [0x02, 0x01] as const;
+const V1_ODOMETER_RECORD = [0x02, 0x02] as const;
 const V2_CONTROL_RECORD = [0x00, 0xd0] as const;
 const V2_MODE_RECORD = [0x00, 0xd9] as const;
 
@@ -586,6 +587,30 @@ export function parseSpeedPacket(bytes: Uint8Array): number | null {
 }
 
 /**
+ * Total distance from record 0202 (v1): bytes 6-9, little-endian u32 in 100 m
+ * units, returned in km. Checked against a real 221122 bike:
+ * `02 02 00 42 00 00 47 35 00 00` is 13 639, i.e. 1 363.9 km — the 851 mi on its
+ * display (which shows whole km converted with km * 10 / 16).
+ */
+export function parseOdometerPacket(bytes: Uint8Array): number | null {
+  if (!hasRecordId(bytes, V1_ODOMETER_RECORD)) return null;
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(6, true) / 10;
+}
+
+/**
+ * Odometer in km, read on demand: the notifier only pushes 0202 when it changes.
+ * Null on v2 — its odometer is not decoded, so those bikes keep the GPS distance.
+ */
+export async function readOdometer(server: BluetoothRemoteGATTServer): Promise<number | null> {
+  return serializeGatt(async () => {
+    if (getProtocol(server) !== "v1") return null;
+    const chars = await getCharacteristics(server);
+    const bytes = await readRecord(chars, V1_ODOMETER_RECORD, "odometer");
+    return bytes ? parseOdometerPacket(bytes) : null;
+  });
+}
+
+/**
  * Battery/range calibration. The bike reports a single raw byte (data[8] of the
  * RIDE frame). With BASE === REAL === 60 the raw byte maps 1:1 to km, matching
  * Walker73's defaults. Recalibrate REAL on a real bike if a model tops out elsewhere.
@@ -618,13 +643,15 @@ export function parseRidePacket(
  *   byte[0]=0x03 → state packet (mode/assist/light/region) — calls onState
  *   byte[0]=0x02, byte[1]=0x01 → speed telemetry (km/h)   — calls onSpeed
  *   byte[0]=0x02, byte[1]=0x03 → RIDE frame (range/battery) — calls onRide
- *   byte[0]=0x02 other / 0x04  → odometer / timer          — ignored
+ *   byte[0]=0x02, byte[1]=0x02 → odometer (km)             — calls onOdometer
+ *   byte[0]=0x04               → timer                     — ignored
  */
 export async function startStateNotifications(
   server: BluetoothRemoteGATTServer,
   onState: (state: Super73State) => void,
   onSpeed?: (speedKmh: number) => void,
   onRide?: (data: { rangeKm: number; batteryPercent: number }) => void,
+  onOdometer?: (odometerKm: number) => void,
 ): Promise<(() => void) | null> {
   try {
     // Through the queue like every other GATT operation: subscribing while a
@@ -662,6 +689,10 @@ export async function startStateNotifications(
       } else if (bytes[0] === 0x02 && bytes[1] === 0x03) {
         const ride = parseRidePacket(bytes);
         if (ride && onRide) onRide(ride);
+      } else if (bytes[0] === 0x02 && bytes[1] === 0x02) {
+        // Same gate as readOdometer: an unidentified bike gets no odometer.
+        const odometerKm = getProtocol(server) === "v1" ? parseOdometerPacket(bytes) : null;
+        if (odometerKm !== null && onOdometer) onOdometer(odometerKm);
       } else if (onSpeed) {
         const speedKmh = parseSpeedPacket(bytes);
         if (speedKmh !== null) onSpeed(speedKmh);

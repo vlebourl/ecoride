@@ -32,6 +32,7 @@ import { DestinationSearch } from "@/components/trip/DestinationSearch";
 import { NavigationBanner } from "@/components/trip/NavigationBanner";
 import { useSuper73 } from "@/hooks/useSuper73";
 import { modeIndex } from "@/lib/super73-ble";
+import { correctedTripDistance } from "@/lib/trip-odometer";
 import { BatteryIndicator } from "@/components/trip/BatteryIndicator";
 import { useLearnedRange } from "@/hooks/useBatteryUsage";
 import { learnedRemainingKm } from "@/lib/battery-usage";
@@ -315,7 +316,13 @@ export function TripPage() {
 
   const finishTrip = useCallback(
     (stopped: TrackingSession) => {
-      const session = { ...stopped, idempotencyKey: crypto.randomUUID() };
+      // Fixed here, once: the stopped session is what every retry and the offline
+      // queue resend, so the distance cannot change between two attempts.
+      const session = {
+        ...stopped,
+        distanceKm: correctedTripDistance(stopped.startedAt, stopped.distanceKm),
+        idempotencyKey: crypto.randomUUID(),
+      };
       recovery.setSession(session);
       const persisted = setStoppedSession(session);
       recovery.setSessionPersistFailed(!persisted);

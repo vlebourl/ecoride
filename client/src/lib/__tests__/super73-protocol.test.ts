@@ -7,9 +7,11 @@ import {
   loadSavedProtocol,
   protocolFromFirmware,
   protocolFromName,
+  readOdometer,
   readRide,
   readSpeed,
   readState,
+  startStateNotifications,
   writeState,
   type Super73State,
 } from "../super73-ble";
@@ -42,7 +44,15 @@ function fakeBike(opts: {
 }) {
   let result = new Uint8Array(10).fill(0xee);
   const controlWrites: number[][] = [];
+  let notifierListener: EventListener | undefined;
   const chars: Record<string, object> = {
+    "0000155e-1212-efde-1523-785feabcd123": {
+      startNotifications: async () => undefined,
+      addEventListener: (_event: string, cb: EventListener) => {
+        notifierListener = cb;
+      },
+      removeEventListener: () => undefined,
+    },
     [SELECTOR]: {
       writeValue: vi.fn(async (v: BufferSource) => {
         const id = toBytes(v)
@@ -83,7 +93,9 @@ function fakeBike(opts: {
       return service;
     }),
   } as unknown as BluetoothRemoteGATTServer;
-  return { server, controlWrites };
+  const notify = (bytes: number[]) =>
+    notifierListener?.({ target: { value: view(new Uint8Array(bytes)) } } as unknown as Event);
+  return { server, controlWrites, notify };
 }
 
 // EU sport, assist 2, light on.
@@ -215,7 +227,39 @@ describe("v2 bike (S73 FTEX / 250426)", () => {
   });
 });
 
+// The v2 odometer is not decoded: no value is better than a guessed one.
+it("reads no odometer from a v2 bike, even one that answers 0202", async () => {
+  const { server } = fakeBike({
+    name: "S73 FTEX",
+    records: {
+      "00d0": [0x00, 0xd0, 3, 0, 1, 80, 0x47, 0x35, 0, 0],
+      "00d9": V2_D9,
+      "0202": [0x02, 0x02, 0, 0, 0, 0, 0x47, 0x35, 0, 0],
+    },
+  });
+  await authenticate(server);
+  expect(getProtocol(server)).toBe("v2");
+  expect(await readOdometer(server)).toBeNull();
+});
+
 describe("unidentified bike", () => {
+  it("gets no odometer, read or notified", async () => {
+    const frame = [0x02, 0x02, 0, 0x42, 0, 0, 0x47, 0x35, 0, 0];
+    const { server, notify } = fakeBike({
+      name: "SUPER73",
+      firmware: "250426", // disagrees with the name
+      records: { "0202": frame },
+    });
+    await authenticate(server);
+    expect(getProtocol(server)).toBe("unknown");
+    expect(await readOdometer(server)).toBeNull();
+
+    const onOdometer = vi.fn();
+    await startStateNotifications(server, vi.fn(), vi.fn(), vi.fn(), onOdometer);
+    notify(frame);
+    expect(onOdometer).not.toHaveBeenCalled();
+  });
+
   it("sends no control command", async () => {
     const { server, controlWrites } = fakeBike({ name: "S73", records: {} });
     await authenticate(server);
@@ -249,6 +293,22 @@ describe("real v1 bike captures", () => {
     expect(await readRide(server)).toEqual({ rangeKm: 46, batteryPercent: 77 });
     // 0201 captured on the same bike, stationary: 0 km/h.
     expect(await readSpeed(server)).toBe(0);
+  });
+
+  it("reads the odometer through the history selector", async () => {
+    const { server } = fakeBike({
+      name: "SUPER73",
+      // The frame checked against the bike's display: 13 639 x 100 m.
+      records: { ...CAPTURED, "0202": hexBytes("02020042000047350000") },
+    });
+    await authenticate(server);
+    expect(await readOdometer(server)).toBe(1363.9);
+  });
+
+  it("returns no odometer when the bike has no 0202 record", async () => {
+    const { server } = fakeBike({ name: "SUPER73", records: { "0300": CAPTURED["0300"] } });
+    await authenticate(server);
+    expect(await readOdometer(server)).toBeNull();
   });
 
   it("identifies v1 from firmware 221122 when the name is not conclusive", async () => {

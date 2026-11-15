@@ -17,6 +17,7 @@ const reconnectPairedDeviceMock = vi.fn();
 const readStateMock = vi.fn();
 const readRideMock = vi.fn().mockResolvedValue(null);
 const readSpeedMock = vi.fn().mockResolvedValue(null);
+const readOdometerMock = vi.fn().mockResolvedValue(null);
 const writeStateMock = vi.fn();
 // Simulates notifier unavailable by default (returns null = firmware doesn't support it).
 const startStateNotificationsMock = vi.fn().mockResolvedValue(null);
@@ -30,6 +31,7 @@ vi.mock("@/lib/super73-ble", () => ({
   readState: (...args: unknown[]) => readStateMock(...args),
   readRide: (...args: unknown[]) => readRideMock(...args),
   readSpeed: (...args: unknown[]) => readSpeedMock(...args),
+  readOdometer: (...args: unknown[]) => readOdometerMock(...args),
   writeState: (...args: unknown[]) => writeStateMock(...args),
   startStateNotifications: (...args: unknown[]) => startStateNotificationsMock(...args),
   authenticate: (...args: unknown[]) => authenticateMock(...args),
@@ -100,6 +102,11 @@ function Consumer({ label }: { label: string }) {
 function SpeedConsumer() {
   const ble = useSuper73();
   return <span>bike-speed:{ble.bikeSpeedKmh === null ? "null" : ble.bikeSpeedKmh}</span>;
+}
+
+function OdometerConsumer() {
+  const ble = useSuper73();
+  return <span>odometer:{ble.odometerKm === null ? "null" : ble.odometerKm}</span>;
 }
 
 function BatteryConsumer({ label }: { label: string }) {
@@ -257,6 +264,7 @@ describe("useSuper73 provider", () => {
     // does not clear hand-made vi.fn()s — without this they accumulate.
     vi.clearAllMocks();
     readSpeedMock.mockResolvedValue(null);
+    readOdometerMock.mockResolvedValue(null);
     authenticateMock.mockResolvedValue(undefined);
     vi.stubGlobal("localStorage", makeLocalStorageStub());
     reconnectPairedDeviceMock.mockResolvedValue(null);
@@ -350,6 +358,98 @@ describe("useSuper73 provider", () => {
 
     await waitFor(() => expect(screen.getByText("bike-speed:0")).toBeTruthy());
     expect(readSpeedMock).toHaveBeenCalled();
+  });
+
+  // The notifier only pushes 0202 when the odometer steps, so a trip started on
+  // a stationary bike would have no reading to start from.
+  it("reads the odometer once connected and drops it when the bike is lost", async () => {
+    localStorage.setItem("ecoride-odometer-distance", "1");
+    readOdometerMock.mockResolvedValue(1363.9);
+    const listeners: Record<string, () => void> = {};
+    const device = {
+      name: "SUPER73",
+      gatt: { connected: true, disconnect: vi.fn() },
+      addEventListener: vi.fn((event: string, cb: () => void) => {
+        listeners[event] = cb;
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as BluetoothDevice;
+    scanAndConnectMock.mockResolvedValue(device);
+    readStateMock.mockResolvedValue({ mode: "eco", assist: 4, light: true, region: "eu" });
+    writeStateMock.mockResolvedValue(undefined);
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+        <OdometerConsumer />
+      </Super73Provider>,
+    );
+    expect(screen.getByText("odometer:null")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => expect(screen.getByText("odometer:1363.9")).toBeTruthy());
+
+    // A stale reading would be taken for the bike's position after a pause.
+    (device.gatt as { connected: boolean }).connected = false;
+    reconnectPairedDeviceMock.mockResolvedValue(null);
+    await act(async () => {
+      listeners["gattserverdisconnected"]?.();
+    });
+    expect(screen.getByText("odometer:null")).toBeTruthy();
+  });
+
+  // Setting off (the default) = the link carries exactly what it did before:
+  // no periodic 0202 read, and a 0202 the bike pushes on its own is dropped.
+  it("never reads or keeps the odometer while the setting is off", async () => {
+    readOdometerMock.mockResolvedValue(1363.9);
+    readSpeedMock.mockResolvedValue(12);
+    let pushOdometer: ((km: number) => void) | undefined;
+    startStateNotificationsMock.mockImplementation((...args: unknown[]) => {
+      pushOdometer = args[4] as (km: number) => void;
+      return Promise.resolve(() => {});
+    });
+    const device = {
+      name: "SUPER73",
+      gatt: { connected: true, disconnect: vi.fn() },
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as BluetoothDevice;
+    scanAndConnectMock.mockResolvedValue(device);
+    readStateMock.mockResolvedValue({ mode: "eco", assist: 4, light: true, region: "eu" });
+    writeStateMock.mockResolvedValue(undefined);
+
+    // Fake timers before connecting, so the poll intervals run on the fake clock.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+        <SpeedConsumer />
+        <OdometerConsumer />
+      </Super73Provider>,
+    );
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => expect(screen.getByText("bike-speed:12")).toBeTruthy());
+
+    readSpeedMock.mockClear();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    act(() => pushOdometer?.(1364));
+
+    // The 1 Hz speed poll ticked all along: the clock really moved.
+    expect(readSpeedMock.mock.calls.length).toBeGreaterThanOrEqual(25);
+    expect(pushOdometer).toBeDefined();
+    expect(readOdometerMock).not.toHaveBeenCalled();
+    expect(screen.getByText("odometer:null")).toBeTruthy();
+
+    // Turned on mid-connection: the next poll tick picks it up.
+    localStorage.setItem("ecoride-odometer-distance", "1");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    vi.useRealTimers();
+    expect(screen.getByText("odometer:1363.9")).toBeTruthy();
+    startStateNotificationsMock.mockReset().mockResolvedValue(null);
   });
 
   it("exposes null battery telemetry before any RIDE frame", () => {

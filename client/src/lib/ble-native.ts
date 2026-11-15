@@ -46,6 +46,42 @@ function bondPlugin(): Promise<Super73BondPlugin> {
   return bondPluginPromise;
 }
 
+export interface BikeStartSyncStatus {
+  supported: boolean;
+  associated: boolean;
+  hasPlan: boolean;
+  lastStartedAt: number;
+  lastCompletedAt: number;
+}
+
+export interface BikeStartSyncPlugin {
+  getStatus(): Promise<BikeStartSyncStatus>;
+  setPlan(plan: {
+    deviceId: string;
+    protocol: "v1" | "v2";
+    commands: number[][];
+  }): Promise<unknown>;
+  enable(options: { deviceId: string }): Promise<unknown>;
+  disable(): Promise<void>;
+}
+
+let startSyncPluginPromise: Promise<BikeStartSyncPlugin> | null = null;
+
+// Local plugin in android/app (BikeSyncPlugin.kt), see docs/architecture/super73-background-sync.md.
+export function bikeStartSyncPlugin(): Promise<BikeStartSyncPlugin> {
+  startSyncPluginPromise ??= import("@capacitor/core").then(({ registerPlugin }) => {
+    const plugin = registerPlugin<BikeStartSyncPlugin>("Super73BackgroundSync");
+    // Plain wrapper for the same `then` reason as bondPlugin().
+    return {
+      getStatus: () => plugin.getStatus(),
+      setPlan: (plan) => plugin.setPlan(plan),
+      enable: (options) => plugin.enable(options),
+      disable: () => plugin.disable(),
+    };
+  });
+  return startSyncPluginPromise;
+}
+
 /** True inside the Capacitor native shell (Capacitor injects window.Capacitor). */
 export function isNativeApp(): boolean {
   const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;

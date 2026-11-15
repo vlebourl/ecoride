@@ -49,7 +49,7 @@ export const ASSIST_EPAC_TRIGGER = 3;
 // than pass through it. (The light frames still carry whatever assist the bike
 // reported, 3 included — they change only the light bit.)
 export const CONNECT_ASSIST_TARGET = 4;
-const CONNECT_ASSIST_FLOOR = 2;
+export const CONNECT_ASSIST_FLOOR = 2;
 
 export function shouldTriggerEpac(state: Super73State): boolean {
   return state.assist === ASSIST_EPAC_TRIGGER && state.mode !== "eco";
@@ -134,7 +134,7 @@ const DEFAULT_TRACKING_INPUT: Super73TrackingInput = {
   speedKmh: null,
 };
 
-function loadCachedState(): Super73State | null {
+export function loadCachedState(): Super73State | null {
   try {
     const raw = localStorage.getItem(STATE_KEY);
     return raw ? (JSON.parse(raw) as Super73State) : null;
@@ -210,6 +210,8 @@ export interface UseSuper73Result {
   tripModeSelection: Super73TripModeSelection;
   connect: () => Promise<void>;
   disconnect: () => void;
+  /** Reconnect to the saved bike without a scan. No-op when already attached. */
+  reconnect: () => Promise<void>;
   setMode: (mode: Super73Mode) => Promise<void>;
   setAssist: (level: number) => Promise<void>;
   setLight: (on: boolean) => Promise<void>;
@@ -230,6 +232,7 @@ const NOOP_RESULT: UseSuper73Result = {
   tripModeSelection: "eco",
   connect: async () => {},
   disconnect: () => {},
+  reconnect: async () => {},
   setMode: async () => {},
   setAssist: async () => {},
   setLight: async () => {},
@@ -544,6 +547,25 @@ function useSuper73Controller(
     };
   }, []);
 
+  const reconnectSaved = useCallback(
+    async (isCancelled: () => boolean) => {
+      bleLog("auto_reconnect_start");
+      const device = await reconnectPairedDevice().catch((e: unknown) => {
+        bleLog("auto_reconnect_error", describeError(e));
+        return null;
+      });
+      if (isCancelled() || !device) return;
+      setStatus("connecting");
+      try {
+        await attachDevice(device);
+      } catch (e) {
+        bleLog("auto_reconnect_error", describeError(e));
+        setStatus("disconnected");
+      }
+    },
+    [attachDevice],
+  );
+
   useEffect(() => {
     if (!enabled || !isBleSupported()) {
       autoReconnectAttemptedRef.current = false;
@@ -554,26 +576,19 @@ function useSuper73Controller(
 
     autoReconnectAttemptedRef.current = true;
     let cancelled = false;
-    bleLog("auto_reconnect_start");
-    (async () => {
-      const device = await reconnectPairedDevice().catch((e: unknown) => {
-        bleLog("auto_reconnect_error", describeError(e));
-        return null;
-      });
-      if (cancelled || !device) return;
-      setStatus("connecting");
-      try {
-        await attachDevice(device);
-      } catch (e) {
-        bleLog("auto_reconnect_error", describeError(e));
-        setStatus("disconnected");
-      }
-    })();
+    void reconnectSaved(() => cancelled);
 
     return () => {
       cancelled = true;
     };
-  }, [enabled, status, attachDevice]);
+  }, [enabled, status, reconnectSaved]);
+
+  // Explicit reconnect to the saved bike, e.g. after the background sync
+  // association (which needs the bike disconnected so it advertises).
+  const reconnect = useCallback(async () => {
+    if (!enabled || !isBleSupported() || deviceRef.current) return;
+    await reconnectSaved(() => false);
+  }, [enabled, reconnectSaved]);
 
   const connect = useCallback(async () => {
     if (!enabled || !isBleSupported()) return;
@@ -868,6 +883,7 @@ function useSuper73Controller(
     tripModeSelection,
     connect,
     disconnect,
+    reconnect,
     setMode,
     setAssist,
     setLight,

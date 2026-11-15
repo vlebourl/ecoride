@@ -1,4 +1,5 @@
 import { Keyboard, MapPin, Play, X } from "lucide-react";
+import { Super73ModeButton } from "@/components/Super73ModeButton";
 import { useT } from "@/i18n/provider";
 
 interface TripIdleActionsProps {
@@ -9,6 +10,7 @@ interface TripIdleActionsProps {
   onOpenDestinationSearch: () => void;
   onClearDestination: () => void;
   onOpenManual: () => void;
+  super73Enabled?: boolean;
 }
 
 export function TripIdleActions({
@@ -19,21 +21,26 @@ export function TripIdleActions({
   onOpenDestinationSearch,
   onClearDestination,
   onOpenManual,
+  super73Enabled,
 }: TripIdleActionsProps) {
   const t = useT();
 
   return (
     <div className="space-y-3 px-6 py-6">
-      <button
-        onClick={onStart}
-        disabled={isSaving}
-        className="flex w-full items-center justify-center gap-4 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 disabled:opacity-50"
-      >
-        <Play size={28} className="text-bg" fill="currentColor" />
-        <span className="text-xl font-black uppercase tracking-widest text-bg">
-          {isSaving ? t("trip.start.saving") : t("trip.start.label")}
-        </span>
-      </button>
+      {/* Same slot as during tracking: the bike can be paired before the trip starts. */}
+      <div className="flex gap-3">
+        {super73Enabled && <Super73ModeButton enabled compact />}
+        <button
+          onClick={onStart}
+          disabled={isSaving}
+          className="flex flex-1 items-center justify-center gap-4 rounded-xl bg-primary py-6 shadow-[0px_20px_40px_rgba(0,0,0,0.4)] active:scale-95 disabled:opacity-50"
+        >
+          <Play size={28} className="text-bg" fill="currentColor" />
+          <span className="text-xl font-black uppercase tracking-widest text-bg">
+            {isSaving ? t("trip.start.saving") : t("trip.start.label")}
+          </span>
+        </button>
+      </div>
       {destination ? (
         <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3">
           <MapPin size={16} className="shrink-0 text-blue-500" />

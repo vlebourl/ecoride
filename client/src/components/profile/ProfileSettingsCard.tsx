@@ -27,11 +27,9 @@ interface ProfileSettingsCardProps {
     toggle: () => void | Promise<void>;
   };
   bleSupported: boolean;
-  profileUpdatePending: boolean;
   onTogglePersonalInfo: () => void;
   onVehicleClick: () => void;
   onSuper73RowClick: () => void;
-  onSuper73ToggleClick: () => Promise<void>;
   formatMemberSince: (createdAt: string, timezone: string | null) => string;
 }
 
@@ -40,11 +38,9 @@ export function ProfileSettingsCard({
   showPersonalInfo,
   push,
   bleSupported,
-  profileUpdatePending,
   onTogglePersonalInfo,
   onVehicleClick,
   onSuper73RowClick,
-  onSuper73ToggleClick,
   formatMemberSince,
 }: ProfileSettingsCardProps) {
   const t = useT();
@@ -170,8 +166,7 @@ export function ProfileSettingsCard({
             <button
               type="button"
               onClick={onSuper73RowClick}
-              disabled={!user.super73Enabled}
-              className="flex min-w-0 items-center gap-4 text-left"
+              className="flex w-full min-w-0 items-center gap-4 text-left"
             >
               <Bluetooth
                 size={20}
@@ -191,26 +186,6 @@ export function ProfileSettingsCard({
                 </span>
               </div>
               <ChevronRight size={18} className="shrink-0 text-text-dim" />
-            </button>
-            <button
-              onClick={() => {
-                void onSuper73ToggleClick();
-              }}
-              disabled={profileUpdatePending}
-              aria-label={
-                user.super73Enabled
-                  ? t("profile.settings.super73DisableAria")
-                  : t("profile.settings.super73EnableAria")
-              }
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
-                user.super73Enabled ? "bg-primary" : "bg-surface-high"
-              }`}
-            >
-              <span
-                className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
-                  user.super73Enabled ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
             </button>
           </div>
         )}

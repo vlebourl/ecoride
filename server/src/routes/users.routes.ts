@@ -63,8 +63,11 @@ usersRouter.patch("/profile", zValidator("json", updateUserSchema, validationHoo
   if (Object.keys(data).length === 0) {
     return c.json({ ok: true, data: { user: currentUser } });
   }
-  if (data.super73Enabled === true && currentUser.super73Enabled !== true) {
-    throw forbidden("Super73 access required");
+  // Super73 access is granted and revoked by an admin only. Self-disabling used
+  // to be allowed, but the profile then hid every Super73 control and refused to
+  // re-enable it, locking the rider out of their own bike.
+  if (data.super73Enabled !== undefined && data.super73Enabled !== currentUser.super73Enabled) {
+    throw forbidden("Super73 access is managed by an admin");
   }
 
   const [updated] = await db

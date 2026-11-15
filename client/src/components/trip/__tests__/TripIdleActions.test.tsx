@@ -3,6 +3,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { TripIdleActions } from "../TripIdleActions";
 import { I18nProvider } from "@/i18n/provider";
 
+const connectMock = vi.fn();
+vi.mock("@/hooks/useSuper73", () => ({
+  useSuper73: () => ({ status: "disconnected", connect: connectMock }),
+}));
+
 function renderActions(props?: Partial<React.ComponentProps<typeof TripIdleActions>>) {
   const defaultProps: React.ComponentProps<typeof TripIdleActions> = {
     isSaving: false,
@@ -51,5 +56,20 @@ describe("TripIdleActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
 
     expect(props.onClearDestination).toHaveBeenCalledOnce();
+  });
+
+  // The bike could only be connected once a trip was running.
+  it("lets the rider connect the Super73 before starting the trip", () => {
+    renderActions({ super73Enabled: true });
+
+    fireEvent.click(screen.getByRole("button", { name: /super73/i }));
+
+    expect(connectMock).toHaveBeenCalledOnce();
+  });
+
+  it("shows no Super73 button for riders without access", () => {
+    renderActions({ super73Enabled: false });
+
+    expect(screen.queryByRole("button", { name: /super73/i })).toBeNull();
   });
 });

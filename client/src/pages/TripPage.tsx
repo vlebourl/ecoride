@@ -582,6 +582,7 @@ export function TripPage() {
           destination={navigation.destination}
           destinationLoading={navigation.isLoading}
           onStart={startTracking}
+          super73Enabled={profileData?.user?.super73Enabled}
           onOpenDestinationSearch={() => setShowDestinationSearch(true)}
           onClearDestination={() => navigation.clearRoute()}
           onOpenManual={() => {

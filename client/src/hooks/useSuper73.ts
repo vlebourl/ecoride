@@ -842,12 +842,17 @@ function useSuper73Controller(
     if (!server) return;
     let cancelled = false;
     let inFlight = false;
+    let logged = false;
     const poll = async () => {
       if (inFlight) return;
       inFlight = true;
       try {
         const km = await readOdometer(server);
-        if (!cancelled && km !== null) setOdometerKm(km);
+        if (cancelled || km === null) return;
+        setOdometerKm(km);
+        // Once per connection: lets the decoding be checked against the bike's display.
+        if (!logged) bleLog("odometer", `${km} km`);
+        logged = true;
       } catch {
         // best-effort — the next tick retries
       } finally {

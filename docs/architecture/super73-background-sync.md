@@ -134,9 +134,9 @@ Points spécifiques ecoRide :
 
 - **minSdk 24** (`client/android/variables.gradle:2`) contre 31 requis. Il faut un garde à l'exécution
   `SDK_INT >= 31` et masquer la fonction en dessous.
-- **Nos écritures de premier plan mettent l'octet 5 à 0** (`super73-ble.ts:155-175`). Il faut le passer à 1, sinon
-  un réveil après une session pilotée depuis l'app écrasera les réglages choisis. C'est un changement TS d'une ligne
-  par protocole.
+- **Nos écritures de premier plan mettent l'octet 5 à 1** (`SESSION_MARKER` dans `buildWriteCommand`,
+  `super73-ble.ts`), en v1 comme en v2. Sans ce marqueur, un réveil après une session pilotée depuis l'app
+  écraserait les réglages choisis.
 - La logique d'auth et de trame existe déjà en TS (`super73-ble.ts:401-426`). Il faut la dupliquer en Kotlin avec des
   vecteurs de test partagés, sur le modèle des « golden fixtures » côté Dart chez superduper
   (`BACKGROUND_SYNC.md:316`).

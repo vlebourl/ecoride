@@ -153,18 +153,28 @@ function parseV2State(d0: Uint8Array, d9: Uint8Array): Super73State {
   };
 }
 
+/**
+ * Byte 5 of a control frame is echoed in the bike's history record for that
+ * frame, which the firmware resets to zero at power-on. Every app write sets it
+ * to 1, so the background sync (superduper `BackgroundControlSync`) can tell a
+ * bike already configured this power cycle — and leave a rider's later button
+ * changes alone — from a fresh boot.
+ */
+export const SESSION_MARKER = 1;
+
 export function buildWriteCommand(
   state: Super73State,
   protocol: Super73Protocol = "v1",
 ): Uint8Array {
+  const light = state.light ? 1 : 0;
   if (protocol === "v2") {
     return new Uint8Array([
       0x00,
       0xc1,
-      state.light ? 1 : 0,
+      light,
       state.assist,
       modeIndex(state.mode),
-      0,
+      SESSION_MARKER,
       0,
       0,
       0,
@@ -172,7 +182,7 @@ export function buildWriteCommand(
     ]);
   }
   const modeByte = encodeMode(state.mode, state.region);
-  return new Uint8Array([0x00, 0xd1, state.light ? 1 : 0, state.assist, modeByte, 0, 0, 0, 0, 0]);
+  return new Uint8Array([0x00, 0xd1, light, state.assist, modeByte, SESSION_MARKER, 0, 0, 0, 0]);
 }
 
 function hasRecordId(bytes: Uint8Array, id: readonly [number, number]): boolean {

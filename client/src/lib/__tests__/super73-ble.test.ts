@@ -101,13 +101,13 @@ describe("buildWriteCommand", () => {
   it("builds correct EU command", () => {
     const state: Super73State = { mode: "sport", assist: 3, light: true, region: "eu" };
     const cmd = buildWriteCommand(state);
-    expect(Array.from(cmd)).toEqual([0, 209, 1, 3, 6, 0, 0, 0, 0, 0]);
+    expect(Array.from(cmd)).toEqual([0, 209, 1, 3, 6, 1, 0, 0, 0, 0]);
   });
 
   it("builds correct US command", () => {
     const state: Super73State = { mode: "eco", assist: 0, light: false, region: "us" };
     const cmd = buildWriteCommand(state);
-    expect(Array.from(cmd)).toEqual([0, 209, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(Array.from(cmd)).toEqual([0, 209, 0, 0, 0, 1, 0, 0, 0, 0]);
   });
 
   it("always has 10 bytes with header [0, 209]", () => {
@@ -116,6 +116,14 @@ describe("buildWriteCommand", () => {
     expect(cmd.length).toBe(10);
     expect(cmd[0]).toBe(0);
     expect(cmd[1]).toBe(209);
+  });
+
+  it("marks byte 5 with the session marker on both protocols", () => {
+    // Background sync skips a bike whose history record already reads 1 here;
+    // a 0 would make it overwrite settings changed since the app's write.
+    const state: Super73State = { mode: "tour", assist: 2, light: false, region: "eu" };
+    expect(buildWriteCommand(state, "v1")[5]).toBe(1);
+    expect(buildWriteCommand(state, "v2")[5]).toBe(1);
   });
 });
 
@@ -510,9 +518,9 @@ describe("writeState", () => {
 
     expect(registerChar.writeValue).toHaveBeenCalled();
     const written = registerChar.writeValue.mock.calls[0][0];
-    // Should be [0, 209, 1, 4, 7, 0, 0, 0, 0, 0]
+    // Should be [0, 209, 1, 4, 7, 1, 0, 0, 0, 0] (byte 5 = session marker)
     expect(Array.from(new Uint8Array(written.buffer ?? written))).toEqual([
-      0, 209, 1, 4, 7, 0, 0, 0, 0, 0,
+      0, 209, 1, 4, 7, 1, 0, 0, 0, 0,
     ]);
   });
 

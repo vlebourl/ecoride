@@ -38,7 +38,9 @@ describe("Super73ModeButton compact", () => {
     renderWithI18n(<Super73ModeButton enabled compact />);
 
     const button = screen.getByRole("button", { name: "Super73 déconnecté" });
-    expect(button.className).toContain("aspect-square");
+    // Class check only — jsdom has no stylesheet. The rendered size is measured
+    // in e2e/super73-idle-button.spec.ts (aspect-square alone collapsed to 20px).
+    expect(button.className).toContain("w-[4.75rem]");
     expect(button.className).toContain("self-stretch");
   });
 

@@ -216,7 +216,7 @@ function withTimeout<T>(promise: Promise<T>, step?: string, ms = BLE_TIMEOUT): P
   ]);
 }
 
-function loadSelectedDeviceId(): string | null {
+export function loadSelectedDeviceId(): string | null {
   try {
     return localStorage.getItem(SELECTED_DEVICE_ID_KEY);
   } catch {
@@ -478,6 +478,24 @@ async function resolveProtocol(server: BluetoothRemoteGATTServer, firmware: stri
   protocols.set(server, protocol);
   lastStates.delete(server);
   bleLog("protocol", protocol);
+  // The background sync plan is built while the bike is off, so it needs the
+  // protocol of the last authenticated connection.
+  try {
+    localStorage.setItem(SAVED_PROTOCOL_KEY, protocol);
+  } catch {
+    // localStorage unavailable — the background sync stays unavailable
+  }
+}
+
+const SAVED_PROTOCOL_KEY = "ecoride-super73-protocol";
+
+export function loadSavedProtocol(): Super73Protocol {
+  try {
+    const saved = localStorage.getItem(SAVED_PROTOCOL_KEY);
+    return saved === "v1" || saved === "v2" ? saved : "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 function requireKnownProtocol(server: BluetoothRemoteGATTServer): "v1" | "v2" {

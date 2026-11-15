@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { MapCacheRow } from "@/components/MapCacheRow";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { BikeStartSyncRow } from "@/components/profile/BikeStartSyncRow";
+import type { Super73Mode } from "@/lib/super73-ble";
 import { useT } from "@/i18n/provider";
 
 interface ProfileSettingsCardProps {
@@ -19,6 +21,7 @@ interface ProfileSettingsCardProps {
     createdAt: string;
     timezone: string | null;
     super73Enabled: boolean;
+    super73DefaultMode?: Super73Mode | null;
   };
   showPersonalInfo: boolean;
   push: {
@@ -189,6 +192,7 @@ export function ProfileSettingsCard({
             </button>
           </div>
         )}
+        {user.super73Enabled && <BikeStartSyncRow defaultMode={user.super73DefaultMode ?? null} />}
 
         <div className="mx-4 h-px bg-white/5" />
         <MapCacheRow />

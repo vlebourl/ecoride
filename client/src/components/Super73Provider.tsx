@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useProfile } from "@/hooks/queries";
 import { useAppGpsTracking } from "@/hooks/useGpsTracking";
 import { Super73Provider as Super73ProviderBase, useSuper73 } from "@/hooks/useSuper73";
+import { useBikeStartSyncPlanRefresh } from "@/hooks/useBikeStartSync";
 import { useT } from "@/i18n/provider";
 
 export function Super73Provider({ children }: { children: ReactNode }) {
@@ -10,6 +11,7 @@ export function Super73Provider({ children }: { children: ReactNode }) {
   const gps = useAppGpsTracking();
   const user = profileData?.user;
   const enabled = !!user?.super73Enabled;
+  useBikeStartSyncPlanRefresh(enabled, user?.super73DefaultMode ?? null);
 
   return (
     <Super73ProviderBase

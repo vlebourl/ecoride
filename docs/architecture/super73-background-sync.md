@@ -171,3 +171,15 @@ Option (a), gardée derrière un opt-in « Synchro au démarrage » réservé à
 
 Ne rien promettre après un Force Stop ou une hibernation. Le comportement du marqueur sur V2 n'est pas vérifié sur
 matériel.
+
+## Opt-in côté app (Profil)
+
+`client/src/components/profile/BikeStartSyncRow.tsx` + `client/src/hooks/useBikeStartSync.ts`.
+
+- Visible seulement dans l'app native quand `getStatus().supported` (Android 12+).
+- Le plan rejoue la séquence de connexion en deux trames (`buildStartSyncPlan`) : lumière off + assistance 2,
+  puis lumière on + assistance 4, dans le mode par défaut (ou le mode courant). Il s'appuie sur le dernier vélo
+  connecté : MAC (`ecoride-super73-device-id`), état (`ecoride-super73-state`) et protocole
+  (`ecoride-super73-protocol`, enregistré après l'auth).
+- Activation : déconnexion manuelle (un vélo connecté ne s'annonce plus), `setPlan`, `enable`, puis reconnexion.
+- `Super73Provider` repousse le plan quand le mode par défaut change et que la synchro est active.

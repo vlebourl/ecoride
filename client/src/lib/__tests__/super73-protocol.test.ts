@@ -4,6 +4,7 @@ import {
   authenticate,
   buildWriteCommand,
   getProtocol,
+  loadSavedProtocol,
   protocolFromFirmware,
   protocolFromName,
   readRide,
@@ -104,9 +105,17 @@ describe("protocol identification", () => {
   });
 
   it("falls back to Device Information when the name is not conclusive", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    });
     const { server } = fakeBike({ name: "S73", firmware: "250426", records: {} });
     await authenticate(server);
     expect(getProtocol(server)).toBe("v2");
+    // Persisted for the background sync plan, built while the bike is off.
+    expect(loadSavedProtocol()).toBe("v2");
+    vi.unstubAllGlobals();
   });
 
   it("falls back to the authenticated 00D9 / 0300 probe when Device Information fails", async () => {

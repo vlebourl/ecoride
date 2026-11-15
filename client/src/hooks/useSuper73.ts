@@ -18,6 +18,7 @@ import {
   writeState,
   startStateNotifications,
   readRide,
+  readSpeed,
   type Super73State,
   type Super73Mode,
 } from "@/lib/super73-ble";
@@ -76,6 +77,9 @@ export function reconnectDelay(attempt: number): number {
 // Battery/range change slowly; a low-frequency poll guarantees telemetry even if
 // the notifier never pushes RIDE frames on a given firmware.
 const RIDE_POLL_INTERVAL_MS = 20_000;
+// Wheel speed read from the bike while connected: the trip screen shows it
+// instead of GPS speed, so it must stay fresh even when no notification comes.
+const SPEED_POLL_INTERVAL_MS = 1_000;
 const DEFAULT_AUTO_MODE_LOW_SPEED_KMH = 10;
 const DEFAULT_AUTO_MODE_HIGH_SPEED_KMH = 17;
 
@@ -785,6 +789,34 @@ function useSuper73Controller(
     };
     void poll();
     const id = setInterval(poll, RIDE_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [status]);
+
+  // Wheel speed poll. Skips a tick while the previous read is still queued, so
+  // a slow link never piles reads up in the GATT queue.
+  useEffect(() => {
+    if (status !== "connected") return;
+    const server = serverRef.current;
+    if (!server) return;
+    let cancelled = false;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const speed = await readSpeed(server);
+        if (!cancelled && speed !== null) setBikeSpeedKmh(speed);
+      } catch {
+        // best-effort — the next tick retries
+      } finally {
+        inFlight = false;
+      }
+    };
+    void poll();
+    const id = setInterval(poll, SPEED_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);

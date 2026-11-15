@@ -223,3 +223,40 @@ describe("native connection retries", () => {
     expect(device.gatt!.connected).toBe(false);
   });
 });
+
+// Regression (2026-11-15): the hook's 5 s connect timeout abandoned a native
+// attempt that was still retrying and started a second one on the same bike.
+// The two raced, and the encryption probe failing with "Not connected" was
+// taken for a stale bond: removeBond on a valid pairing.
+describe("native reconnection races", () => {
+  it("joins the attempt already running for the same bike instead of opening a second one", async () => {
+    let finish!: () => void;
+    ble.connect.mockImplementationOnce(
+      (_id: string, onDisconnect: () => void) =>
+        new Promise<void>((resolve) => {
+          ble.state.onDisconnect = onDisconnect;
+          finish = resolve;
+        }),
+    );
+    const first = await nativeDeviceById("RACE");
+    const second = await nativeDeviceById("RACE");
+    expect(second).toBe(first);
+
+    const a = first.gatt!.connect();
+    const b = second.gatt!.connect();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    finish();
+    await Promise.all([a, b]);
+    expect(ble.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("never drops the bond when the link died during the encryption probe", async () => {
+    ble.read.mockImplementationOnce(async () => {
+      ble.state.onDisconnect?.();
+      throw new Error("Not connected to device.");
+    });
+    const device = await nativeDeviceById("DROP");
+    await expect(device.gatt!.connect()).rejects.toThrow(/dropped the connection/);
+    expect(ble.removeBond).not.toHaveBeenCalled();
+  });
+});

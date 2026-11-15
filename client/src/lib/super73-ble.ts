@@ -35,6 +35,7 @@ export type Super73Protocol = "v1" | "v2" | "unknown";
 
 const V1_STATE_RECORD = [0x03, 0x00] as const;
 const V1_RIDE_RECORD = [0x02, 0x03] as const;
+const V1_SPEED_RECORD = [0x02, 0x01] as const;
 const V2_CONTROL_RECORD = [0x00, 0xd0] as const;
 const V2_MODE_RECORD = [0x00, 0xd9] as const;
 
@@ -187,6 +188,11 @@ export function isBleSupported(): boolean {
 // ---- BLE operations ----
 
 const BLE_TIMEOUT = 5_000;
+// The native transport retries a connection the bike drops while it is being
+// established (up to ~25 s) and may pair on first use: a 5 s cap would abandon
+// an attempt that is still running and start a parallel one.
+const NATIVE_CONNECT_TIMEOUT = 60_000;
+const connectTimeout = () => (isNativeApp() ? NATIVE_CONNECT_TIMEOUT : BLE_TIMEOUT);
 const SUPER73_NAME_PREFIXES = ["SUPER73", "S73", "super73", "s73"] as const;
 const SELECTED_DEVICE_ID_KEY = "ecoride-super73-device-id";
 
@@ -232,7 +238,7 @@ export async function scanAndConnect(): Promise<BluetoothDevice> {
         optionalServices: [METRICS_SERVICE, AUTH_SERVICE, DEVICE_INFO_SERVICE],
       });
   if (!device.gatt) throw new Error("GATT not available");
-  await withTimeout(device.gatt.connect(), "connect");
+  await withTimeout(device.gatt.connect(), "connect", connectTimeout());
   saveSelectedDeviceId(device);
   return device;
 }
@@ -283,7 +289,7 @@ async function reconnectNativeDevice(): Promise<BluetoothDevice | null> {
   }
   const device = await nativeDeviceById(id);
   try {
-    await withTimeout(device.gatt!.connect(), "connect");
+    await withTimeout(device.gatt!.connect(), "connect", connectTimeout());
     return device;
   } catch (e) {
     bleLog("reconnect_gatt_error", `${device.name ?? id}: ${describeError(e)}`);
@@ -523,6 +529,20 @@ export async function readRide(
     const chars = await getCharacteristics(server);
     const bytes = await readRecord(chars, V1_RIDE_RECORD, "ride");
     return bytes ? parseRidePacket(bytes) : null;
+  });
+}
+
+/**
+ * Wheel speed from record 0201 (v1). The notifier only pushes it when it
+ * changes, so a stationary bike never sends one: without this read the trip
+ * screen fell back to GPS speed, which drifts by several km/h indoors.
+ */
+export async function readSpeed(server: BluetoothRemoteGATTServer): Promise<number | null> {
+  return serializeGatt(async () => {
+    // ponytail: v2 speed lives in 00D1 — not decoded yet.
+    if (getProtocol(server) !== "v1") return null;
+    const bytes = await readRecord(await getCharacteristics(server), V1_SPEED_RECORD, "speed");
+    return bytes ? parseSpeedPacket(bytes) : null;
   });
 }
 

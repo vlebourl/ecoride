@@ -359,7 +359,7 @@ export function TripPage() {
 
   return (
     <div
-      className="relative flex h-[calc(100dvh_-_6rem)] flex-col overflow-hidden"
+      className="relative flex h-[calc(100dvh_-_6rem_-_env(safe-area-inset-top,0px)_-_env(safe-area-inset-bottom,0px))] flex-col overflow-hidden"
       data-testid="trip-page-root"
     >
       <PageHeader

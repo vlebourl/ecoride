@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Regression: in the Android app (Capacitor, edge-to-edge WebView) the system
 // bars report safe-area insets (Pixel 9 Pro: top 68px, bottom 24px). AppShell
 // pads the top inset and BottomNav grows by the bottom one, but the trip page
-// height only subtracted the nav (100dvh - 6rem): the page overflowed by both
+// height only subtracted the nav reservation: the page overflowed by both
 // insets and the interrupt bar slid under the bottom navigation. The PWA in
 // Chrome reports ~0 insets, which hid the bug.
 

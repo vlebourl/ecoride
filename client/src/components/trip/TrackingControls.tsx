@@ -11,7 +11,7 @@ export interface TrackingControlsProps {
 export function TrackingControls({ isPaused, onInterrupt, super73Enabled }: TrackingControlsProps) {
   const t = useT();
   return (
-    <div className="flex gap-3 px-6 py-6">
+    <div className="flex gap-3 px-6 py-4">
       {super73Enabled && <Super73ModeButton enabled compact />}
       <button
         onClick={onInterrupt}

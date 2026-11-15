@@ -31,7 +31,7 @@ export function TrackingDashboard({
       {/* Speed hero centered between edge-pinned gauges. A 3-column grid keeps the
           speed centered even when only one gauge is present (e.g. US mode shows no
           classe): the empty slot still holds its column. */}
-      <div className="grid grid-cols-3 items-center px-4 py-6" data-testid="tracking-hero">
+      <div className="grid grid-cols-3 items-center px-4 pt-2 pb-6" data-testid="tracking-hero">
         <div className="justify-self-start" data-testid="hero-gauge-left">
           {assistLevel != null && (
             <LevelStack

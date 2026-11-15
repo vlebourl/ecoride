@@ -33,6 +33,8 @@ import { NavigationBanner } from "@/components/trip/NavigationBanner";
 import { useSuper73 } from "@/hooks/useSuper73";
 import { modeIndex } from "@/lib/super73-ble";
 import { BatteryIndicator } from "@/components/trip/BatteryIndicator";
+import { useLearnedRange } from "@/hooks/useBatteryUsage";
+import { learnedRemainingKm } from "@/lib/battery-usage";
 import { HeadlightIndicator } from "@/components/trip/HeadlightIndicator";
 import { useAutoTripHandlers } from "@/hooks/useAutoTrip";
 import { endSessionAtLastMovement, isAutoTripWorthSaving, type AutoTripEnd } from "@/lib/auto-trip";
@@ -75,6 +77,8 @@ export function TripPage() {
   const { data: tripPresetsData } = useTripPresets();
   const gps = useAppGpsTracking();
   const ble = useSuper73();
+  // Past trips rescale the bike's range estimate; null until enough of them.
+  const learnedRangeKm = learnedRemainingKm(ble.rangeKm, useLearnedRange());
   const currentGpsPoint = gps.state.gpsPoints.at(-1) ?? null;
   const navigation = useNavigation({
     currentPoint: currentGpsPoint,
@@ -393,7 +397,11 @@ export function TripPage() {
         center={
           s73Connected ? (
             <div className="flex items-center gap-2">
-              <BatteryIndicator percent={ble.batteryPercent} rangeKm={ble.rangeKm} />
+              <BatteryIndicator
+                percent={ble.batteryPercent}
+                rangeKm={learnedRangeKm ?? ble.rangeKm}
+                learned={learnedRangeKm !== null}
+              />
               <HeadlightIndicator />
             </div>
           ) : undefined

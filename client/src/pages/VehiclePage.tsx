@@ -6,6 +6,7 @@ import { useSuper73 } from "@/hooks/useSuper73";
 import { isBleSupported } from "@/lib/super73-ble";
 import { Super73ModeButton } from "@/components/Super73ModeButton";
 import { AutoTripSetting } from "@/components/AutoTripSetting";
+import { BatteryRangeCard } from "@/components/BatteryUsage";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useT } from "@/i18n/provider";
 import type { Super73Mode } from "@ecoride/shared/types";
@@ -94,6 +95,8 @@ function VehicleSettingsContent({ user, updateProfile, ble }: VehicleSettingsCon
         </h2>
         <Super73ModeButton enabled />
       </section>
+
+      <BatteryRangeCard />
 
       <section className="rounded-2xl bg-surface-container p-4">
         <div className="mb-3 flex items-center justify-between gap-3">

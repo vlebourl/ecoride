@@ -3,6 +3,7 @@ import { Save, Trash2, X } from "lucide-react";
 import type { MouseEvent } from "react";
 import type { Trip } from "@ecoride/shared/types";
 import { TripMiniMap } from "@/components/TripMiniMap";
+import { TripBatteryUsage } from "@/components/BatteryUsage";
 import { formatLongDateTime } from "@/lib/format-utils";
 import { tripLabelKey } from "@/lib/trip-utils";
 import { useT } from "@/i18n/provider";
@@ -105,6 +106,8 @@ export function StatsTripDetailSheet({
             <p className="text-xs font-bold uppercase text-text-muted">{t("stats.detail.eur")}</p>
           </div>
         </div>
+
+        <TripBatteryUsage startedAt={selectedTrip.startedAt} />
 
         <div className="space-y-3">
           <button

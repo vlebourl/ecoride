@@ -145,6 +145,18 @@ export const en: Record<TranslationKey, string> = {
   "vehicle.info.currentMode": "Current mode",
   "vehicle.info.assist": "Assist",
 
+  "vehicle.battery.title": "Battery",
+  "vehicle.battery.learnedLabel": "Learned range, full charge",
+  "vehicle.battery.approxKm": "≈ {{km}} km",
+  "vehicle.battery.basis":
+    "From {{count}} measured trips: {{ratio}} real km per km of range shown by the bike.",
+  "vehicle.battery.remaining":
+    "Estimated remaining range: ≈ {{km}} km (the bike shows {{bike}} km).",
+  "vehicle.battery.pending":
+    "Learned range: not enough measured trips yet ({{count}}/{{minTrips}} trips, {{drop}}/{{minDrop}} km of range used).",
+  "vehicle.battery.note":
+    "The bike only sends an estimated range, in whole km. The battery percentage is derived from it (range ÷ {{full}} km): it is not a measured charge. These readings stay on this device.",
+
   "profile.header.title": "Profile",
   "profile.loadingAria": "Loading",
   "profile.ecoRiderBadge": "Eco Rider",
@@ -276,6 +288,10 @@ export const en: Record<TranslationKey, string> = {
   "stats.detail.km": "km",
   "stats.detail.co2": "kg CO₂",
   "stats.detail.eur": "€",
+  "stats.detail.battery.title": "Battery · bike's estimate",
+  "stats.detail.battery.readings":
+    "Displayed range: {{start}} → {{end}} km ({{delta}} km, ≈ {{percent}}%)",
+  "stats.detail.battery.ratio": "{{ratio}} km of range per km ridden, measured over {{km}} km",
   "stats.detail.hideForm": "Hide the form",
   "stats.detail.createPreset": "Create a saved trip",
   "stats.detail.presetLabel": "Saved trip name",

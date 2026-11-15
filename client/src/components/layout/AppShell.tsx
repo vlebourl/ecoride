@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav } from "./BottomNav";
 import { AnimatedOutlet } from "./AnimatedOutlet";
 import { Super73Provider } from "@/components/Super73Provider";
+import { BatteryUsageRecorder } from "@/components/BatteryUsage";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { GpsTrackingProvider } from "@/hooks/useGpsTracking";
 import { AutoTripController } from "@/hooks/useAutoTrip";
@@ -24,6 +25,7 @@ export function AppShell() {
     <GpsTrackingProvider>
       <Super73Provider>
         <AutoTripController />
+        <BatteryUsageRecorder />
         <div
           className="flex h-full flex-col bg-bg pt-[env(safe-area-inset-top)]"
           onTouchStart={swipe.onTouchStart}

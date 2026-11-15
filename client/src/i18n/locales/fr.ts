@@ -144,6 +144,18 @@ export const fr = {
   "vehicle.info.currentMode": "Mode actuel",
   "vehicle.info.assist": "Assistance",
 
+  "vehicle.battery.title": "Batterie",
+  "vehicle.battery.learnedLabel": "Autonomie apprise, charge pleine",
+  "vehicle.battery.approxKm": "≈ {{km}} km",
+  "vehicle.battery.basis":
+    "D'après {{count}} trajets mesurés : {{ratio}} km réels par km d'autonomie affiché par le vélo.",
+  "vehicle.battery.remaining":
+    "Autonomie restante estimée : ≈ {{km}} km (le vélo affiche {{bike}} km).",
+  "vehicle.battery.pending":
+    "Autonomie apprise : pas encore assez de trajets mesurés ({{count}}/{{minTrips}} trajets, {{drop}}/{{minDrop}} km d'autonomie consommés).",
+  "vehicle.battery.note":
+    "Le vélo ne transmet qu'une autonomie estimée, en km entiers. Le pourcentage de batterie en est déduit (autonomie ÷ {{full}} km) : ce n'est pas une mesure de charge. Ces relevés restent sur cet appareil.",
+
   "profile.header.title": "Profil",
   "profile.loadingAria": "Chargement",
   "profile.ecoRiderBadge": "Eco Rider",
@@ -275,6 +287,10 @@ export const fr = {
   "stats.detail.km": "km",
   "stats.detail.co2": "kg CO₂",
   "stats.detail.eur": "€",
+  "stats.detail.battery.title": "Batterie · estimation du vélo",
+  "stats.detail.battery.readings":
+    "Autonomie affichée : {{start}} → {{end}} km ({{delta}} km, ≈ {{percent}} %)",
+  "stats.detail.battery.ratio": "{{ratio}} km d'autonomie par km parcouru, mesuré sur {{km}} km",
   "stats.detail.hideForm": "Masquer le formulaire",
   "stats.detail.createPreset": "Créer un trajet pré-enregistré",
   "stats.detail.presetLabel": "Nom du trajet pré-enregistré",

@@ -37,7 +37,7 @@ function bondPlugin(): Promise<Super73BondPlugin> {
 }
 
 /** True inside the Capacitor native shell (Capacitor injects window.Capacitor). */
-export function isNativeBle(): boolean {
+export function isNativeApp(): boolean {
   const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
   return cap?.isNativePlatform?.() === true;
 }

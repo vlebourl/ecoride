@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { signIn, signUp } from "@/lib/auth";
+import { isNativeApp } from "@/lib/ble-native";
+import { nativeGoogleSignIn } from "@/lib/native-google";
 import { useT } from "@/i18n/provider";
 const appLogo = "/favicon.svg";
 
@@ -15,6 +17,20 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
+    if (isNativeApp()) {
+      setError("");
+      setLoading(true);
+      try {
+        await nativeGoogleSignIn();
+        navigate("/");
+      } catch {
+        setError(t("login.errors.generic"));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       ("standalone" in navigator && (navigator as { standalone?: boolean }).standalone === true);

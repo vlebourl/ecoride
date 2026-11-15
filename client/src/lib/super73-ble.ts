@@ -2,7 +2,7 @@
 // Reverse-engineered from https://github.com/blopker/superduper
 
 import { bleLog, describeError } from "@/lib/ble-log";
-import { isNativeBle, nativeDeviceById, nativeScan } from "@/lib/ble-native";
+import { isNativeApp, nativeDeviceById, nativeScan } from "@/lib/ble-native";
 
 // ---- UUIDs ----
 
@@ -181,7 +181,7 @@ function hasRecordId(bytes: Uint8Array, id: readonly [number, number]): boolean 
 // ---- Capability check ----
 
 export function isBleSupported(): boolean {
-  return isNativeBle() || (typeof navigator !== "undefined" && "bluetooth" in navigator);
+  return isNativeApp() || (typeof navigator !== "undefined" && "bluetooth" in navigator);
 }
 
 // ---- BLE operations ----
@@ -225,7 +225,7 @@ function isSuper73DeviceName(name: string | undefined): boolean {
 
 /** Open the browser device picker, let the user select a Super73, and connect. */
 export async function scanAndConnect(): Promise<BluetoothDevice> {
-  const device = isNativeBle()
+  const device = isNativeApp()
     ? await nativeScan(isSuper73DeviceName)
     : await navigator.bluetooth.requestDevice({
         filters: SUPER73_NAME_PREFIXES.map((namePrefix) => ({ namePrefix })),
@@ -243,7 +243,7 @@ export async function scanAndConnect(): Promise<BluetoothDevice> {
  * paired device is found or if the API is unavailable.
  */
 export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
-  if (isNativeBle()) return reconnectNativeDevice();
+  if (isNativeApp()) return reconnectNativeDevice();
   if (!navigator.bluetooth.getDevices) {
     bleLog("reconnect_skip", "getDevices unavailable");
     return null;

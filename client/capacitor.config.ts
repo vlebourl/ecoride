@@ -7,6 +7,11 @@ const config: CapacitorConfig = {
   appId: "com.tiarkaerell.ecoride",
   appName: "ecoRide",
   webDir: "dist",
+  plugins: {
+    // Google only: the plugin's sync hook turns these into Gradle flags, so no
+    // Facebook/Apple/Twitter SDK is compiled into the APK.
+    SocialLogin: { providers: { google: true, facebook: false, apple: false, twitter: false } },
+  },
   server: {
     url: process.env.CAP_SERVER_URL ?? "https://ecoride.tiarkaerell.com",
     cleartext: process.env.CAP_SERVER_URL?.startsWith("http://") ?? false,

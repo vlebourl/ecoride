@@ -1,6 +1,8 @@
 // BLE protocol layer for Super73 electric bikes.
 // Reverse-engineered from https://github.com/blopker/superduper
 
+import { bleLog, describeError } from "@/lib/ble-log";
+
 // ---- UUIDs ----
 
 const METRICS_SERVICE = "00001554-1212-efde-1523-785feabcd123";
@@ -147,22 +149,32 @@ export async function scanAndConnect(): Promise<BluetoothDevice> {
  * paired device is found or if the API is unavailable.
  */
 export async function reconnectPairedDevice(): Promise<BluetoothDevice | null> {
-  if (!navigator.bluetooth.getDevices) return null;
+  if (!navigator.bluetooth.getDevices) {
+    bleLog("reconnect_skip", "getDevices unavailable");
+    return null;
+  }
   const devices = await navigator.bluetooth.getDevices();
   const preferredDeviceId = loadSelectedDeviceId();
   const preferredDevice = preferredDeviceId
     ? (devices.find((device) => device.id === preferredDeviceId) ?? null)
     : null;
 
-  if (preferredDeviceId && !preferredDevice?.gatt) return null;
+  if (preferredDeviceId && !preferredDevice?.gatt) {
+    bleLog("reconnect_skip", `saved device not permitted (${devices.length} permitted)`);
+    return null;
+  }
 
   const super73 = preferredDevice ?? devices.find((device) => isSuper73DeviceName(device.name));
-  if (!super73?.gatt) return null;
+  if (!super73?.gatt) {
+    bleLog("reconnect_skip", `no Super73 among ${devices.length} permitted devices`);
+    return null;
+  }
   try {
     await withTimeout(super73.gatt.connect());
     saveSelectedDeviceId(super73);
     return super73;
-  } catch {
+  } catch (e) {
+    bleLog("reconnect_gatt_error", `${super73.name ?? "?"}: ${describeError(e)}`);
     return null;
   }
 }
@@ -322,7 +334,8 @@ export async function startStateNotifications(
     };
     char.addEventListener("characteristicvaluechanged", listener);
     return () => char.removeEventListener("characteristicvaluechanged", listener);
-  } catch {
+  } catch (e) {
+    bleLog("notifier_unavailable", describeError(e));
     return null;
   }
 }

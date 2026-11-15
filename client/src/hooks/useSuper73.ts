@@ -20,6 +20,7 @@ import {
   type Super73State,
   type Super73Mode,
 } from "@/lib/super73-ble";
+import { bleLog, describeError } from "@/lib/ble-log";
 
 // When the rider sets assist level to ASSIST_EPAC_TRIGGER from the bike's
 // physical buttons, the app automatically resets the mode to EPAC (eco).
@@ -415,6 +416,7 @@ function useSuper73Controller(
       // whatever operation was in flight, so the whole sequence is wrapped: by
       // then onDisconnected has set the right status, and letting the rejection
       // reach connect()'s catch would overwrite it with "error".
+      bleLog("attach_start", `session ${session} ${device.name ?? "?"}`);
       try {
         const currentState = await readState(device.gatt!, "connect");
         if (session !== bleSessionRef.current) return;
@@ -440,7 +442,12 @@ function useSuper73Controller(
         }
         notifierCleanupRef.current = notifierCleanup;
         setStatus("connected");
+        bleLog("connected", `session ${session} notifier=${notifierCleanup ? "on" : "off"}`);
       } catch (e) {
+        bleLog(
+          "attach_error",
+          `session ${session}/${bleSessionRef.current} gatt=${device.gatt?.connected}: ${describeError(e)}`,
+        );
         if (session !== bleSessionRef.current) return;
         // `gattserverdisconnected` is delivered asynchronously, so a real drop
         // rejects the in-flight operation *before* onDisconnected runs and moves
@@ -468,6 +475,7 @@ function useSuper73Controller(
     if (serverRef.current?.connected) return;
     const attempt = reconnectAttemptsRef.current;
     reconnectAttemptsRef.current += 1;
+    bleLog("reconnect_attempt", `#${attempt + 1}`);
     setStatus("connecting");
     try {
       const device = await reconnectPairedDevice();
@@ -475,8 +483,8 @@ function useSuper73Controller(
         await attachDevice(device);
         return;
       }
-    } catch {
-      // fall through to the next attempt
+    } catch (e) {
+      bleLog("reconnect_error", describeError(e));
     }
     // A failed gatt.connect() fires no `gattserverdisconnected`, so nothing else
     // would schedule the next attempt.
@@ -490,6 +498,7 @@ function useSuper73Controller(
   }, [tryReconnect]);
 
   const onDisconnected = useCallback(() => {
+    bleLog("gatt_disconnected", manualDisconnectRef.current ? "manual" : "unexpected");
     notifierCleanupRef.current?.();
     notifierCleanupRef.current = null;
     serverRef.current = null;
@@ -533,13 +542,18 @@ function useSuper73Controller(
 
     autoReconnectAttemptedRef.current = true;
     let cancelled = false;
+    bleLog("auto_reconnect_start");
     (async () => {
-      const device = await reconnectPairedDevice();
+      const device = await reconnectPairedDevice().catch((e: unknown) => {
+        bleLog("auto_reconnect_error", describeError(e));
+        return null;
+      });
       if (cancelled || !device) return;
       setStatus("connecting");
       try {
         await attachDevice(device);
-      } catch {
+      } catch (e) {
+        bleLog("auto_reconnect_error", describeError(e));
         setStatus("disconnected");
       }
     })();
@@ -555,10 +569,12 @@ function useSuper73Controller(
     reconnectTimerRef.current = null;
     setStatus("connecting");
     setError(null);
+    bleLog("connect_tap");
     try {
       const device = await scanAndConnect();
       await attachDevice(device);
     } catch (e) {
+      bleLog("connect_error", describeError(e));
       const msg = e instanceof Error ? e.message : "Connexion échouée";
       if (msg.includes("cancelled") || msg.includes("NotFoundError")) {
         setStatus("disconnected");
@@ -611,6 +627,7 @@ function useSuper73Controller(
       setBikeState(confirmed);
       cacheState(confirmed);
     } catch (e) {
+      bleLog("write_error", `${JSON.stringify(patch)}: ${describeError(e)}`);
       setError(e instanceof Error ? e.message : "Erreur d'écriture BLE");
       setStatus("error");
     }

@@ -36,9 +36,13 @@ let bondPluginPromise: Promise<Super73BondPlugin> | null = null;
 
 // Local plugin in android/app (Super73BondPlugin.java): Android hides removeBond().
 function bondPlugin(): Promise<Super73BondPlugin> {
-  bondPluginPromise ??= import("@capacitor/core").then(({ registerPlugin }) =>
-    registerPlugin<Super73BondPlugin>("Super73Bond"),
-  );
+  bondPluginPromise ??= import("@capacitor/core").then(({ registerPlugin }) => {
+    const plugin = registerPlugin<Super73BondPlugin>("Super73Bond");
+    // The Capacitor proxy answers every property, `then` included, so resolving
+    // a promise with it calls the native "Super73Bond.then()", which throws
+    // "not implemented". Resolve with a plain wrapper instead.
+    return { removeBond: (options) => plugin.removeBond(options) };
+  });
   return bondPluginPromise;
 }
 

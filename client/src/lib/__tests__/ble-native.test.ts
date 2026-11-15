@@ -44,7 +44,22 @@ const ble = vi.hoisted(() => ({
   stopLEScan: vi.fn(async () => undefined),
 }));
 vi.mock("@capacitor-community/bluetooth-le", () => ({ BleClient: ble }));
-vi.mock("@capacitor/core", () => ({ registerPlugin: () => ({ removeBond: ble.removeBond }) }));
+// Like Capacitor's real plugin proxy, answer every property, `then` included:
+// a method the native side lacks throws "not implemented" when called.
+vi.mock("@capacitor/core", () => ({
+  registerPlugin: (name: string) =>
+    new Proxy(
+      {},
+      {
+        get: (_, prop) =>
+          prop === "removeBond"
+            ? ble.removeBond
+            : () => {
+                throw new Error(`"${name}.${String(prop)}()" is not implemented on android`);
+              },
+      },
+    ),
+}));
 
 import { nativeDeviceById, nativeScan } from "../ble-native";
 import { authenticate, isBleSupported, readState, writeState } from "../super73-ble";

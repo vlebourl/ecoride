@@ -30,12 +30,13 @@ import { useT } from "@/i18n/provider";
 import { useNavigation } from "@/hooks/useNavigation";
 import { DestinationSearch } from "@/components/trip/DestinationSearch";
 import { NavigationBanner } from "@/components/trip/NavigationBanner";
+import { RangeAlert } from "@/components/trip/RangeAlert";
 import { useSuper73 } from "@/hooks/useSuper73";
 import { modeIndex } from "@/lib/super73-ble";
 import { correctedTripDistance } from "@/lib/trip-odometer";
 import { BatteryIndicator } from "@/components/trip/BatteryIndicator";
 import { useLearnedRange } from "@/hooks/useBatteryUsage";
-import { learnedRemainingKm } from "@/lib/battery-usage";
+import { isRangeShort, learnedRemainingKm } from "@/lib/battery-usage";
 import { HeadlightIndicator } from "@/components/trip/HeadlightIndicator";
 import { useAutoTripHandlers } from "@/hooks/useAutoTrip";
 import { endSessionAtLastMovement, isAutoTripWorthSaving, type AutoTripEnd } from "@/lib/auto-trip";
@@ -80,6 +81,7 @@ export function TripPage() {
   const ble = useSuper73();
   // Past trips rescale the bike's range estimate; null until enough of them.
   const learnedRangeKm = learnedRemainingKm(ble.rangeKm, useLearnedRange());
+  const rangeKmForAlert = learnedRangeKm ?? ble.rangeKm;
   const currentGpsPoint = gps.state.gpsPoints.at(-1) ?? null;
   const navigation = useNavigation({
     currentPoint: currentGpsPoint,
@@ -471,6 +473,17 @@ export function TripPage() {
               maneuverType={navigation.currentStepType}
             />
           )}
+
+          {s73Connected &&
+            rangeKmForAlert !== null &&
+            isRangeShort(rangeKmForAlert, navigation.totalRemaining) && (
+              <RangeAlert
+                rangeKm={rangeKmForAlert}
+                remainingKm={(navigation.totalRemaining ?? 0) / 1000}
+                canSwitchToEco={ble.bikeState?.mode !== "eco" || ble.tripModeSelection !== "eco"}
+                onSwitchToEco={() => void ble.selectEco()}
+              />
+            )}
 
           <div
             className="relative min-h-0 flex-1 overflow-hidden"

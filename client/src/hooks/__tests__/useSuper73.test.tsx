@@ -66,6 +66,7 @@ function Consumer({ label }: { label: string }) {
       <button onClick={() => void ble.toggleMode()}>{label} toggle</button>
       <button onClick={() => void ble.setLight(true)}>{label} light-on</button>
       <button onClick={() => void ble.flashLight()}>{label} flash</button>
+      <button onClick={() => void ble.selectEco()}>{label} select-eco</button>
       <button
         onClick={() => {
           // Fired back-to-back without awaiting: the realistic race is the rider
@@ -1273,6 +1274,45 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     });
 
     expect(guard()).toBe(false);
+  });
+});
+
+describe("useSuper73 provider — selectEco (issue #422)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+    reconnectPairedDeviceMock.mockResolvedValue(null);
+    scanAndConnectMock.mockResolvedValue(buildDevice());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    readStateMock.mockReset();
+    writeStateMock.mockReset();
+  });
+
+  it("writes eco and pins the trip selection to eco", async () => {
+    let bikeSim: Super73State = { ...baseState, mode: "race" };
+    readStateMock.mockImplementation(() => Promise.resolve(bikeSim));
+    writeStateMock.mockImplementation((_server: unknown, next: Super73State) => {
+      bikeSim = next;
+      return Promise.resolve(undefined);
+    });
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => expect(screen.getByText("trip:connected")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("trip-mode:race")).toBeTruthy());
+
+    fireEvent.click(screen.getByText("trip select-eco"));
+
+    await waitFor(() => expect(screen.getByText("trip-mode:eco")).toBeTruthy());
+    expect(screen.getByText("trip-selection:eco")).toBeTruthy();
+    expect(bikeSim.mode).toBe("eco");
   });
 });
 

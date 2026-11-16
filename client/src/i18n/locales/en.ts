@@ -595,6 +595,9 @@ export const en: Record<TranslationKey, string> = {
   "community.chart.title": "Trend",
 
   "trip.navigation.addDestination": "Add a destination",
+  "trip.rangeAlert.message":
+    "{{range}} km of range for {{remaining}} km to go: the battery may not last.",
+  "trip.rangeAlert.switchToEco": "Switch to eco",
   "trip.navigation.clear": "Clear",
   "trip.navigation.search.placeholder": "Where to?",
   "trip.navigation.search.button": "Search",

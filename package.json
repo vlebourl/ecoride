@@ -1,6 +1,6 @@
 {
   "name": "ecoride",
-  "version": "2.62.1",
+  "version": "2.62.2",
   "private": true,
   "workspaces": [
     "shared",

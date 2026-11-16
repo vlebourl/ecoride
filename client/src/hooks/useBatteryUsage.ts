@@ -4,8 +4,10 @@ import { useSuper73 } from "@/hooks/useSuper73";
 import {
   applySample,
   findBatteryRecord,
+  compareModes,
   learnRange,
   loadBatteryRecords,
+  rangeByMonth,
   saveBatteryRecord,
   type LearnedRange,
 } from "@/lib/battery-usage";
@@ -21,6 +23,7 @@ export function useBatteryRecorder(): void {
   // useSuper73 clears rangeKm on disconnect, so a non-null value was read on
   // the current connection — never a leftover from before a recharge.
   const rangeKm = ble.status === "connected" ? ble.rangeKm : null;
+  const race = ble.bikeState?.mode === "race";
   // ponytail: one sample per 100 m is plenty against whole-km readings, and
   // keeps localStorage writes off the 1 Hz GPS path.
   const distanceStep = Math.floor(distanceKm * 10);
@@ -29,7 +32,11 @@ export function useBatteryRecorder(): void {
     if (!isTracking || rangeKm === null) return;
     const startedAt = getTrackingSession();
     if (!startedAt) return;
-    const record = applySample(findBatteryRecord(startedAt), startedAt, { rangeKm, distanceKm });
+    const record = applySample(findBatteryRecord(startedAt), startedAt, {
+      rangeKm,
+      distanceKm,
+      race,
+    });
     if (record) saveBatteryRecord(record);
     // distanceKm is read at its exact value but only re-triggers per 100 m step;
     // isPaused re-triggers so pausing (the first step of stopping) takes a final reading.
@@ -44,4 +51,13 @@ export function useBatteryRecorder(): void {
 export function useLearnedRange(): LearnedRange {
   const [learned] = useState(() => learnRange(loadBatteryRecords()));
   return learned;
+}
+
+/** Race-mode cost and monthly range (#423), read once per mount like useLearnedRange. */
+export function useBatteryInsights() {
+  const [insights] = useState(() => {
+    const records = loadBatteryRecords();
+    return { modes: compareModes(records), months: rangeByMonth(records) };
+  });
+  return insights;
 }

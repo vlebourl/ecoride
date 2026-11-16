@@ -48,6 +48,33 @@ describe("TripBatteryUsage", () => {
 });
 
 describe("BatteryRangeCard", () => {
+  it("shows the race-mode cost and the range by month (#423)", () => {
+    const rec = (startedAt: string, drop: number, raceShare: number) =>
+      saveBatteryRecord({
+        startedAt,
+        startRangeKm: 50,
+        startDistanceKm: 0,
+        endRangeKm: 50 - drop,
+        endDistanceKm: 10,
+        minRangeKm: 50 - drop,
+        recharged: false,
+        raceKm: 10 * raceShare,
+      });
+    rec("2026-10-01T08:00:00.000Z", 10, 0);
+    rec("2026-10-02T08:00:00.000Z", 10, 0);
+    rec("2026-10-03T08:00:00.000Z", 10, 0);
+    rec("2026-11-01T08:00:00.000Z", 15, 1);
+    rec("2026-11-02T08:00:00.000Z", 15, 1);
+    rec("2026-11-03T08:00:00.000Z", 15, 1);
+    wrap(<BatteryRangeCard />);
+    expect(screen.getByTestId("battery-mode-cost").textContent).toBe(
+      "Mode race : +50 % de batterie par km par rapport aux autres modes.",
+    );
+    const months = screen.getByTestId("battery-months").textContent;
+    expect(months).toContain("2026-10≈ 60 km");
+    expect(months).toContain("2026-11≈ 40 km");
+  });
+
   it("shows progress instead of a figure before enough trips", () => {
     save("a", 50, 40, 8);
     wrap(<BatteryRangeCard />);

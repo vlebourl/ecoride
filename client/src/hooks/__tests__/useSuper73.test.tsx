@@ -65,6 +65,7 @@ function Consumer({ label }: { label: string }) {
       <button onClick={() => ble.disconnect()}>{label} disconnect</button>
       <button onClick={() => void ble.toggleMode()}>{label} toggle</button>
       <button onClick={() => void ble.setLight(true)}>{label} light-on</button>
+      <button onClick={() => void ble.flashLight()}>{label} flash</button>
       <button
         onClick={() => {
           // Fired back-to-back without awaiting: the realistic race is the rider
@@ -1272,6 +1273,59 @@ describe("useSuper73 provider — EPAC enforcement resets stale trip-mode select
     });
 
     expect(guard()).toBe(false);
+  });
+});
+
+describe("useSuper73 provider — headlight flash (issue #401)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
+    reconnectPairedDeviceMock.mockResolvedValue(null);
+    scanAndConnectMock.mockResolvedValue(buildDevice());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    readStateMock.mockReset();
+    writeStateMock.mockReset();
+  });
+
+  it("blinks the light three times, paced, and ends on the rider's state", async () => {
+    let bikeSim: Super73State = { ...baseState, light: true };
+    readStateMock.mockImplementation(() => Promise.resolve(bikeSim));
+    const writeTimes: number[] = [];
+    writeStateMock.mockImplementation((_server: unknown, next: Super73State) => {
+      bikeSim = next;
+      writeTimes.push(Date.now());
+      return Promise.resolve(undefined);
+    });
+
+    render(
+      <Super73Provider enabled>
+        <Consumer label="trip" />
+      </Super73Provider>,
+    );
+    fireEvent.click(screen.getByText("trip connect"));
+    await waitFor(() => expect(screen.getByText("trip:connected")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("trip-light:on")).toBeTruthy());
+    writeStateMock.mockClear();
+    readStateMock.mockClear();
+    writeTimes.length = 0;
+
+    fireEvent.click(screen.getByText("trip flash"));
+
+    await waitFor(() => expect(writeStateMock).toHaveBeenCalledTimes(6), { timeout: 3000 });
+    const lights = writeStateMock.mock.calls.map((c) => (c[1] as Super73State).light);
+    expect(lights).toEqual([false, true, false, true, false, true]);
+    // 2-3 flashes per second: a full off/on cycle spans two writes.
+    const span = writeTimes[5]! - writeTimes[0]!;
+    expect(span).toBeGreaterThanOrEqual(5 * 150);
+    expect(span).toBeLessThan(5 * 250);
+    expect(bikeSim.light).toBe(true);
+    // Wait for the closing read-back (one read before, one after): returning
+    // earlier leaves it to land ~180 ms later in another test's mocks.
+    await waitFor(() => expect(readStateMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(screen.getByText("trip-light:on")).toBeTruthy();
   });
 });
 

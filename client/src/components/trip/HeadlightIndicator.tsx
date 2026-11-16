@@ -1,4 +1,5 @@
-import { Lightbulb, LightbulbOff } from "lucide-react";
+import { useState } from "react";
+import { Flashlight, Lightbulb, LightbulbOff } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { useSuper73 } from "@/hooks/useSuper73";
 
@@ -13,7 +14,8 @@ import { useSuper73 } from "@/hooks/useSuper73";
  */
 export function HeadlightIndicator() {
   const t = useT();
-  const { status, bikeState, setLight } = useSuper73();
+  const { status, bikeState, setLight, flashLight } = useSuper73();
+  const [flashing, setFlashing] = useState(false);
 
   // Unknown bike state: hide, same as the sibling BatteryIndicator.
   if (!bikeState) return null;
@@ -21,23 +23,40 @@ export function HeadlightIndicator() {
   const on = bikeState.light;
   const connected = status === "connected";
 
+  const flash = () => {
+    setFlashing(true);
+    void flashLight().finally(() => setFlashing(false));
+  };
+
   return (
-    <button
-      type="button"
-      data-testid="headlight-indicator"
-      data-state={on ? "on" : "off"}
-      aria-pressed={on}
-      aria-label={on ? t("super73.headlight.turnOff") : t("super73.headlight.turnOn")}
-      disabled={!connected}
-      onClick={() => void setLight(!on)}
-      // min-h-11/min-w-11 = 44px, the WCAG 2.5.5 / Apple HIG floor. This is aimed
-      // one-handed while riding, on a screen that is moving, so it is sized as a
-      // real target rather than to match the passive indicator beside it (#357).
-      className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg active:scale-95 disabled:opacity-50 ${
-        on ? "bg-warning/20 text-warning" : "bg-surface-low/80 text-text-dim"
-      }`}
-    >
-      {on ? <Lightbulb size={24} aria-hidden /> : <LightbulbOff size={24} aria-hidden />}
-    </button>
+    <>
+      <button
+        type="button"
+        data-testid="headlight-indicator"
+        data-state={on ? "on" : "off"}
+        aria-pressed={on}
+        aria-label={on ? t("super73.headlight.turnOff") : t("super73.headlight.turnOn")}
+        disabled={!connected}
+        onClick={() => void setLight(!on)}
+        // min-h-11/min-w-11 = 44px, the WCAG 2.5.5 / Apple HIG floor. This is aimed
+        // one-handed while riding, on a screen that is moving, so it is sized as a
+        // real target rather than to match the passive indicator beside it (#357).
+        className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg active:scale-95 disabled:opacity-50 ${
+          on ? "bg-warning/20 text-warning" : "bg-surface-low/80 text-text-dim"
+        }`}
+      >
+        {on ? <Lightbulb size={24} aria-hidden /> : <LightbulbOff size={24} aria-hidden />}
+      </button>
+      <button
+        type="button"
+        data-testid="headlight-flash"
+        aria-label={t("super73.headlight.flash")}
+        disabled={!connected || flashing}
+        onClick={flash}
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-surface-low/80 text-text-dim active:scale-95 disabled:opacity-50"
+      >
+        <Flashlight size={24} aria-hidden />
+      </button>
+    </>
   );
 }

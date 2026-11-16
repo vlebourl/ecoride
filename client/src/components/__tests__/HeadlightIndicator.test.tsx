@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { HeadlightIndicator } from "../trip/HeadlightIndicator";
 import { I18nProvider } from "@/i18n/provider";
 import type { BleStatus } from "@/hooks/useSuper73";
@@ -20,15 +20,18 @@ function mockBike({
   status = "connected" as BleStatus,
   light,
   setLight = vi.fn(),
+  flashLight = vi.fn().mockResolvedValue(undefined),
 }: {
   status?: BleStatus;
   light: boolean | null;
   setLight?: ReturnType<typeof vi.fn>;
+  flashLight?: ReturnType<typeof vi.fn>;
 }) {
   useSuper73Mock.mockReturnValue({
     status,
     bikeState: light === null ? null : { mode: "eco", assist: 2, light, region: "eu" },
     setLight,
+    flashLight,
   });
   return setLight;
 }
@@ -165,5 +168,20 @@ describe("HeadlightIndicator", () => {
 
     expect(indicator().getAttribute("data-state")).toBe("off");
     expect(indicator().getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("flashes the headlight and blocks a second flash until the first ends (#401)", async () => {
+    let finish!: () => void;
+    const flashLight = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    mockBike({ light: true, flashLight });
+
+    wrap(<HeadlightIndicator />);
+    const button = screen.getByRole("button", { name: "Appel de phares" }) as HTMLButtonElement;
+    fireEvent.click(button);
+
+    expect(flashLight).toHaveBeenCalledTimes(1);
+    expect(button.disabled).toBe(true);
+    await act(async () => finish());
+    expect(button.disabled).toBe(false);
   });
 });

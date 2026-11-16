@@ -452,6 +452,27 @@ describe("useSuper73 provider", () => {
     startStateNotificationsMock.mockReset().mockResolvedValue(null);
   });
 
+  // The notifier does not push every state change (a class changed on the bike
+  // stayed stale on the trip screen): the state is read back periodically.
+  it("picks up a mode changed on the bike without any notification", async () => {
+    readStateMock.mockResolvedValue({ mode: "eco", assist: 4, light: true, region: "eu" });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+    fireEvent.click(screen.getByText("vehicle connect"));
+    await waitFor(() => expect(screen.getByText("vehicle-mode:eco")).toBeTruthy());
+
+    readStateMock.mockResolvedValue({ mode: "race", assist: 4, light: true, region: "eu" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    vi.useRealTimers();
+    expect(screen.getByText("vehicle-mode:race")).toBeTruthy();
+  });
+
   it("exposes null battery telemetry before any RIDE frame", () => {
     render(
       <Super73Provider enabled>

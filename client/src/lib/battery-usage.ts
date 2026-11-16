@@ -198,3 +198,14 @@ export function saveBatteryRecord(record: BatteryTripRecord): void {
     // Storage full or unavailable: this trip simply has no battery figure.
   }
 }
+
+/**
+ * True when the remaining range will not cover the rest of the route (#422).
+ * The margin (10 %, at least 1 km) absorbs the range estimate's noise so the
+ * alert does not flicker on a route the battery covers just barely.
+ */
+export function isRangeShort(rangeKm: number | null, remainingMetres: number | null): boolean {
+  if (rangeKm === null || remainingMetres === null) return false;
+  const remainingKm = remainingMetres / 1000;
+  return rangeKm < remainingKm + Math.max(1, remainingKm * 0.1);
+}

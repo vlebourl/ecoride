@@ -234,6 +234,8 @@ export interface UseSuper73Result {
   /** Headlight flash ("appel de phares", #401): toggles the light quickly, then restores it. */
   flashLight: () => Promise<void>;
   toggleMode: () => Promise<void>;
+  /** Pins the trip selection to eco (auto-mode stops overriding it) and writes eco (#422). */
+  selectEco: () => Promise<void>;
   cycleTripModeSelection: () => Promise<void>;
   /** True when the 5 s poll (not the BLE notifier) caught an EPAC trigger. */
   epacPollFallbackWarning: boolean;
@@ -257,6 +259,7 @@ const NOOP_RESULT: UseSuper73Result = {
   setLight: async () => {},
   flashLight: async () => {},
   toggleMode: async () => {},
+  selectEco: async () => {},
   cycleTripModeSelection: async () => {},
   epacPollFallbackWarning: false,
   dismissEpacPollFallback: () => {},
@@ -775,6 +778,12 @@ function useSuper73Controller(
     await setMode(nextMode);
   }, [bikeState, setMode]);
 
+  const selectEco = useCallback(async () => {
+    setTripModeSelectionIntent("eco");
+    lastAutoModeZoneRef.current = null;
+    if (bikeState?.mode !== "eco") await setMode("eco");
+  }, [bikeState, setMode]);
+
   const cycleTripModeSelection = useCallback(async () => {
     let nextSelection = nextTripModeSelection(tripModeSelection);
     // Assist 3 = EPAC enforcement — skip "auto" in cycle
@@ -1028,6 +1037,7 @@ function useSuper73Controller(
     setLight,
     flashLight,
     toggleMode,
+    selectEco,
     cycleTripModeSelection,
     epacPollFallbackWarning,
     dismissEpacPollFallback,

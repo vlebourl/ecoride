@@ -599,6 +599,9 @@ export const fr = {
   "community.chart.title": "Évolution",
 
   "trip.navigation.addDestination": "Ajouter une destination",
+  "trip.rangeAlert.message":
+    "Autonomie {{range}} km pour {{remaining}} km restants : la batterie risque de ne pas suffire.",
+  "trip.rangeAlert.switchToEco": "Passer en eco",
   "trip.navigation.clear": "Effacer",
   "trip.navigation.search.placeholder": "Où allez-vous ?",
   "trip.navigation.search.button": "Rechercher",

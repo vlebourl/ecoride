@@ -82,6 +82,10 @@ const RIDE_POLL_INTERVAL_MS = 20_000;
 // Wheel speed read from the bike while connected: the trip screen shows it
 // instead of GPS speed, so it must stay fresh even when no notification comes.
 const SPEED_POLL_INTERVAL_MS = 1_000;
+// Mode/assist/light read back from the bike: the notifier does not push every
+// change on every firmware (a class changed on the bike could stay stale on the
+// trip screen until the next app write), so this bounds how late it shows.
+const STATE_POLL_INTERVAL_MS = 3_000;
 // The odometer steps every 100 m (about 15 s of riding). The notifier pushes each
 // step; this poll bounds how late a step is seen on firmware where it does not.
 const ODOMETER_POLL_INTERVAL_MS = 5_000;
@@ -295,7 +299,17 @@ function useSuper73Controller(
   // When ecoride-ble-debug=1: also fires an immediate poll for side-by-side comparison.
   const notifierHandlerBodyRef = useRef<((state: Super73State) => void) | null>(null);
   const notifierHandlerBody = useCallback((state: Super73State) => {
-    setBikeState(state);
+    // Same reference when nothing changed: the 3 s state poll must not re-render
+    // every consumer (and re-run bikeState-keyed effects) for nothing.
+    setBikeState((prev) =>
+      prev &&
+      prev.mode === state.mode &&
+      prev.assist === state.assist &&
+      prev.light === state.light &&
+      prev.region === state.region
+        ? prev
+        : state,
+    );
     cacheState(state);
     if (shouldTriggerEpac(state) && serverRef.current?.connected) {
       const epacState: Super73State = { ...state, mode: "eco" };
@@ -853,6 +867,34 @@ function useSuper73Controller(
       clearInterval(id);
     };
   }, [status]);
+
+  // State poll, same shape as the speed poll above. Goes through the notifier
+  // handler so a polled state gets the same EPAC enforcement as a pushed one.
+  useEffect(() => {
+    if (status !== "connected") return;
+    const server = serverRef.current;
+    if (!server) return;
+    const session = bleSessionRef.current;
+    let cancelled = false;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const state = await readState(server, "poll");
+        if (!cancelled && session === bleSessionRef.current) stableNotifierHandler(state);
+      } catch {
+        // best-effort — the next tick retries
+      } finally {
+        inFlight = false;
+      }
+    };
+    const id = setInterval(poll, STATE_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [status, stableNotifierHandler]);
 
   // Odometer poll, same shape as the speed poll above. Only while the rider has
   // the odometer distance switched on: off, nothing extra goes over the link.

@@ -47,15 +47,12 @@ export function useMapCamera(
 
     const flyCamera = () => {
       const nextMap = mapRef.current;
-      if (!nextMap) {
-        // Map unmounted while retry was pending — bail. Next render replays.
-        return;
-      }
-      if (!nextMap.isStyleLoaded()) {
-        // Style still loading (or reloading): retry soon instead of dropping.
-        retryTimerRef.current = setTimeout(flyCamera, 100);
-        return;
-      }
+      // Map unmounted while retry was pending — bail. Next render replays.
+      if (!nextMap) return;
+      // No isStyleLoaded() gate: camera moves don't need the style, and that
+      // check stays false while any tile loads or the trace source was just
+      // updated — i.e. most of the time while riding — so the camera fell
+      // behind the rider.
       flyToRef.current = Date.now();
       nextMap.flyTo({
         center: [lng, lat],

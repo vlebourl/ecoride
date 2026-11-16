@@ -26,25 +26,18 @@ describe("useMapCamera", () => {
     vi.restoreAllMocks();
   });
 
-  it("retries flyTo when style is not yet loaded instead of silently dropping the update", () => {
+  // isStyleLoaded() is false while any tile loads or a GeoJSON source was just
+  // updated — constantly while riding. Gating the camera on it left the map
+  // behind the rider.
+  it("follows the rider even while the style reports tiles still loading", () => {
     const flyTo = vi.fn();
-    let styleLoaded = false;
     const mapRef = createRef<MapRef | null>();
     mapRef.current = {
       flyTo,
-      isStyleLoaded: () => styleLoaded,
+      isStyleLoaded: () => false,
     } as unknown as MapRef;
 
     render(<CameraHarness mapRef={mapRef} position={[48.8566, 2.3522]} />);
-
-    // Style not ready yet — flyTo must not have fired, but a retry should be pending.
-    expect(flyTo).not.toHaveBeenCalled();
-
-    // Style finishes loading after a short delay. The pending retry must catch it.
-    styleLoaded = true;
-    act(() => {
-      vi.advanceTimersByTime(150);
-    });
 
     expect(flyTo).toHaveBeenCalledTimes(1);
     expect(flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [2.3522, 48.8566] }));

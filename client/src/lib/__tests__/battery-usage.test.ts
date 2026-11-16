@@ -43,6 +43,8 @@ describe("applySample", () => {
       endDistanceKm: 5.2,
       minRangeKm: 51,
       recharged: false,
+      raceKm: 0,
+      lastRace: false,
     });
   });
 

@@ -42,6 +42,8 @@ export interface BatterySample {
   rangeKm: number;
   /** Trip distance when it was read. */
   distanceKm: number;
+  /** Bike in race mode at this reading (#423). */
+  race?: boolean;
 }
 
 export interface BatteryTripRecord {
@@ -54,6 +56,12 @@ export interface BatteryTripRecord {
   /** Lowest reading seen, to spot a recharge in the middle of a trip. */
   minRangeKm: number;
   recharged: boolean;
+  /**
+   * Km of the measured segment ridden in race mode (#423), each step credited to
+   * the mode of the reading that opened it. Absent on records saved before #423.
+   */
+  raceKm?: number;
+  lastRace?: boolean;
 }
 
 /** Fold one reading into a trip's record. Undefined until a usable first reading. */
@@ -76,10 +84,16 @@ export function applySample(
       endDistanceKm: distanceKm,
       minRangeKm: rangeKm,
       recharged: false,
+      raceKm: 0,
+      lastRace: sample.race === true,
     };
   }
+  const stepKm = Math.max(0, distanceKm - record.endDistanceKm);
   return {
     ...record,
+    raceKm:
+      record.raceKm === undefined ? undefined : record.raceKm + (record.lastRace ? stepKm : 0),
+    lastRace: sample.race === true,
     endRangeKm: rangeKm,
     endDistanceKm: distanceKm,
     minRangeKm: Math.min(record.minRangeKm, rangeKm),
@@ -208,4 +222,67 @@ export function isRangeShort(rangeKm: number | null, remainingMetres: number | n
   if (rangeKm === null || remainingMetres === null) return false;
   const remainingKm = remainingMetres / 1000;
   return rangeKm < remainingKm + Math.max(1, remainingKm * 0.1);
+}
+
+// ---- Insights (#423) ----
+
+/** A trip counts for a mode when at least this share of it was ridden in that mode. */
+export const MODE_SHARE = 0.8;
+export const MIN_MODE_TRIPS = 2;
+export const MIN_MODE_DROP_KM = 5;
+
+export interface ModeComparison {
+  /** Displayed km lost per km ridden, outside race and in race. */
+  ecoPerKm: number;
+  racePerKm: number;
+  /** How much more race costs per km, in percent. */
+  extraPercent: number;
+}
+
+function countedConsumptions(records: BatteryTripRecord[]) {
+  return records
+    .map((r) => ({ r, c: tripConsumption(r) }))
+    .filter(
+      (x): x is { r: BatteryTripRecord; c: TripConsumption } => x.c !== null && isPlausible(x.c),
+    );
+}
+
+/** Race vs the other modes, from trips ridden mostly in one of them. Null until both have data. */
+export function compareModes(records: BatteryTripRecord[]): ModeComparison | null {
+  const sums = { eco: { drop: 0, km: 0, n: 0 }, race: { drop: 0, km: 0, n: 0 } };
+  for (const { r, c } of countedConsumptions(records)) {
+    if (r.raceKm === undefined) continue;
+    const share = r.raceKm / c.measuredKm;
+    const bucket = share >= MODE_SHARE ? sums.race : share <= 1 - MODE_SHARE ? sums.eco : null;
+    if (!bucket) continue;
+    bucket.drop += c.dropKm;
+    bucket.km += c.measuredKm;
+    bucket.n += 1;
+  }
+  const ready = (b: { drop: number; n: number }) =>
+    b.n >= MIN_MODE_TRIPS && b.drop >= MIN_MODE_DROP_KM;
+  if (!ready(sums.eco) || !ready(sums.race)) return null;
+  const ecoPerKm = sums.eco.drop / sums.eco.km;
+  const racePerKm = sums.race.drop / sums.race.km;
+  return { ecoPerKm, racePerKm, extraPercent: (racePerKm / ecoPerKm - 1) * 100 };
+}
+
+/**
+ * Learned full-charge range per calendar month (YYYY-MM, oldest first), only for
+ * months with enough trips on their own — a slow decline is battery wear.
+ * ponytail: limited to the 60 records kept on this device; persist them
+ * server-side if months-long history matters.
+ */
+export function rangeByMonth(
+  records: BatteryTripRecord[],
+): { month: string; fullRangeKm: number }[] {
+  const months = new Map<string, BatteryTripRecord[]>();
+  for (const r of records) {
+    const month = r.startedAt.slice(0, 7);
+    months.set(month, [...(months.get(month) ?? []), r]);
+  }
+  return [...months.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, rs]) => ({ month, fullRangeKm: learnRange(rs).fullRangeKm }))
+    .filter((m): m is { month: string; fullRangeKm: number } => m.fullRangeKm !== null);
 }

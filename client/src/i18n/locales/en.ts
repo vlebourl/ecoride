@@ -161,6 +161,9 @@ export const en: Record<TranslationKey, string> = {
     "Estimated remaining range: ≈ {{km}} km (the bike shows {{bike}} km).",
   "vehicle.battery.pending":
     "Learned range: not enough measured trips yet ({{count}}/{{minTrips}} trips, {{drop}}/{{minDrop}} km of range used).",
+  "vehicle.battery.raceCost":
+    "Race mode: {{percent}} % battery per km compared with the other modes.",
+  "vehicle.battery.monthsLabel": "Learned range by month (a slow decline = wear)",
   "vehicle.battery.note":
     "The bike only sends an estimated range, in whole km. The battery percentage is derived from it (range ÷ {{full}} km): it is not a measured charge. These readings stay on this device.",
 

@@ -1,4 +1,4 @@
-import { useBatteryRecorder, useLearnedRange } from "@/hooks/useBatteryUsage";
+import { useBatteryInsights, useBatteryRecorder, useLearnedRange } from "@/hooks/useBatteryUsage";
 import { useSuper73 } from "@/hooks/useSuper73";
 import {
   DISPLAYED_FULL_RANGE_KM,
@@ -52,6 +52,7 @@ export function BatteryRangeCard() {
   const t = useT();
   const ble = useSuper73();
   const learned = useLearnedRange();
+  const insights = useBatteryInsights();
   const bikeRangeKm = ble.status === "connected" ? (ble.rangeKm ?? null) : null;
   const remainingKm = learnedRemainingKm(bikeRangeKm, learned);
 
@@ -90,6 +91,26 @@ export function BatteryRangeCard() {
             minDrop: MIN_LEARNING_DROP_KM,
           })}
         </p>
+      )}
+      {insights.modes && (
+        <p className="mt-3 text-sm text-text" data-testid="battery-mode-cost">
+          {t("vehicle.battery.raceCost", {
+            percent: `${insights.modes.extraPercent > 0 ? "+" : ""}${Math.round(insights.modes.extraPercent)}`,
+          })}
+        </p>
+      )}
+      {insights.months.length >= 2 && (
+        <div className="mt-3" data-testid="battery-months">
+          <p className="text-xs text-text-dim">{t("vehicle.battery.monthsLabel")}</p>
+          <ul className="mt-1 space-y-0.5 text-sm text-text">
+            {insights.months.map((m) => (
+              <li key={m.month} className="flex justify-between">
+                <span>{m.month}</span>
+                <span>{t("vehicle.battery.approxKm", { km: m.fullRangeKm.toFixed(0) })}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <p className="mt-3 text-xs text-text-dim">
         {t("vehicle.battery.note", { full: DISPLAYED_FULL_RANGE_KM })}

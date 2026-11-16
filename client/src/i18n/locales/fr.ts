@@ -160,6 +160,9 @@ export const fr = {
     "Autonomie restante estimée : ≈ {{km}} km (le vélo affiche {{bike}} km).",
   "vehicle.battery.pending":
     "Autonomie apprise : pas encore assez de trajets mesurés ({{count}}/{{minTrips}} trajets, {{drop}}/{{minDrop}} km d'autonomie consommés).",
+  "vehicle.battery.raceCost":
+    "Mode race : {{percent}} % de batterie par km par rapport aux autres modes.",
+  "vehicle.battery.monthsLabel": "Autonomie apprise par mois (une baisse lente = usure)",
   "vehicle.battery.note":
     "Le vélo ne transmet qu'une autonomie estimée, en km entiers. Le pourcentage de batterie en est déduit (autonomie ÷ {{full}} km) : ce n'est pas une mesure de charge. Ces relevés restent sur cet appareil.",
 

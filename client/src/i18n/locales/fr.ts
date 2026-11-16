@@ -570,6 +570,7 @@ export const fr = {
   "super73.compact.modeOffRoad": "Mode Off-Road",
   "super73.headlight.turnOn": "Allumer le phare",
   "super73.headlight.turnOff": "Éteindre le phare",
+  "super73.headlight.flash": "Appel de phares",
   "super73.full.connected": "Connecté",
   "super73.full.connecting": "Connexion...",
   "super73.full.error": "Erreur",

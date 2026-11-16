@@ -131,6 +131,11 @@ export interface Super73TrackingInput {
   speedKmh: number | null;
 }
 
+// Headlight flash (#401): 3 blinks at ~2.8/s. Each step is paced from the start
+// of its write, so BLE latency eats into the wait instead of slowing the blink.
+const FLASH_TOGGLES = 6;
+const FLASH_HALF_PERIOD_MS = 180;
+
 const DEFAULT_PREFERENCES: Super73Preferences = {
   autoModeEnabled: false,
   defaultMode: null,
@@ -226,6 +231,8 @@ export interface UseSuper73Result {
   setMode: (mode: Super73Mode) => Promise<void>;
   setAssist: (level: number) => Promise<void>;
   setLight: (on: boolean) => Promise<void>;
+  /** Headlight flash ("appel de phares", #401): toggles the light quickly, then restores it. */
+  flashLight: () => Promise<void>;
   toggleMode: () => Promise<void>;
   cycleTripModeSelection: () => Promise<void>;
   /** True when the 5 s poll (not the BLE notifier) caught an EPAC trigger. */
@@ -248,6 +255,7 @@ const NOOP_RESULT: UseSuper73Result = {
   setMode: async () => {},
   setAssist: async () => {},
   setLight: async () => {},
+  flashLight: async () => {},
   toggleMode: async () => {},
   cycleTripModeSelection: async () => {},
   epacPollFallbackWarning: false,
@@ -714,6 +722,45 @@ function useSuper73Controller(
 
   const setLight = useCallback((on: boolean) => updateState({ light: on }), [updateState]);
 
+  const flashLight = useCallback(() => {
+    if (!serverRef.current?.connected || !bikeState) return Promise.resolve();
+    const session = bleSessionRef.current;
+    const isCurrent = () => session === bleSessionRef.current;
+    // Queued like updateState so a concurrent write cannot interleave with the
+    // flash. One read, then raw writes without read-back: the full
+    // read-modify-write-confirm cycle per toggle is too slow for 2-3 flashes/s.
+    const run = updateQueueRef.current.then(async () => {
+      const server = serverRef.current;
+      if (!server?.connected || !isCurrent()) return;
+      try {
+        const base = await readState(server);
+        for (let i = 0; i < FLASH_TOGGLES; i++) {
+          if (!isCurrent()) return;
+          const started = Date.now();
+          // Odd toggles invert the light, even ones restore it, so the flash
+          // always ends on the state the rider had.
+          await writeState(
+            server,
+            { ...base, light: i % 2 === 0 ? !base.light : base.light },
+            isCurrent,
+          );
+          const wait = FLASH_HALF_PERIOD_MS - (Date.now() - started);
+          if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        }
+        const confirmed = await readBackState(server, base);
+        if (!isCurrent()) return;
+        setBikeState(confirmed);
+        cacheState(confirmed);
+      } catch (e) {
+        bleLog("write_error", `flash: ${describeError(e)}`);
+        setError(e instanceof Error ? e.message : "Erreur d'écriture BLE");
+        setStatus("error");
+      }
+    });
+    updateQueueRef.current = run;
+    return run;
+  }, [bikeState]);
+
   const tripModeSelection = deriveTripModeSelection(
     bikeState,
     preferences,
@@ -979,6 +1026,7 @@ function useSuper73Controller(
     setMode,
     setAssist,
     setLight,
+    flashLight,
     toggleMode,
     cycleTripModeSelection,
     epacPollFallbackWarning,

@@ -1309,6 +1309,7 @@ describe("useSuper73 provider — headlight flash (issue #401)", () => {
     await waitFor(() => expect(screen.getByText("trip:connected")).toBeTruthy());
     await waitFor(() => expect(screen.getByText("trip-light:on")).toBeTruthy());
     writeStateMock.mockClear();
+    readStateMock.mockClear();
     writeTimes.length = 0;
 
     fireEvent.click(screen.getByText("trip flash"));
@@ -1321,7 +1322,10 @@ describe("useSuper73 provider — headlight flash (issue #401)", () => {
     expect(span).toBeGreaterThanOrEqual(5 * 150);
     expect(span).toBeLessThan(5 * 250);
     expect(bikeSim.light).toBe(true);
-    await waitFor(() => expect(screen.getByText("trip-light:on")).toBeTruthy());
+    // Wait for the closing read-back (one read before, one after): returning
+    // earlier leaves it to land ~180 ms later in another test's mocks.
+    await waitFor(() => expect(readStateMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(screen.getByText("trip-light:on")).toBeTruthy();
   });
 });
 

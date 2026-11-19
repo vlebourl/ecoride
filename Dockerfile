@@ -54,7 +54,9 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 
-USER bun
+# Match the dedicated host account that owns the Infisical credential mount.
+RUN addgroup -g 42043 ecoride && adduser -D -u 42043 -G ecoride ecoride
+USER ecoride
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
   CMD ["bun", "-e", "fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/health`).then(async r => { const h = await r.json(); process.exit(r.ok && h.db === true ? 0 : 1) }).catch(() => process.exit(1))"]

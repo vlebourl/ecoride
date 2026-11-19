@@ -13,7 +13,8 @@ describe("production database deployment safety", () => {
     expect(dockerfile).toContain(
       "bun install --filter server --production --frozen-lockfile --ignore-scripts",
     );
-    expect(dockerfile).toContain("USER bun");
+    expect(dockerfile).toContain("adduser -D -u 42043 -G ecoride ecoride");
+    expect(dockerfile).toContain("USER ecoride");
     expect(dockerfile).toContain("HEALTHCHECK");
     expect(dockerfile).toContain('CMD ["bun", "--cwd", "server", "scripts/start-production.ts"]');
     expect(dockerfile).not.toContain("COPY --from=build /app/node_modules");

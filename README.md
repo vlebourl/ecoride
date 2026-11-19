@@ -118,8 +118,8 @@ Le même `ci.yml` tourne aussi sur le push dans `main`. Le workflow séparé
 3. **Deploy** : refuse de déployer si `main` ne pointe plus sur ce SHA, puis déclenche Coolify
    et attend la fin du déploiement
 4. **Pré-backup obligatoire** : au démarrage en production, le conteneur déclenche un backup Coolify
-   et attend un nouveau statut `success` avant de migrer (120 s max). Sans `COOLIFY_WEBHOOK_URL` et
-   `COOLIFY_API_TOKEN`, sans backup planifié activé côté Coolify, ou si le backup échoue, le démarrage
+   et attend un nouveau statut `success` avant de migrer (120 s max). Si la configuration Coolify
+   ou le jeton de sauvegarde manque, sans backup planifié activé, ou si le backup échoue, le démarrage
    échoue avant la migration — voir `server/scripts/start-production.ts` et
    `server/src/lib/coolify-backup.ts`
 5. **Schéma DB** : après le backup réussi, le conteneur applique uniquement les migrations SQL
@@ -146,26 +146,29 @@ docker compose up --build
 
 ### Variables d'environnement (production)
 
-| Variable               | Description                                                |
-| ---------------------- | ---------------------------------------------------------- |
-| `DATABASE_URL`         | Connexion PostgreSQL                                       |
-| `BETTER_AUTH_SECRET`   | Secret auth (`openssl rand -hex 32`)                       |
-| `BETTER_AUTH_URL`      | URL publique de l'app (ex: `https://mon-domaine.com`)      |
-| `GOOGLE_CLIENT_ID`     | Client ID Google OAuth                                     |
-| `GOOGLE_CLIENT_SECRET` | Client Secret Google OAuth                                 |
-| `FRONTEND_URL`         | URL publique de l'app (même valeur que `BETTER_AUTH_URL`)  |
-| `COOLIFY_WEBHOOK_URL`  | URL du webhook Coolify, requise au démarrage en production |
-| `COOLIFY_API_TOKEN`    | Jeton API Coolify, requis au démarrage en production       |
-| `VAPID_PUBLIC_KEY`     | Clé publique push (`bunx web-push generate-vapid-keys`)    |
-| `VAPID_PRIVATE_KEY`    | Clé privée push                                            |
-| `VAPID_SUBJECT`        | `mailto:votre-email@exemple.com`                           |
+| Variable                 | Description                                                     |
+| ------------------------ | --------------------------------------------------------------- |
+| `DATABASE_URL`           | Connexion PostgreSQL                                            |
+| `BETTER_AUTH_SECRET`     | Secret auth (`openssl rand -hex 32`)                            |
+| `BETTER_AUTH_URL`        | URL publique de l'app (ex: `https://mon-domaine.com`)           |
+| `GOOGLE_CLIENT_ID`       | Client ID Google OAuth                                          |
+| `GOOGLE_CLIENT_SECRET`   | Client Secret Google OAuth                                      |
+| `FRONTEND_URL`           | URL publique de l'app (même valeur que `BETTER_AUTH_URL`)       |
+| `COOLIFY_WEBHOOK_URL`    | URL du webhook Coolify, requise au démarrage en production      |
+| `COOLIFY_INFISICAL_FILE` | Chemin du credential Infisical monté en lecture seule           |
+| `COOLIFY_API_TOKEN`      | Jeton de sauvegarde de secours si aucun lecteur n'est configuré |
+| `VAPID_PUBLIC_KEY`       | Clé publique push (`bunx web-push generate-vapid-keys`)         |
+| `VAPID_PRIVATE_KEY`      | Clé privée push                                                 |
+| `VAPID_SUBJECT`          | `mailto:votre-email@exemple.com`                                |
 
 ### Sécurité base de données en production
 
 - Les déploiements production ne doivent jamais utiliser `drizzle-kit push` ou `--force`.
 - Toute évolution de schéma passe par `bun run db:generate`, revue du SQL généré, puis application via `bun run db:migrate`.
-- En production, le démarrage exige `COOLIFY_WEBHOOK_URL` et `COOLIFY_API_TOKEN` ainsi qu'un backup
-  planifié activé côté Coolify pour la base. Si l'une des deux variables manque, si aucun backup activé
+- En production, le démarrage exige `COOLIFY_WEBHOOK_URL`, un jeton de sauvegarde et un backup
+  planifié activé côté Coolify. Avec `COOLIFY_INFISICAL_FILE`, le jeton est lu à l'usage dans Infisical.
+  Il lui faut `read`, `write` et `deploy` sur la base. Le fichier monté doit être lisible par l'UID 42043.
+  Si la configuration ou le jeton manque, si aucun backup activé
   n'existe, si le backup déclenché échoue ou si aucun nouveau backup ne réussit en 120 s, la migration
   n'est pas lancée et le démarrage de la nouvelle révision échoue
   (`server/scripts/start-production.ts`, `requireConfig: true`, `server/src/lib/coolify-backup.ts`).

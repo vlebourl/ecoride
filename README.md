@@ -146,20 +146,20 @@ docker compose up --build
 
 ### Variables d'environnement (production)
 
-| Variable               | Description                                                |
-| ---------------------- | ---------------------------------------------------------- |
-| `DATABASE_URL`         | Connexion PostgreSQL                                       |
-| `BETTER_AUTH_SECRET`   | Secret auth (`openssl rand -hex 32`)                       |
-| `BETTER_AUTH_URL`      | URL publique de l'app (ex: `https://mon-domaine.com`)      |
-| `GOOGLE_CLIENT_ID`     | Client ID Google OAuth                                     |
-| `GOOGLE_CLIENT_SECRET` | Client Secret Google OAuth                                 |
-| `FRONTEND_URL`         | URL publique de l'app (même valeur que `BETTER_AUTH_URL`)  |
-| `COOLIFY_WEBHOOK_URL`  | URL du webhook Coolify, requise au démarrage en production |
-| `COOLIFY_INFISICAL_FILE` | Chemin du credential Infisical monté en lecture seule     |
-| `COOLIFY_API_TOKEN`    | Jeton de sauvegarde de secours si aucun lecteur n'est configuré |
-| `VAPID_PUBLIC_KEY`     | Clé publique push (`bunx web-push generate-vapid-keys`)    |
-| `VAPID_PRIVATE_KEY`    | Clé privée push                                            |
-| `VAPID_SUBJECT`        | `mailto:votre-email@exemple.com`                           |
+| Variable                 | Description                                                     |
+| ------------------------ | --------------------------------------------------------------- |
+| `DATABASE_URL`           | Connexion PostgreSQL                                            |
+| `BETTER_AUTH_SECRET`     | Secret auth (`openssl rand -hex 32`)                            |
+| `BETTER_AUTH_URL`        | URL publique de l'app (ex: `https://mon-domaine.com`)           |
+| `GOOGLE_CLIENT_ID`       | Client ID Google OAuth                                          |
+| `GOOGLE_CLIENT_SECRET`   | Client Secret Google OAuth                                      |
+| `FRONTEND_URL`           | URL publique de l'app (même valeur que `BETTER_AUTH_URL`)       |
+| `COOLIFY_WEBHOOK_URL`    | URL du webhook Coolify, requise au démarrage en production      |
+| `COOLIFY_INFISICAL_FILE` | Chemin du credential Infisical monté en lecture seule           |
+| `COOLIFY_API_TOKEN`      | Jeton de sauvegarde de secours si aucun lecteur n'est configuré |
+| `VAPID_PUBLIC_KEY`       | Clé publique push (`bunx web-push generate-vapid-keys`)         |
+| `VAPID_PRIVATE_KEY`      | Clé privée push                                                 |
+| `VAPID_SUBJECT`          | `mailto:votre-email@exemple.com`                                |
 
 ### Sécurité base de données en production
 

@@ -4,4 +4,7 @@
     <string name="title_activity_main">ecoRide</string>
     <string name="package_name">com.tiarkaerell.ecoride</string>
     <string name="custom_url_scheme">com.tiarkaerell.ecoride</string>
+    <string name="bike_detected_channel">Bike detection</string>
+    <string name="bike_detected_title">SUPER73 detected</string>
+    <string name="bike_detected_body">Tap to open ecoRide.</string>
 </resources>

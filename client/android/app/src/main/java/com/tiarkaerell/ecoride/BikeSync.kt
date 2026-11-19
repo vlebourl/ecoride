@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.annotation.RequiresApi
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -65,9 +66,10 @@ internal object BikeSync {
 
     fun clear(context: Context) {
         cancel("background sync disabled")
-        prefs(context).edit().remove(PLAN_KEY).remove(DEVICE_KEY).apply()
+        prefs(context).edit().remove(PLAN_KEY).remove(DEVICE_KEY).remove(BikeAutoOpen.PREF_KEY).apply()
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     fun synchronize(context: Context, address: String, source: String) {
         val appContext = context.applicationContext
         main.post { synchronizeOnMain(appContext, address, source) }
@@ -81,6 +83,7 @@ internal object BikeSync {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     private fun synchronizeOnMain(context: Context, address: String, source: String) {
         Log.d(TAG, "bike appeared ($source)")
         val plan = try {
@@ -99,6 +102,7 @@ internal object BikeSync {
                 val transaction = BikeTransaction(context, plan) { t, outcome, detail ->
                     if (active === t) active = null
                     record(context, outcome, detail)
+                    if (outcome != "cancelled") BikeAutoOpen.afterSync(context, address)
                 }
                 active = transaction
                 prefs(context).edit().putLong("last_started_at", System.currentTimeMillis()).apply()

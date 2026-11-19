@@ -9,6 +9,7 @@ const plugin = vi.hoisted(() => ({
   setPlan: vi.fn(),
   enable: vi.fn(),
   disable: vi.fn(),
+  setAutoOpen: vi.fn(),
 }));
 const ble = vi.hoisted(() => ({
   status: "connected" as string,
@@ -172,6 +173,27 @@ describe("BikeStartSyncRow", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Activer" }));
     expect(await screen.findByText("Échec : Association cancelled")).toBeTruthy();
     expect(ble.reconnect).toHaveBeenCalled();
+  });
+
+  it("hides auto-open when the installed APK does not support it", async () => {
+    plugin.getStatus.mockResolvedValue(status({ associated: true, hasPlan: true }));
+    renderRow();
+    expect(await screen.findByText("Active")).toBeTruthy();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("updates auto-open and refreshes the saved native setting", async () => {
+    plugin.getStatus
+      .mockResolvedValueOnce(status({ associated: true, hasPlan: true, autoOpen: false }))
+      .mockResolvedValue(status({ associated: true, hasPlan: true, autoOpen: true }));
+    renderRow();
+    const toggle = (await screen.findByRole("checkbox", {
+      name: /Ouvrir ecoRide quand le vélo est détecté/,
+    })) as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    await waitFor(() => expect(plugin.setAutoOpen).toHaveBeenCalledWith({ enabled: true }));
+    await waitFor(() => expect(toggle.checked && !toggle.disabled).toBe(true));
   });
 
   it("shows the last sync and disables", async () => {

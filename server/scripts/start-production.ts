@@ -1,7 +1,6 @@
 import path from "node:path";
 import { ensureLegacyDrizzleBaseline } from "../src/lib/drizzle-baseline";
 import { ensureCoolifyBackupBeforeMigration } from "../src/lib/coolify-backup";
-import { readCoolifyBackupToken } from "../src/lib/infisical-coolify";
 import { logger } from "../src/lib/logger";
 import { forwardTerminationSignals } from "./process-signals";
 
@@ -32,13 +31,10 @@ async function main() {
     throw new Error("DATABASE_URL is required");
   }
 
-  const backupConsumer = process.env.COOLIFY_INFISICAL_FILE;
   await ensureCoolifyBackupBeforeMigration({
     databaseUrl,
     coolifyWebhookUrl: process.env.COOLIFY_WEBHOOK_URL,
-    coolifyApiToken: backupConsumer
-      ? await readCoolifyBackupToken(backupConsumer)
-      : process.env.COOLIFY_API_TOKEN,
+    coolifyApiToken: process.env.COOLIFY_API_TOKEN,
     requireConfig: true,
   });
   const repoRoot = path.resolve(import.meta.dirname, "../..");

@@ -220,6 +220,9 @@ export const fr = {
   "profile.settings.super73Connected": "Vélo connecté (Super73)",
   "profile.settings.super73Unsupported": "Non supporté par ce navigateur",
   "profile.settings.super73Enabled": "Activé",
+  "profile.settings.bikeAutoOpen": "Ouvrir ecoRide quand le vélo est détecté",
+  "profile.settings.bikeAutoOpenDetail":
+    "Si l’écran est éteint ou verrouillé, une notification permet d’ouvrir ecoRide, si les notifications sont autorisées.",
   "profile.settings.startSyncTitle": "Synchro au démarrage du vélo",
   "profile.settings.startSyncDescription":
     "Applique vos réglages par défaut dès que le vélo s'allume, même app fermée.",

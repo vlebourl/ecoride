@@ -50,6 +50,7 @@ export interface BikeStartSyncStatus {
   supported: boolean;
   associated: boolean;
   hasPlan: boolean;
+  autoOpen?: boolean;
   lastStartedAt: number;
   lastCompletedAt: number;
 }
@@ -63,6 +64,7 @@ export interface BikeStartSyncPlugin {
   }): Promise<unknown>;
   enable(options: { deviceId: string }): Promise<unknown>;
   disable(): Promise<void>;
+  setAutoOpen(options: { enabled: boolean }): Promise<void>;
 }
 
 let startSyncPluginPromise: Promise<BikeStartSyncPlugin> | null = null;
@@ -77,6 +79,7 @@ export function bikeStartSyncPlugin(): Promise<BikeStartSyncPlugin> {
       setPlan: (plan) => plugin.setPlan(plan),
       enable: (options) => plugin.enable(options),
       disable: () => plugin.disable(),
+      setAutoOpen: (options) => plugin.setAutoOpen(options),
     };
   });
   return startSyncPluginPromise;

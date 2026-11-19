@@ -1,5 +1,6 @@
 package com.tiarkaerell.ecoride
 
+import android.Manifest
 import android.app.Activity
 import android.bluetooth.le.ScanResult
 import android.companion.AssociationInfo
@@ -12,16 +13,23 @@ import android.os.Looper
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
+import com.getcapacitor.PermissionState
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 
 /**
  * Bridge for the Super73 background sync. TypeScript pushes the plan
  * (setPlan) and asks for the one-time system association dialog (enable);
  * everything after that runs natively, without the WebView.
  */
-@CapacitorPlugin(name = "Super73BackgroundSync", requestCodes = [BikeSyncPlugin.REQUEST_ASSOCIATE])
+@CapacitorPlugin(
+    name = "Super73BackgroundSync",
+    requestCodes = [BikeSyncPlugin.REQUEST_ASSOCIATE],
+    permissions = [Permission(alias = "notifications", strings = [Manifest.permission.POST_NOTIFICATIONS])],
+)
 class BikeSyncPlugin : Plugin() {
     private class Pending(val call: PluginCall, val address: String, var chooserShown: Boolean = false)
 
@@ -38,6 +46,7 @@ class BikeSyncPlugin : Plugin() {
     // One GATT owner at a time: the WebView's connection wins.
     override fun handleOnStart() {
         BikeSync.foreground = true
+        BikeAutoOpen.clearNotification(context)
     }
 
     override fun handleOnStop() {
@@ -55,11 +64,36 @@ class BikeSyncPlugin : Plugin() {
                 .put("deviceId", address)
                 .put("associated", supported && address != null && BikeCompanion.isAssociated(context, address))
                 .put("hasPlan", prefs.contains("plan"))
+                .put("autoOpen", prefs.getBoolean(BikeAutoOpen.PREF_KEY, false))
                 .put("lastOutcome", prefs.getString("last_outcome", null))
                 .put("lastDetail", prefs.getString("last_detail", null))
                 .put("lastStartedAt", prefs.getLong("last_started_at", 0))
                 .put("lastCompletedAt", prefs.getLong("last_completed_at", 0)),
         )
+    }
+
+    @PluginMethod
+    fun setAutoOpen(call: PluginCall) {
+        val enabled = call.getBoolean("enabled") ?: return call.reject("enabled required")
+        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            getPermissionState("notifications") == PermissionState.PROMPT
+        ) {
+            requestPermissionForAlias("notifications", call, "saveAutoOpen")
+            return
+        }
+        saveAutoOpen(call)
+    }
+
+    @PermissionCallback
+    private fun saveAutoOpen(call: PluginCall) {
+        val enabled = call.getBoolean("enabled") ?: return call.reject("enabled required")
+        val prefs = BikeSync.prefs(context)
+        if (enabled && (!prefs.contains(BikeSync.DEVICE_KEY) || !prefs.contains("plan"))) {
+            return call.reject("Bike sync is disabled")
+        }
+        prefs.edit().putBoolean(BikeAutoOpen.PREF_KEY, enabled).apply()
+        if (!enabled) BikeAutoOpen.clearNotification(context)
+        call.resolve()
     }
 
     /** { deviceId, protocol: "v1" | "v2", commands: number[10][] } — 0xFF leaves a field alone. */
@@ -120,6 +154,7 @@ class BikeSyncPlugin : Plugin() {
             if (backgroundSyncSupported(context)) BikeCompanion.remove(context, it)
         }
         BikeSync.clear(context)
+        BikeAutoOpen.clearNotification(context)
         call.resolve()
     }
 

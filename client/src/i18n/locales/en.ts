@@ -221,6 +221,9 @@ export const en: Record<TranslationKey, string> = {
   "profile.settings.super73Connected": "Connected bike (Super73)",
   "profile.settings.super73Unsupported": "Not supported by this browser",
   "profile.settings.super73Enabled": "Enabled",
+  "profile.settings.bikeAutoOpen": "Open ecoRide when the bike is detected",
+  "profile.settings.bikeAutoOpenDetail":
+    "If the screen is off or locked, ecoRide sends a notification if notifications are allowed.",
   "profile.settings.startSyncTitle": "Sync when the bike starts",
   "profile.settings.startSyncDescription":
     "Applies your default settings as soon as the bike powers on, even with the app closed.",

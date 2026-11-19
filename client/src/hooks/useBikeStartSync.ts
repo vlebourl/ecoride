@@ -141,5 +141,20 @@ export function useBikeStartSync(defaultMode: Super73Mode | null) {
     }
   };
 
-  return { status, busy, error, errorDetail, enable, disable };
+  const setAutoOpen = async (enabled: boolean) => {
+    setBusy(true);
+    setError(null);
+    setErrorDetail(null);
+    try {
+      const plugin = await bikeStartSyncPlugin();
+      await plugin.setAutoOpen({ enabled });
+      await refresh();
+    } catch (e) {
+      fail(e, "start_sync_auto_open_error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return { status, busy, error, errorDetail, enable, disable, setAutoOpen };
 }

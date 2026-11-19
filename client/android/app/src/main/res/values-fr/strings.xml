@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bike_detected_channel">Détection du vélo</string>
+    <string name="bike_detected_title">SUPER73 détecté</string>
+    <string name="bike_detected_body">Appuyez pour ouvrir ecoRide.</string>
+</resources>

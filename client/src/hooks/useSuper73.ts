@@ -297,7 +297,6 @@ function useSuper73Controller(
   const bleSessionRef = useRef(0);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoReconnectAttemptedRef = useRef(false);
   const manualDisconnectRef = useRef(false);
   const lastAutoModeZoneRef = useRef<AutoModeZone>(null);
   // Prevents re-entrant polling if a poll round takes longer than the interval.
@@ -607,20 +606,34 @@ function useSuper73Controller(
     [attachDevice],
   );
 
+  // Bike never connected in this session (or the rider never hung up): keep
+  // looking for the saved bike while the app is visible, so switching the bike on
+  // after opening the app connects it without a tap. Once a link has existed,
+  // tryReconnect owns the retries; after a manual disconnect nothing retries.
+  // Hidden = the native background sync may own the link, so skip until visible.
   useEffect(() => {
-    if (!enabled || !isBleSupported()) {
-      autoReconnectAttemptedRef.current = false;
-      return;
-    }
-    if (status !== "disconnected") return;
-    if (deviceRef.current || autoReconnectAttemptedRef.current) return;
-
-    autoReconnectAttemptedRef.current = true;
+    if (!enabled || !isBleSupported() || status !== "disconnected") return;
     let cancelled = false;
-    void reconnectSaved(() => cancelled);
-
+    let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const run = async () => {
+      timer = null;
+      if (cancelled || deviceRef.current || manualDisconnectRef.current) return;
+      if (document.visibilityState === "visible") await reconnectSaved(() => cancelled);
+      if (cancelled) return;
+      timer = setTimeout(run, reconnectDelay(attempt++));
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || !timer) return;
+      clearTimeout(timer);
+      void run();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    void run();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [enabled, status, reconnectSaved]);
 

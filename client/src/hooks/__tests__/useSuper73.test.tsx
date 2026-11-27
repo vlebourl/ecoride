@@ -810,6 +810,31 @@ describe("useSuper73 provider", () => {
     expect(writtenStates()).toEqual(connectFrames(baseState));
   });
 
+  it("connects on its own when the bike is switched on after the app opened", async () => {
+    // Bike off at launch: the one-shot mount attempt used to be the only try.
+    reconnectPairedDeviceMock.mockResolvedValue(null);
+    vi.useFakeTimers();
+    render(
+      <Super73Provider enabled>
+        <Consumer label="vehicle" />
+      </Super73Provider>,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(screen.getByText("vehicle:disconnected")).toBeTruthy();
+
+    reconnectPairedDeviceMock.mockResolvedValue(buildDevice());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(screen.getByText("vehicle:connected")).toBeTruthy();
+    });
+  });
+
   it("runs the init sequence again after reconnecting from an unexpected disconnect", async () => {
     const listeners: Record<string, () => void> = {};
     const device = {
